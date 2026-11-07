@@ -1,7 +1,7 @@
 // Asphalt Boys · Cloudflare Pages Function
 // D1 binding: DB. Admin secret: ADMIN_TOKEN (Cloudflare Pages secret).
 const TYPES = ['destinos','paradas','rotas'];
-const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,maps:1200,foto:1200,googlePlaceId:250};
+const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,mapa:400,maps:1200,foto:1200,googlePlaceId:250};
 function reply(body,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}})}
 async function safeEqual(a,b){
   if(!a||!b)return false;
@@ -25,7 +25,7 @@ function cleanRecord(kind,r){
     out.categoria=String(r.categoria||'turismo').toLowerCase();
     if(!['cafe','almoco','turismo','descanso'].includes(out.categoria))throw Error('Categoria inválida.');
     out.horario=String(r.horario||'').slice(0,200);
-    if(out.maps){let u;try{u=new URL(out.maps)}catch{throw Error('Link Google Maps inválido.')}if(u.protocol!=='https:'||!(/(^|\\.)google\\.[a-z.]+$/.test(u.hostname)||u.hostname==='maps.app.goo.gl'))throw Error('Informe um link verdadeiro do Google Maps.');}
+    if(out.maps){let u;try{u=new URL(out.maps)}catch{throw Error('Link Google Maps inválido.')}if(u.protocol!=='https:'||!(/(^|\.)google\.[a-z.]+$/.test(u.hostname)||u.hostname==='maps.app.goo.gl'))throw Error('Informe um link verdadeiro do Google Maps.');}
     if(out.foto&&(!/^https:\/\//.test(out.foto)))throw Error('Foto precisa usar https.');
   }
   if(kind==='rotas'){
@@ -35,7 +35,9 @@ function cleanRecord(kind,r){
   return out;
 }
 async function readData(db,admin){
-  const rows=(await db.prepare('SELECT kind,payload FROM site_content '+(admin?'':'WHERE status = ?')+' ORDER BY updated_at ASC').bind(...(admin?[]:['publicado'])).all()).results||[];
+  const sql='SELECT kind,payload FROM site_content '+(admin?'':'WHERE status = ?')+' ORDER BY updated_at ASC';
+  const stmt=admin?db.prepare(sql):db.prepare(sql).bind('publicado');
+  const rows=(await stmt.all()).results||[];
   const data={destinos:[],paradas:[],rotas:[]};
   for(const row of rows){if(!TYPES.includes(row.kind))continue;try{data[row.kind].push(JSON.parse(row.payload))}catch{}}
   return data;
