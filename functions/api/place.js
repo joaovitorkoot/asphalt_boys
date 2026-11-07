@@ -17,9 +17,6 @@ export async function onRequestGet({request,env}){
     const record=await env.DB.prepare("SELECT payload FROM site_content WHERE kind = 'paradas' AND status = 'publicado' AND id = ?").bind(id).first();
     if(!record)return json({available:false,message:"Parada não publicada."},404);
     const stop=JSON.parse(record.payload);
-    const cache=typeof caches!=="undefined"?caches.default:null;
-    const cacheKey=new Request(new URL("/api/place?stop="+encodeURIComponent(id),request.url).href);
-    if(cache){const cached=await cache.match(cacheKey);if(cached)return cached;}
     const key=String(env.GOOGLE_PLACES_API_KEY),query=[stop.nome,stop.endereco].filter(Boolean).join(", ").slice(0,350);
     let placeId=String(stop.googlePlaceId||"").trim();
     if(placeId&&!/^[a-zA-Z0-9_-]{5,250}$/.test(placeId))placeId="";
@@ -46,10 +43,8 @@ export async function onRequestGet({request,env}){
       address:place.formattedAddress||stop.endereco||"",rating:typeof place.rating==="number"?place.rating:null,
       count:typeof place.userRatingCount==="number"?place.userRatingCount:null,
       hours:Array.isArray(place.regularOpeningHours?.weekdayDescriptions)?place.regularOpeningHours.weekdayDescriptions:[],
-      map:place.googleMapsUri||stop.maps||"",photo};
+      map:place.googleMapsUri||stop.maps||"",photo,photoAttributions:(place.photos?.[0]?.authorAttributions||[]).map(a=>({name:String(a.displayName||"").slice(0,120),uri:String(a.uri||"").slice(0,500)}))};
     const output=json(result);
-    // Curta duração, evitando consulta repetida sem prolongar dados desatualizados.
-    if(cache){const forCache=new Response(JSON.stringify(result),{headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"public, max-age=1800","X-Content-Type-Options":"nosniff"}});try{await cache.put(cacheKey,forCache);}catch{}}
     return output;
   }catch(e){return json({available:false,message:"Informações do Google indisponíveis neste momento. Consulte a ficha no Maps."},502);}
 }
