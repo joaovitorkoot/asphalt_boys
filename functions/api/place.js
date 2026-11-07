@@ -8,15 +8,20 @@ async function googleFetch(url,key,init={}){
   return response.json();
 }
 export async function onRequestGet({request,env}){
-  if(!env.DB)return json({available:false,message:"Banco não conectado."},503);
-  if(!env.GOOGLE_PLACES_API_KEY)return json({available:false,message:"A integração do Google Places ainda não foi ativada."},503);
   const id=new URL(request.url).searchParams.get("stop")||"";
+  if(!env.GOOGLE_PLACES_API_KEY)return json({available:false,message:"A chave GOOGLE_PLACES_API_KEY não foi encontrada neste ambiente da Cloudflare."},503);
   if(!/^[a-zA-Z0-9_-]{3,120}$/.test(id))return json({available:false,message:"Parada inválida."},400);
   try{
     // Nunca consulte locais inventados pelo visitante: apenas paradas publicadas no banco.
-    const record=await env.DB.prepare("SELECT payload FROM site_content WHERE kind = 'paradas' AND status = 'publicado' AND id = ?").bind(id).first();
-    if(!record)return json({available:false,message:"Parada não publicada."},404);
-    const stop=JSON.parse(record.payload);
+    // A parada inicial Pico Alto é pública mesmo antes de cadastro no D1.
+    // Demais paradas só podem consultar o Google após publicação no banco.
+    const publicSeed=id==='pico-alto-parada'?{
+      id:'pico-alto-parada',nome:'Pico Alto',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil'
+    }:null;
+    let record=null;
+    if(env.DB)record=await env.DB.prepare("SELECT payload FROM site_content WHERE kind = 'paradas' AND status = 'publicado' AND id = ?").bind(id).first();
+    if(!record&&!publicSeed)return json({available:false,message:env.DB?"Esta parada ainda não foi publicada.":"Banco D1 não conectado. Esta parada ainda não está disponível."},404);
+    const stop=record?JSON.parse(record.payload):publicSeed;
     const key=String(env.GOOGLE_PLACES_API_KEY),query=[stop.nome,stop.endereco].filter(Boolean).join(", ").slice(0,350);
     let placeId=String(stop.googlePlaceId||"").trim();
     if(placeId&&!/^[a-zA-Z0-9_-]{5,250}$/.test(placeId))placeId="";
@@ -46,5 +51,14 @@ export async function onRequestGet({request,env}){
       map:place.googleMapsUri||stop.maps||"",photo,photoAttributions:(place.photos?.[0]?.authorAttributions||[]).map(a=>({name:String(a.displayName||"").slice(0,120),uri:String(a.uri||"").slice(0,500)}))};
     const output=json(result);
     return output;
-  }catch(e){return json({available:false,message:"Informações do Google indisponíveis neste momento. Consulte a ficha no Maps."},502);}
+  }catch(e){
+    const details=String(e?.message||'');
+    const status=details.match(/Google Places indisponível \\((\\d+)\\)/)?.[1];
+    const message=status==='403'?'Google recusou o acesso (403). Verifique se Places API (New), faturamento e restrições da chave estão corretos.'
+      :status==='400'?'O Google recusou a consulta (400). Confira a API Places (New) e os campos requisitados.'
+      :status==='429'?'Limite de consultas do Google Places atingido (429).'
+      :status==='401'?'Chave de API não autorizada pelo Google (401).'
+      :'Não foi possível consultar o Google Places agora. Verifique o serviço e tente novamente.';
+    return json({available:false,message},502);
+  }
 }
