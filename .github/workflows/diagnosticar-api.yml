@@ -10,6 +10,8 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Aguardar publicação das variáveis da Cloudflare
+        run: sleep 35
       - name: Verificar status sem exibir credenciais
         run: |
           python3 - <<'PY'
