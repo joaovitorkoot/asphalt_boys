@@ -25,7 +25,7 @@ function cleanRecord(kind,r){
     out.categoria=String(r.categoria||'turismo').toLowerCase();
     if(!['cafe','almoco','turismo','descanso'].includes(out.categoria))throw Error('Categoria inválida.');
     out.horario=String(r.horario||'').slice(0,200);
-    if(out.maps){let u;try{u=new URL(out.maps)}catch{throw Error('Link Google Maps inválido.')}if(u.protocol!=='https:'||!(/(^|\.)google\.[a-z.]+$/.test(u.hostname)||u.hostname==='maps.app.goo.gl'))throw Error('Informe um link verdadeiro do Google Maps.');}
+    if(out.maps){let u;try{u=new URL(out.maps)}catch{throw Error('Link Google Maps inválido.')}const domains=['google.com','google.com.br','google.pt','google.co.uk','google.es','google.ca','google.fr','google.de','google.com.mx','google.com.ar'];const h=u.hostname.toLowerCase();const valid=domains.some(d=>h===d||h.endsWith('.'+d))||h==='maps.app.goo.gl'||(h==='goo.gl'&&u.pathname.startsWith('/maps/'));if(u.protocol!=='https:'||!valid)throw Error('Informe um link verdadeiro do Google Maps.');}
     if(out.foto&&(!/^https:\/\//.test(out.foto)))throw Error('Foto precisa usar https.');
   }
   if(kind==='rotas'){
