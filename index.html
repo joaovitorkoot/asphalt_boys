@@ -39,45 +39,91 @@ abEl('ano').textContent=new Date().getFullYear();
 renderAsphaltCards();
 </script>
 <style>
-#tripModal[hidden]{display:none!important}#tripModal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(0,0,0,.82);backdrop-filter:blur(11px)}#tripPanel{width:min(760px,100%);max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;border:1px solid #3b3d43;border-radius:22px;background:#13161b;box-shadow:0 24px 100px #000c}#tripPanel:focus{outline:none}.tripChoice{display:block;width:100%;border:1px solid #363b44;border-radius:14px;background:#1b1e24;text-align:left;padding:14px;cursor:pointer}.tripChoice[data-active=true]{border-color:#f97316;background:#f9731612}.tripStop{display:grid;grid-template-columns:68px 1fr auto;gap:12px;align-items:center;padding:11px;border-radius:13px;border:1px solid #383c44}.tripStop img{height:65px;width:68px;border-radius:9px;object-fit:cover}.tripNavBtn{border:1px solid #585d65;border-radius:8px;padding:5px 9px}.tripNavBtn:disabled{opacity:.3}.tripTiny{color:#a1a1aa;font-size:12px}.tripField{width:100%;background:#20242a;border:1px solid #484d57;border-radius:12px;padding:12px;color:white}.tripBtn{padding:13px 18px;background:#f97316;color:#111;font-weight:800;border-radius:12px}.tripBtn:disabled{background:#3e4148;color:#aaa;cursor:not-allowed}.tripSecondary{padding:13px 18px;border:1px solid #555c65;border-radius:12px}#tripModal .hideScrollbar::-webkit-scrollbar{width:5px}#tripModal .hideScrollbar::-webkit-scrollbar-thumb{background:#51555b;border-radius:10px}
+#tripModal[hidden],#tripMain[hidden],#tripStopPreview[hidden],#tripCustomSection[hidden],#tripPresetSection[hidden],#tripMineSection[hidden],#tripShareBox[hidden],#tripPhotoCredit[hidden],#tripPreviewPhoto[hidden],#tripPreviewPlaceholder[hidden],.tripPresetStops[hidden]{display:none!important}
+#tripModal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:10px;background:rgba(0,0,0,.84);backdrop-filter:blur(9px)}
+#tripPanel{width:min(820px,100%);max-height:calc(100dvh - 20px);overflow-y:auto;overscroll-behavior:contain;border:1px solid #444a53;border-radius:20px;background:#15191f;box-shadow:0 24px 80px #000b}
+#tripPanel:focus{outline:none}
+.tripField{width:100%;min-height:48px;font-size:16px;color:#fff;background:#242931;border:1px solid #525965;border-radius:11px;padding:11px 13px}
+.tripField:focus-visible,#tripPanel button:focus-visible,#tripPanel a:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
+.tripBtn{min-height:44px;padding:11px 16px;background:#fb923c;color:#171717;font-weight:800;border-radius:11px;cursor:pointer}
+.tripBtn:disabled{opacity:.4;cursor:not-allowed}
+.tripNavBtn{min-height:36px;padding:6px 10px;border:1px solid #5f656f;border-radius:9px;background:#20252d;color:#e9eaec;cursor:pointer}
+.tripNavBtn:disabled{opacity:.4;cursor:not-allowed}
+.tripTiny{font-size:12px;color:#b2b8c1;line-height:1.5}
+#tripTabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.tripTab{min-height:49px;padding:8px 7px;border:1px solid #464c56;border-radius:11px;text-align:center;font-size:13px;font-weight:700;color:#dedfe3;background:#20242c}
+.tripTab[aria-selected=true]{border-color:#fb923c;background:#f9731626;color:#ffba7a}
+#tripCategories{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.tripCat{min-height:45px;padding:9px 5px;border:1px solid #464c56;border-radius:11px;background:#212630;text-align:center;font-size:12px;font-weight:700}
+.tripCat[aria-pressed=true]{border-color:#fb923c;background:#f9731624;color:#ffb677}
+.tripStop{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;align-items:center;padding:12px;border:1px solid #3a414b;border-radius:13px;background:#1a1f26}
+.tripStop img,.tripFallback{width:80px;height:88px;object-fit:cover;border-radius:10px}
+.tripFallback{background:#292e38;display:grid;place-items:center;font-size:28px}
+.tripPicked{display:flex;gap:8px;align-items:center;padding:12px 10px;border:1px solid #3c414a;background:#20252d;border-radius:11px}
+.tripPresetCard{border:1px solid #434953;padding:16px;background:#1b2028;border-radius:13px}
+.tripPresetStops{margin:13px 0 0 20px;list-style:decimal;color:#c5cbd4;font-size:13px}
+.tripPresetStops li{margin:5px 0}
+.tripPreviewPhoto{width:100%;height:clamp(220px,46vw,350px);object-fit:cover;background:#303640}
+.tripPreviewPlaceholder{display:grid;place-items:center;width:100%;height:clamp(220px,46vw,350px);background:linear-gradient(130deg,#32483d,#202c36);font-size:55px}
+#tripPanel::-webkit-scrollbar{width:5px}#tripPanel::-webkit-scrollbar-thumb{background:#4e5661;border-radius:9px}
+@media(max-width:580px){#tripCategories{grid-template-columns:repeat(2,minmax(0,1fr))}.tripTab{font-size:11px;padding:8px 3px}.tripStop{grid-template-columns:62px minmax(0,1fr)}.tripStop img,.tripFallback{width:62px;height:76px}#tripPanel{border-radius:14px}}
 </style>
 <div id="tripModal" hidden role="dialog" aria-modal="true" aria-labelledby="tripTitle">
-<div id="tripPanel" class="hideScrollbar" tabindex="-1">
-<div class="relative"><img id="tripCover" class="w-full h-44 sm:h-60 object-cover" alt=""><div class="absolute inset-0 bg-gradient-to-t from-[#13161b] to-transparent"></div><button type="button" id="tripClose" class="absolute top-4 right-4 bg-black/75 border border-white/20 rounded-full w-10 h-10 text-xl" aria-label="Fechar planejador">×</button><div class="absolute bottom-4 left-5 right-5"><p class="text-orange-400 text-xs font-bold tracking-widest">ASPHALT BOYS • VIAGENS</p><h2 id="tripTitle" class="text-3xl font-black mt-1">Destino</h2></div></div>
-<div class="px-5 sm:px-8 pb-8 pt-2 space-y-6">
+<div id="tripPanel" tabindex="-1">
+<div class="relative"><img id="tripCover" class="w-full h-40 sm:h-52 object-cover" alt=""><div class="absolute inset-0 bg-gradient-to-t from-[#15191f] to-transparent"></div><button id="tripClose" type="button" class="absolute top-3 right-3 w-11 h-11 rounded-full bg-black/80 border border-white/20 text-2xl" aria-label="Fechar planejador">×</button><div class="absolute bottom-3 left-5 right-5"><p class="text-orange-400 text-xs font-black tracking-widest">ASPHALT BOYS · PLANEJADOR</p><h2 id="tripTitle" class="text-3xl font-black mt-1">Destino</h2></div></div>
+<div id="tripMain" class="px-4 sm:px-7 py-5 space-y-5">
 <p id="tripDesc" class="text-zinc-400 text-sm"></p>
-<div><label class="block font-bold mb-2" for="tripOrigin">Sua cidade de origem</label><input id="tripOrigin" class="tripField" placeholder="Ex.: Horizonte, CE" value="Horizonte, CE" autocomplete="address-level2"></div>
-<div class="space-y-2"><h3 class="font-black text-lg">Como quer planejar?</h3><button type="button" id="tripCustom" class="tripChoice" data-active="true"><span class="font-bold">🧭 Montar minha própria rota</span><span class="tripTiny block mt-1">Escolha as paradas cadastradas e organize a ordem.</span></button><button type="button" id="tripPreset" class="tripChoice" data-active="false"><span class="font-bold">🛣️ Rotas programadas</span><span class="tripTiny block mt-1">Escolha um roteiro pronto do Asphalt Boys.</span></button></div>
-<div id="tripCustomSection"><div class="flex flex-wrap justify-between gap-2 items-center mb-3"><h3 class="font-bold">Paradas disponíveis</h3><span class="tripTiny">Cadastradas no painel</span></div><div id="tripAvailable" class="space-y-2"></div><h3 class="font-bold mt-6 mb-3">Seu roteiro • paradas em ordem</h3><div id="tripChosen" class="space-y-2"></div><p class="tripTiny mt-3">Até 3 paradas intermediárias por link, para maior compatibilidade em celulares. Confira o trajeto no Maps antes de viajar.</p></div>
-<div id="tripPresetSection" hidden><h3 class="font-bold mb-3">Rotas programadas</h3><div id="tripPresets" class="space-y-2"></div></div>
-<div class="pt-4 border-t border-zinc-700"><p class="text-sm font-bold mb-2" id="tripRouteSummary"></p><div class="flex flex-wrap gap-3"><button type="button" id="tripOpenMaps" class="tripBtn">Abrir no Google Maps ↗</button><button type="button" id="tripOpenWaze" class="tripSecondary">Abrir no Waze ↗</button></div><p id="tripNote" role="status" class="tripTiny mt-3">No Waze, as paradas não são transferidas automaticamente.</p></div>
-</div></div></div>
-<script>
-(function(){
-const modal=document.getElementById('tripModal'), panel=document.getElementById('tripPanel');if(!modal)return;
-const node=id=>document.getElementById(id);const clean=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let focusBefore=null,destination=null,mode='custom',selected=[],presetId='',admin={destinos:[],paradas:[],rotas:[]};
-const mapping={guaramiranga:'guaramiranga',canoa:'canoa-quebrada'};
-const paradasIniciais={guaramiranga:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'Mirante',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'https://upload.wikimedia.org/wikipedia/commons/e/e2/Pico_Alto_-_Guaramiranga_-_Cear%C3%A1_03.jpg',fonteFoto:'Foto: Paulo Mouta · CC BY-SA 3.0',linkFoto:'https://commons.wikimedia.org/wiki/File:Pico_Alto_-_Guaramiranga_-_Cear%C3%A1_03.jpg'}]};
-function load(){try{const v=JSON.parse(localStorage.getItem('asphalt-boys-admin-drafts-v1'));if(v&&['destinos','paradas','rotas'].every(k=>Array.isArray(v[k])))admin=v;}catch{}}
-function stopLocation(p){return String(p.endereco||p.maps||'').trim();}
-function currentStops(){const cadastradas=admin.paradas.filter(p=>p.destinoId===mapping[destination?.id]);const iniciais=paradasIniciais[destination?.id]||[];const merged=cadastradas.map(p=>{const base=iniciais.find(i=>i.id===p.id||String(i.nome||'').trim().toLowerCase()===String(p.nome||'').trim().toLowerCase());return base?{...base,...p,foto:p.foto||base.foto,fonteFoto:p.fonteFoto||base.fonteFoto,linkFoto:p.linkFoto||base.linkFoto}:p;});return [...merged,...iniciais.filter(p=>!cadastradas.some(c=>c.id===p.id||String(c.nome||'').trim().toLowerCase()===p.nome.toLowerCase()))];}
-function open(id){destination=typeof lugares!=='undefined'?lugares.find(l=>l.id===id):null;if(!destination)return;load();focusBefore=document.activeElement;mode='custom';selected=[];presetId='';node('tripTitle').textContent=destination.nome;node('tripDesc').textContent=destination.sub;const cover=node('tripCover');cover.onerror=()=>{cover.onerror=null;cover.src=destination.fallbackImg||destination.img;cover.style.background='#222'};cover.src=destination.cover||destination.img;cover.alt='Imagem de '+destination.nome;cover.style.background='';node('tripOrigin').value=localStorage.getItem('asphalt-boys-ultima-origem')||'Horizonte, CE';modal.hidden=false;document.body.style.overflow='hidden';render();panel.focus();}
-function close(){modal.hidden=true;document.body.style.overflow='';focusBefore?.focus?.();}
-function render(){node('tripCustom').dataset.active=String(mode==='custom');node('tripPreset').dataset.active=String(mode==='preset');node('tripCustomSection').hidden=mode!=='custom';node('tripPresetSection').hidden=mode!=='preset';
-const stops=currentStops();node('tripAvailable').innerHTML=stops.length?stops.map(p=>'<div class="tripStop">'+(p.foto&&/^https:\/\//.test(p.foto)?'<img alt="" loading="lazy" src="'+clean(p.foto)+'">':'<div class="w-[68px] h-[65px] bg-zinc-800 rounded-lg flex items-center justify-center text-2xl">📍</div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+clean(p.nome)+'</p><p class="tripTiny">'+clean(p.categoria||'Parada')+(p.horario?' · '+clean(p.horario):' · Horário não informado')+'</p><p class="tripTiny mt-1">'+clean(p.descricao||'')+'</p>'+(p.fonteFoto&&p.linkFoto?'<span class="tripTiny block mt-1"><a class="underline underline-offset-2" href="'+clean(p.linkFoto)+'" target="_blank" rel="noopener noreferrer">Foto: Paulo Mouta</a> · <a class="underline underline-offset-2" href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 3.0</a> · corte de enquadramento</span>':'')+'</div><button class="tripNavBtn text-xs text-orange-300" data-add-stop="'+clean(p.id)+'" '+(selected.includes(p.id)||selected.length>=3||!stopLocation(p)?'disabled':'')+'>'+(selected.includes(p.id)?'✓ Adicionada':!stopLocation(p)?'Sem local':'+ Adicionar')+'</button></div>').join(''):'<div class="rounded-xl border border-dashed border-zinc-600 p-5 text-sm text-zinc-400">Nenhuma parada cadastrada para este destino ainda. Você pode abrir o trajeto direto no Maps ou cadastrar novas paradas no painel administrativo.</div>';
-node('tripChosen').innerHTML=selected.length?selected.map((id,i)=>{const p=stops.find(s=>s.id===id);return '<div class="flex items-center gap-2 bg-[#20242a] rounded-xl p-3"><span class="text-orange-400 font-black text-sm">'+(i+1)+'.</span><span class="flex-1 text-sm font-semibold">'+clean(p?.nome||'Parada')+'</span><button class="tripNavBtn" data-move-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="Mover para cima">↑</button><button class="tripNavBtn" data-move-down="'+i+'" '+(i===selected.length-1?'disabled':'')+' aria-label="Mover para baixo">↓</button><button class="tripNavBtn" data-remove="'+i+'" aria-label="Remover parada">×</button></div>'}).join(''):'<p class="tripTiny">Nenhuma parada selecionada. A rota irá diretamente ao destino.</p>';
-const available=admin.rotas.filter(r=>r.destinoId===mapping[destination.id]);node('tripPresets').innerHTML=available.length?available.map(r=>'<button class="tripChoice" data-preset="'+clean(r.id)+'" data-active="'+(presetId===r.id)+'"><span class="font-semibold">'+clean(r.nome)+'</span><span class="tripTiny block mt-1">'+clean(r.descricao||'Rota cadastrada pelo grupo')+'</span><span class="tripTiny block mt-1">'+(r.paradas||[]).length+' paradas cadastradas</span></button>').join(''):'<div class="space-y-2"><p class="tripTiny">Ainda não há rotas programadas cadastradas para este destino.</p>'+[1,2,3].map(n=>'<div class="tripChoice opacity-60"><span class="font-semibold">Rota '+n+' — A definir</span><span class="tripTiny block mt-1">Disponível após cadastro no painel.</span></div>').join('')+'</div>';
-let active=mode==='preset'?available.find(r=>r.id===presetId):null;
-const valid=mode==='custom'||Boolean(active&&((active.paradas||[]).length<=3)&&((active.paradas||[]).every(pid=>{const p=stops.find(x=>x.id===pid);return p&&stopLocation(p)})));
-node('tripOpenMaps').disabled=!valid;node('tripRouteSummary').textContent=mode==='custom'?'Origem → '+selected.length+' parada(s) → '+destination.nome:active?'Rota: '+active.nome+' → '+destination.nome:'Selecione uma rota programada';
-node('tripNote').textContent=mode==='preset'&&!active?'Cadastre e selecione uma rota para liberar a navegação.':'No Waze, apenas o destino é transferido. Paradas precisam ser configuradas manualmente.';}
-function urlMaps(){const origin=node('tripOrigin').value.trim();if(!origin){node('tripOrigin').focus();node('tripNote').textContent='Informe sua cidade de origem.';return null;}localStorage.setItem('asphalt-boys-ultima-origem',origin);const stopIDs=mode==='custom'?selected:(admin.rotas.find(r=>r.id===presetId)?.paradas||[]);const points=stopIDs.map(id=>currentStops().find(s=>s.id===id)).filter(Boolean).map(stopLocation);return 'https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(origin)+'&destination='+encodeURIComponent(destination.dest)+'&travelmode=driving'+(points.length?'&waypoints='+encodeURIComponent(points.join('|')):'');}
-node('tripClose').onclick=close;modal.addEventListener('click',e=>{if(e.target===modal)close()});document.addEventListener('keydown',e=>{if(modal.hidden)return;if(e.key==='Escape')close();if(e.key==='Tab'){const focusables=[...panel.querySelectorAll('button:not(:disabled):not([hidden]),input:not(:disabled)')].filter(el=>el.offsetParent!==null);if(!focusables.length)return;const first=focusables[0],last=focusables[focusables.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});
-node('tripCustom').onclick=()=>{mode='custom';render()};node('tripPreset').onclick=()=>{mode='preset';render()};
-panel.addEventListener('click',e=>{let b=e.target.closest('button');if(!b)return;if(b.dataset.addStop){if(selected.length<3&&!selected.includes(b.dataset.addStop)){selected.push(b.dataset.addStop);render()}}else if(b.dataset.remove!==undefined){selected.splice(Number(b.dataset.remove),1);render()}else if(b.dataset.moveUp!==undefined){let i=Number(b.dataset.moveUp);if(i>0){[selected[i-1],selected[i]]=[selected[i],selected[i-1]];render()}}else if(b.dataset.moveDown!==undefined){let i=Number(b.dataset.moveDown);if(i<selected.length-1){[selected[i+1],selected[i]]=[selected[i],selected[i+1]];render()}}else if(b.dataset.preset){presetId=b.dataset.preset;render()}});
-node('tripOpenMaps').onclick=()=>{if(node('tripOpenMaps').disabled)return;const url=urlMaps();if(url)window.open(url,'_blank','noopener,noreferrer')};
-node('tripOpenWaze').onclick=()=>{if(!node('tripOrigin').value.trim()){node('tripNote').textContent='Informe uma cidade de origem.';return;}window.open('https://www.waze.com/ul?q='+encodeURIComponent(destination.dest)+'&navigate=yes','_blank','noopener,noreferrer')};
-document.addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();open(b.dataset.pick)},true);
-})();
-</script></body></html>
+<div><label for="tripOrigin" class="font-bold text-sm block mb-2">📍 Sua cidade de origem</label><input id="tripOrigin" class="tripField" autocomplete="address-level2" placeholder="Ex.: Fortaleza, CE" value="Horizonte, CE"></div>
+<div id="tripTabs" role="tablist" aria-label="Etapas do planejador">
+<button type="button" class="tripTab" data-tab="custom" role="tab" aria-selected="true">🧭 Montar rota</button>
+<button type="button" class="tripTab" data-tab="preset" role="tab" aria-selected="false">🛣️ Rotas prontas</button>
+<button type="button" class="tripTab" data-tab="mine" role="tab" aria-selected="false">📋 Meu roteiro</button>
+</div>
+<p id="tripDataStatus" class="tripTiny" role="status">Carregando paradas disponíveis…</p>
+<div id="tripCustomSection">
+<h3 class="font-black text-lg mb-1">Escolha suas paradas</h3><p class="tripTiny mb-3">Escolha uma categoria, toque em Prévia para conhecer o local e adicione ao roteiro.</p>
+<div id="tripCategories" class="mb-4"></div>
+<div id="tripAvailable" class="space-y-2"></div>
+<p class="tripTiny mt-3">Você pode escolher até três paradas por trecho no Google Maps, por compatibilidade com celulares.</p>
+</div>
+<div id="tripPresetSection" hidden>
+<h3 class="font-black text-lg mb-1">Rotas prontas do grupo</h3><p class="tripTiny mb-3">Veja as paradas e escolha um roteiro cadastrado pelo Asphalt Boys.</p><div id="tripPresets" class="space-y-3"></div>
+</div>
+<div id="tripMineSection" hidden>
+<div class="flex flex-wrap gap-2 justify-between items-center"><h3 class="font-black text-lg">Meu roteiro</h3><span id="tripCount" class="tripTiny">0 paradas</span></div>
+<p class="tripTiny mt-1 mb-3">Organize a ordem das paradas antes de abrir ou compartilhar.</p><div id="tripChosen" class="space-y-2"></div>
+<p id="tripRouteSummary" class="font-bold text-sm mt-4"></p>
+<div class="flex gap-2 flex-wrap mt-4">
+<button id="tripOpenMaps" type="button" class="tripBtn">Google Maps ↗</button>
+<button id="tripOpenWaze" type="button" class="tripNavBtn">Waze ↗</button>
+<button id="tripShare" type="button" class="tripNavBtn">↗ Compartilhar</button>
+</div>
+<div id="tripShareBox" hidden class="mt-4 p-3 rounded-xl border border-zinc-600">
+<label for="tripShareLink" class="font-semibold text-sm block mb-2">Link para o seu motogrupo</label><input id="tripShareLink" class="tripField" type="text" readonly>
+<div class="flex flex-wrap gap-2 mt-3"><button id="tripCopy" type="button" class="tripNavBtn">Copiar link</button><a id="tripShareWhats" class="tripNavBtn inline-flex items-center justify-center" target="_blank" rel="noopener noreferrer" href="https://www.whatsapp.com/">Enviar pelo WhatsApp ↗</a></div>
+</div>
+<p id="tripNote" role="status" class="tripTiny mt-3">Confira o trajeto antes de viajar. O Waze transfere somente o destino.</p>
+</div>
+</div>
+<section id="tripStopPreview" hidden aria-label="Prévia do local">
+<div class="relative">
+<img id="tripPreviewPhoto" class="tripPreviewPhoto" alt="" hidden>
+<div id="tripPreviewPlaceholder" class="tripPreviewPlaceholder" hidden>📍</div>
+<button type="button" id="tripPreviewBack" class="absolute top-3 left-3 bg-black/85 border border-white/25 rounded-xl px-4 py-2.5 text-sm font-bold">← Voltar</button>
+</div>
+<div class="px-5 sm:px-7 py-5">
+<a id="tripPhotoCredit" class="tripTiny underline inline-block mb-2" target="_blank" rel="noopener noreferrer" hidden></a>
+<p id="tripPreviewCategory" class="text-sm text-orange-400 font-bold"></p><h3 id="tripPreviewName" class="text-2xl font-black mt-1"></h3>
+<p id="tripPreviewAddress" class="text-sm text-zinc-300 mt-2"></p><p id="tripPreviewDesc" class="text-zinc-300 text-sm mt-3"></p>
+<p id="tripPreviewHours" class="tripTiny mt-3"></p>
+<div class="rounded-xl border border-zinc-700 bg-[#20252d] p-4 mt-4">
+<p class="text-sm font-bold">📍 Localização e avaliações</p>
+<p class="tripTiny mt-1">Confira as avaliações, fotos adicionais e a posição real na ficha do Google Maps. Exibi-las automaticamente aqui exige integração oficial do Google Places.</p>
+<a id="tripPreviewMap" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps" class="inline-flex mt-3 rounded-lg border border-zinc-500 px-4 py-3 text-sm font-bold">Ver no Google Maps ↗</a>
+</div>
+<button type="button" class="tripBtn w-full mt-5" id="tripPreviewAdd">+ Adicionar ao roteiro</button>
+</div>
+</section>
+</div></div>
+<script src="planejador.js"></script>
+</body></html>
