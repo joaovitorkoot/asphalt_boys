@@ -100,7 +100,7 @@
     if(httpsUrl(result.photo)){
        im.src=httpsUrl(result.photo);im.hidden=false;q('tripPreviewPlaceholder').hidden=true;
        im.onerror=()=>{if(photo){im.onerror=null;im.src=photo}else{im.hidden=true;q('tripPreviewPlaceholder').hidden=false}};
-       q('tripPhotoCredit').hidden=false;q('tripPhotoCredit').textContent='Foto disponibilizada pelo Google Maps';
+       q('tripPhotoCredit').hidden=false;q('tripPhotoCredit').textContent='Foto: '+(Array.isArray(result.photoAttributions)&&result.photoAttributions.length?result.photoAttributions.map(a=>a.name).filter(Boolean).join(', '):'Google Maps');
        q('tripPhotoCredit').href=httpsUrl(result.map)||mapLink(p);
     }
   }).catch(()=>{if(previewId===id)googleInfo.textContent='Consulte avaliações, horários e fotos no Google Maps.'});
