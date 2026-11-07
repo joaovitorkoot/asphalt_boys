@@ -83,6 +83,28 @@
   q('tripPreviewMap').href=mapLink(p);
   q('tripPreviewAdd').disabled=selected.includes(id)||selected.length>=3||!p.endereco;
   q('tripPreviewAdd').textContent=selected.includes(id)?'✓ Já está no roteiro':selected.length>=3?'Máximo de três paradas':'+ Adicionar ao roteiro';
+  // Dados reais do Google carregados somente ao abrir a prévia de uma parada publicada.
+  let googleInfo=q('tripGoogleInfo');
+  if(!googleInfo){googleInfo=document.createElement('div');googleInfo.id='tripGoogleInfo';googleInfo.className='text-xs text-zinc-300 mt-3 p-3 border border-zinc-700 rounded-lg';q('tripPreviewDesc').insertAdjacentElement('afterend',googleInfo)}
+  googleInfo.textContent='Consultando informações do Google Maps...';
+  if(!localPreview)fetch('/api/place?stop='+encodeURIComponent(p.id),{cache:'no-store'}).then(async r=>{
+    const result=await r.json();if(previewId!==id||q('tripStopPreview').hidden)return;
+    if(!r.ok||!result.available){googleInfo.textContent='Para fotos, avaliações e horários atualizados, consulte o Google Maps.';return}
+    const chunks=['Informações fornecidas pelo Google Maps'];
+    if(typeof result.rating==='number')chunks.push('★ '+result.rating.toFixed(1).replace('.',',')+'/5'+(typeof result.count==='number'?' ('+result.count+' avaliações)':''));
+    if(Array.isArray(result.hours)&&result.hours.length)chunks.push(result.hours.join(' · '));
+    googleInfo.textContent=chunks.join(' | ');
+    if(result.address)q('tripPreviewAddress').textContent=result.address;
+    if(httpsUrl(result.map))q('tripPreviewMap').href=httpsUrl(result.map);
+    // Foto oficial tem prioridade sobre a foto de fallback cadastrada, sem guardar a imagem no site.
+    if(httpsUrl(result.photo)){
+       im.src=httpsUrl(result.photo);im.hidden=false;q('tripPreviewPlaceholder').hidden=true;
+       im.onerror=()=>{if(photo){im.onerror=null;im.src=photo}else{im.hidden=true;q('tripPreviewPlaceholder').hidden=false}};
+       q('tripPhotoCredit').hidden=false;q('tripPhotoCredit').textContent='Foto disponibilizada pelo Google Maps';
+       q('tripPhotoCredit').href=httpsUrl(result.map)||mapLink(p);
+    }
+  }).catch(()=>{if(previewId===id)googleInfo.textContent='Consulte avaliações, horários e fotos no Google Maps.'});
+  else googleInfo.textContent='Prévia local: informações do Google disponíveis após publicar a parada no banco.';
   panel.scrollTop=0;q('tripPreviewBack').focus();
  }
  function previewBack(){q('tripStopPreview').hidden=true;q('tripMain').hidden=false;render();panel.scrollTop=0}
