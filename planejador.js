@@ -11,7 +11,7 @@
  const mapping=id=>id==='canoa'?'canoa-quebrada':id;
  const categories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
  const normalize=c=>/café|cafe/i.test(c)?'cafe':/restaurante|almo/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
- const initial={guaramiranga:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'imagens/IMG_9038.jpeg',fonteFoto:'',linkFoto:''}]};
+ const initial={guaramiranga:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'https://asphalt-boys.pages.dev/imagens/IMG_9038.jpeg',fonteFoto:'',linkFoto:''}]};
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
