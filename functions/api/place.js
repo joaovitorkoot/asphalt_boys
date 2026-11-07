@@ -53,7 +53,7 @@ export async function onRequestGet({request,env}){
     return output;
   }catch(e){
     const details=String(e?.message||'');
-    const status=details.match(/Google Places indisponível \\((\\d+)\\)/)?.[1];
+    const status=details.match(/Google Places indisponível \((\d+)\)/)?.[1];
     const message=status==='403'?'Google recusou o acesso (403). Verifique se Places API (New), faturamento e restrições da chave estão corretos.'
       :status==='400'?'O Google recusou a consulta (400). Confira a API Places (New) e os campos requisitados.'
       :status==='429'?'Limite de consultas do Google Places atingido (429).'
