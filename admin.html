@@ -1,21 +1,141 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090b0f"><title>Painel de conteúdo · Asphalt Boys</title><script src="https://cdn.tailwindcss.com"></script><script>tailwind.config={theme:{extend:{colors:{accent:'#f97316'}}}}</script><style>body{background:#090b0f;color:#f5f5f4;font-family:Inter,system-ui,sans-serif}.panel{background:#15181e;border:1px solid #30343c;border-radius:18px}.field{width:100%;background:#23262d;border:1px solid #464b55;border-radius:10px;padding:12px;color:white}.field:focus{outline:none;border-color:#f97316}.label{display:block;font-size:12px;font-weight:700;margin:12px 0 6px;color:#d4d4d8}.pill{border:1px solid #444955;padding:9px 14px;border-radius:12px}.pill[aria-selected=true]{background:#f97316;color:#080a0d;border-color:#f97316;font-weight:800}.btn{padding:12px 18px;border-radius:10px;font-weight:700;background:#f97316;color:#101114}.btnAlt{border:1px solid #50555f;padding:12px 18px;border-radius:10px}.item{border:1px solid #363a43;border-radius:12px;padding:14px}.muted{color:#a1a1aa}</style></head><body><header class="border-b border-zinc-800"><div class="max-w-6xl mx-auto px-5 py-5 flex flex-wrap items-center justify-between gap-3"><a href="index.html" class="font-black italic text-xl">ASPHALT <span class="text-orange-500">BOYS</span></a><a href="index.html" class="text-sm text-zinc-300 hover:text-white">← Voltar ao site</a></div></header><main class="max-w-6xl mx-auto px-5 py-8"><div class="mb-7"><div class="text-xs font-extrabold tracking-widest text-orange-400 uppercase">Gestão de conteúdo</div><h1 class="text-3xl sm:text-4xl font-black mt-2">Painel de viagens</h1><p class="muted mt-3 max-w-3xl">Cadastre destinos, rotas e paradas com fotos, horários e localização. <strong class="text-amber-300">Modo de rascunho:</strong> os dados ficam somente neste navegador até a conexão com o banco de dados e o login administrativo. Ainda não aparecem para todos os visitantes.</p></div><div class="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-6"><aside class="panel p-4 space-y-2 h-fit"><button class="pill w-full text-left" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button class="pill w-full text-left" data-tab="paradas" aria-selected="false">📍 Paradas</button><button class="pill w-full text-left" data-tab="rotas" aria-selected="false">🛣️ Rotas programadas</button><button class="pill w-full text-left" data-tab="backup" aria-selected="false">💾 Backup dos rascunhos</button><p class="text-xs muted p-3">Esta prévia não possui autenticação nem publicação pública. Não cadastre informações confidenciais.</p></aside><section class="panel p-5 sm:p-7"><h2 id="title" class="font-black text-2xl mb-2">Destinos</h2><p id="subtitle" class="muted text-sm mb-5"></p><div id="editArea"></div><div id="listing" class="mt-7"></div></section></div></main><script>
-const key='asphalt-boys-admin-drafts-v1';
-const starter={destinos:[{id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',foto:'',mapa:'Guaramiranga, CE',status:'rascunho'},{id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e paisagem do litoral',foto:'',mapa:'Canoa Quebrada, Aracati, CE',status:'rascunho'}],paradas:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'Mirante',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'',horario:''}],rotas:[]};
-let data;try{data=JSON.parse(localStorage.getItem(key))||structuredClone(starter)}catch{data=structuredClone(starter)};for(const t of ['destinos','paradas','rotas'])if(!Array.isArray(data[t]))data[t]=[];
-let tab='destinos',editing=null;const $=s=>document.querySelector(s);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const id=()=>('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
-function save(){try{localStorage.setItem(key,JSON.stringify(data));}catch(e){alert('Não foi possível salvar os rascunhos: '+e.message);}}
-function selectOpts(list,value){return '<option value="">Selecione...</option>'+list.map(x=>'<option value="'+esc(x.id)+'" '+(value===x.id?'selected':'')+'>'+esc(x.nome)+'</option>').join('')}
-function field(name,label,value='',kind='text',required=false){return '<label class="label" for="f_'+name+'">'+label+'</label>'+(kind==='textarea'?'<textarea class="field" rows="3" id="f_'+name+'" name="'+name+'" '+(required?'required':'')+'>'+esc(value)+'</textarea>':'<input class="field" id="f_'+name+'" name="'+name+'" type="'+kind+'" value="'+esc(value)+'" '+(required?'required':'')+'>')}
-function editor(){if(tab==='backup')return '<p class="muted mb-5">Faça download de uma cópia dos seus rascunhos. A importação substitui o conteúdo local deste navegador.</p><div class="flex flex-wrap gap-3"><button id="export" class="btn">Exportar JSON</button><label class="btnAlt cursor-pointer">Importar JSON<input id="import" type="file" accept=".json,application/json" class="hidden"></label><button id="reset" class="btnAlt text-red-300">Restaurar exemplos</button></div>';
-const d=data[tab].find(x=>x.id===editing)||{},f=(n,l,k='text',req=false)=>field(n,l,d[n]||'',k,req);
-let content='';
-if(tab==='destinos')content=f('nome','Nome do destino','text',true)+f('descricao','Pequena descrição','textarea')+f('foto','URL da fotografia (https://...)','url')+f('mapa','Endereço ou ponto de referência para mapas');
-if(tab==='paradas')content='<label class="label">Destino vinculado</label><select class="field" name="destinoId" required>'+selectOpts(data.destinos,d.destinoId)+'</select>'+f('nome','Nome da parada','text',true)+'<label class="label">Categoria</label><select class="field" name="categoria">'+['Café','Restaurante','Posto','Mirante','Ponto turístico','Descanso','Outro'].map(x=>'<option '+(d.categoria===x?'selected':'')+'>'+x+'</option>').join('')+'</select>'+f('descricao','Descrição','textarea')+f('foto','URL da foto (https://...)','url')+f('endereco','Endereço / localização para o mapa')+f('horario','Horário de funcionamento (informação cadastrada)')+f('maps','Link do Google Maps','url');
-if(tab==='rotas'){const opts=data.paradas.filter(x=>!d.destinoId||x.destinoId===d.destinoId);content='<label class="label">Destino</label><select class="field" name="destinoId" id="routeDestination" required>'+selectOpts(data.destinos,d.destinoId)+'</select>'+f('nome','Nome da rota','text',true)+f('descricao','Descrição da rota','textarea')+'<label class="label">Paradas da rota (selecione em ordem)</label><div id="stopPicker" class="space-y-2">'+opts.map(x=>'<label class="flex items-center gap-3 text-sm p-3 border border-zinc-700 rounded-lg"><input type="checkbox" name="parada" value="'+esc(x.id)+'" '+((d.paradas||[]).includes(x.id)?'checked':'')+'>'+esc(x.nome)+'</label>').join('')+'</div><p class="text-xs muted mt-2">Use as setas na lista após salvar para reorganizar paradas, ou edite a ordem escolhendo novamente. Limite recomendado de 3 paradas para links no celular.</p>';}
-return '<form id="form" class="border border-zinc-700 rounded-xl p-4 sm:p-5"><h3 class="font-extrabold text-lg">'+(editing?'Editar cadastro':'Novo cadastro')+'</h3>'+content+'<div class="flex flex-wrap gap-3 mt-5"><button class="btn" type="submit">Salvar rascunho</button><button class="btnAlt" type="button" id="cancel">Limpar</button></div></form>';}
-function render(){const names={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas programadas',backup:'Backup dos rascunhos'};$('#title').textContent=names[tab];$('#subtitle').textContent=tab==='backup'?'Faça uma cópia dos dados de teste.':'Cadastre e edite os itens nesta etapa inicial.';$('#editArea').innerHTML=editor();$('#listing').innerHTML=tab==='backup'?'':'<h3 class="font-black text-lg mb-3">Cadastrados ('+data[tab].length+')</h3>'+(data[tab].length?data[tab].map(x=>'<article class="item mb-3"><div class="flex flex-wrap justify-between gap-3 items-start"><div class="flex gap-3 flex-1 min-w-0">'+(x.foto?'<img src="'+esc(x.foto)+'" alt="" class="w-20 h-20 rounded-lg object-cover" onerror="this.style.display=\'none\'">':'')+'<div><p class="font-bold">'+esc(x.nome)+'</p><p class="muted text-sm mt-1">'+esc(x.descricao||x.categoria||'')+'</p>'+(x.horario?'<p class="text-xs text-orange-300 mt-2">🕒 '+esc(x.horario)+'</p>':'')+(x.destinoId?'<p class="text-xs muted mt-2">Destino: '+esc(data.destinos.find(z=>z.id===x.destinoId)?.nome||'Não encontrado')+'</p>':'')+'</div></div><div class="flex gap-2"><button class="btnAlt text-sm" data-edit="'+esc(x.id)+'">Editar</button><button class="btnAlt text-sm text-red-300" data-delete="'+esc(x.id)+'">Excluir</button></div></div></article>').join(''):'<p class="muted text-sm">Nenhum item cadastrado nesta seção.</p>');
-if(tab==='backup'){ $('#export').onclick=()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='asphalt-boys-rascunhos.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};$('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const obj=JSON.parse(await file.text());if(!['destinos','paradas','rotas'].every(x=>Array.isArray(obj[x])))throw Error('Formato inválido');if(confirm('Substituir todos os rascunhos deste navegador?')){data=obj;save();render()}}catch(err){alert('Arquivo inválido: '+err.message)}};$('#reset').onclick=()=>{if(confirm('Restaurar os exemplos e apagar os rascunhos locais?')){data=structuredClone(starter);save();render()}};return;}
-$('#cancel').onclick=()=>{editing=null;render()};$('#form').onsubmit=e=>{e.preventDefault();const form=new FormData(e.target),v=Object.fromEntries(form.entries()),old=data[tab].find(z=>z.id===editing);if(tab==='rotas')v.paradas=form.getAll('parada');v.id=editing||id();if(old)data[tab]=data[tab].map(z=>z.id===editing?v:z);else data[tab].push(v);save();editing=null;render();$('#listing').scrollIntoView({behavior:'smooth',block:'nearest'});};document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;render();$('#editArea').scrollIntoView({behavior:'smooth'})});document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>{if(confirm('Excluir este cadastro?')){data[tab]=data[tab].filter(x=>x.id!==b.dataset.delete);save();editing=null;render()}});if(tab==='rotas')$('#routeDestination').onchange=e=>{document.querySelectorAll('#stopPicker input').forEach(el=>{const p=data.paradas.find(x=>x.id===el.value);el.parentNode.style.display=p?.destinoId===e.target.value?'flex':'none';if(p?.destinoId!==e.target.value)el.checked=false})};}
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;editing=null;document.querySelectorAll('[data-tab]').forEach(q=>q.setAttribute('aria-selected',String(q===b)));render()});render();
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0b0d10">
+<title>Administração de viagens • Asphalt Boys</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:#0b0d10;color:#f5f5f4;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+.box{background:#171a20;border:1px solid #343943;border-radius:16px}
+.field{width:100%;color:white;background:#242831;border:1px solid #505660;border-radius:10px;padding:11px 12px;min-height:44px;font-size:16px}
+.field:focus{outline:2px solid #fb923c;outline-offset:1px}
+.lbl{display:block;color:#e5e7eb;font-weight:700;font-size:12px;margin:13px 0 6px}
+.btn{background:#fb923c;color:#121212;font-weight:800;border-radius:10px;padding:11px 14px;min-height:43px}
+.btn:disabled{opacity:.5}.subbtn{border:1px solid #646874;color:#eceff2;border-radius:10px;padding:10px 12px;min-height:42px}
+.tab{display:block;text-align:left;width:100%;padding:13px 14px;border-radius:11px;border:1px solid #343943}
+.tab[aria-selected=true]{background:#fb923c1c;border-color:#fb923c;color:#ffb579}
+.muted{color:#a9afb9}.card{border:1px solid #383e49;border-radius:12px;padding:14px}
+.pill{display:inline-block;font-size:11px;padding:3px 8px;border:1px solid #51545b;border-radius:100px;color:#cdd1d9}
+.pill.published{border-color:#34816e;color:#9de3c9}
+.pick{display:flex;gap:9px;align-items:center;padding:10px;border:1px solid #454b56;border-radius:9px}
+.pick input{width:18px;height:18px;accent-color:#fb923c}.tiny{font-size:12px;color:#aaafb9}
+button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
+</style>
+</head><body>
+<header class="border-b border-zinc-800"><div class="max-w-6xl mx-auto px-5 py-5 flex flex-wrap items-center justify-between gap-4"><a href="./" class="text-xl font-black italic">ASPHALT <span class="text-orange-400">BOYS</span></a><a href="./" class="text-sm text-zinc-300 underline">← Voltar ao site</a></div></header>
+<main class="max-w-6xl mx-auto px-5 py-8">
+<div class="mb-6"><p class="text-xs font-black tracking-widest text-orange-400">PAINEL DE ADMINISTRAÇÃO</p><h1 class="text-3xl font-black mt-1">Conteúdo das viagens</h1><p class="muted text-sm mt-2">Cadastre os locais uma vez, combine suas paradas e prepare rotas compartilháveis. A publicação para todos só funciona depois de ativar o banco Cloudflare D1.</p></div>
+<section class="box p-4 sm:p-5 mb-6" aria-label="Conexão administrativa">
+<div class="flex flex-wrap items-center justify-between gap-3"><div><strong class="text-base">Status da publicação</strong><p id="connection" class="tiny mt-1" role="status">Verificando conexão com o servidor...</p></div><span id="mode" class="pill">Rascunhos locais</span></div>
+<div class="grid sm:grid-cols-[1fr_auto] gap-3 items-end mt-3"><div><label class="lbl" for="secret">Token de administrador (somente após configurar na Cloudflare)</label><input class="field" id="secret" type="password" autocomplete="off" placeholder="Token ADMIN_TOKEN — não será salvo no navegador"></div><button id="connect" type="button" class="subbtn">Conectar ao banco</button></div>
+<div id="syncArea" class="mt-3" hidden><button type="button" id="sync" class="subbtn">Enviar meus rascunhos locais para o banco</button><p class="tiny mt-1">Enviar não publica automaticamente: cadastros continuam com o status definido em cada formulário.</p></div>
+</section>
+<div class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-5">
+<nav class="box p-3 h-fit grid sm:grid-cols-4 lg:grid-cols-1 gap-2" aria-label="Seções administrativas">
+<button type="button" class="tab" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button type="button" class="tab" data-tab="paradas" aria-selected="false">📍 Paradas</button><button type="button" class="tab" data-tab="rotas" aria-selected="false">🛣️ Rotas prontas</button><button type="button" class="tab" data-tab="backup" aria-selected="false">💾 Backup</button>
+</nav>
+<section class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><div id="listing" class="mt-6"></div></section>
+</div>
+</main>
+<script>
+(function(){
+const KEY='asphalt-boys-admin-drafts-v1', API='./api/content';
+const seed={destinos:[{id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',mapa:'Guaramiranga, CE',status:'rascunho'},{id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e litoral',mapa:'Canoa Quebrada, Aracati, CE',status:'rascunho'}],paradas:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'https://upload.wikimedia.org/wikipedia/commons/e/e2/Pico_Alto_-_Guaramiranga_-_Cear%C3%A1_03.jpg',status:'rascunho'}],rotas:[]};
+const types=['destinos','paradas','rotas']; const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+const safeUrl=s=>{try{let u=new URL(String(s||''));return u.protocol==='https:'?u.href:''}catch{return ''}};
+const normalize=c=>/café|cafe/i.test(c)?'cafe':/almo|restaurante/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
+function copy(d){return JSON.parse(JSON.stringify(d))}
+function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&types.every(t=>Array.isArray(d[t]))?d:copy(seed)}catch{return copy(seed)}}
+let draft=local(),data=copy(draft),remote=false,token='',tab='destinos',editing=null,picked=[],busy=false;
+function announce(msg){$('#connection').textContent=msg}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
+function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
+function listForDest(dest){return data.paradas.filter(p=>p.destinoId===dest)}
+function categoryLabel(c){return ({cafe:'☕ Café da manhã',almoco:'🍽️ Almoço',turismo:'📸 Ponto turístico',descanso:'🏍️ Descanso'})[normalize(c)]}
+function makeField(name,label,v,type='text',required=false){let common=' name="'+name+'" id="f_'+name+'" '+(required?'required':'');return '<label class="lbl" for="f_'+name+'">'+label+'</label>'+(type==='textarea'?'<textarea class="field" rows="3"'+common+'>'+esc(v||'')+'</textarea>':'<input class="field" type="'+type+'"'+common+' value="'+esc(v||'')+'">')}
+function opt(items,v){return '<option value="">Selecione...</option>'+items.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===v?'selected':'')+'>'+esc(x.nome)+'</option>').join('')}
+function drop(name,label,options,value){return '<label class="lbl" for="f_'+name+'">'+label+'</label><select class="field" id="f_'+name+'" name="'+name+'">'+options.map(([k,v])=>'<option value="'+esc(k)+'" '+(k===value?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select>'}
+function form(){
+ if(tab==='backup')return '<p class="muted mb-4">Guarde uma cópia dos seus cadastros. A importação substitui somente os rascunhos locais, nunca altera o banco público.</p><div class="flex flex-wrap gap-2"><button type="button" class="btn" id="export">Exportar JSON</button><label class="subbtn cursor-pointer">Importar JSON<input id="import" type="file" accept=".json,application/json" class="hidden"></label></div>';
+ const d=data[tab].find(x=>x.id===editing)||{},f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
+ let fields='';
+ if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição','textarea')+f('mapa','Localização para navegação')+f('foto','URL de foto autorizada (opcional)','url');
+ if(tab==='paradas')fields='<label class="lbl" for="f_destinoId">Destino da parada</label><select class="field" id="f_destinoId" name="destinoId" required>'+opt(data.destinos,d.destinoId)+'</select>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">O link abre a ficha real no Google. Fotos, avaliações e horários automáticos exigem Google Places API configurada; o link sozinho não libera esses dados.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID (opcional, para integração futura)');
+ if(tab==='rotas'){const dest=d.destinoId||data.destinos[0]?.id||'';fields='<label class="lbl" for="f_destinoId">Destino da rota</label><select class="field" id="f_destinoId" name="destinoId" required>'+opt(data.destinos,dest)+'</select>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
+ fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
+ return '<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(editing?'Editar cadastro':'Novo cadastro')+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
+}
+function renderPicker(){
+ const el=$('#routePicker');if(!el)return;
+ const dest=$('#f_destinoId').value;
+ el.innerHTML=listForDest(dest).map(p=>'<div class="pick"><input aria-label="Selecionar '+esc(p.nome)+'" type="checkbox" data-pick="'+esc(p.id)+'" '+(picked.includes(p.id)?'checked':'')+'><span class="text-sm flex-1">'+esc(p.nome)+' <span class="tiny">('+esc(categoryLabel(p.categoria))+')</span></span></div>').join('')+'<div class="mt-3">'+picked.map((id,i)=>{const p=data.paradas.find(x=>x.id===id);return p?'<div class="flex gap-2 items-center border-b border-zinc-700 py-2 text-sm"><span class="flex-1">'+(i+1)+'. '+esc(p.nome)+'</span><button type="button" class="subbtn" data-up="'+i+'" '+(i===0?'disabled':'')+'>↑</button><button type="button" class="subbtn" data-down="'+i+'" '+(i===picked.length-1?'disabled':'')+'>↓</button></div>':''}).join('')+'</div>';
+}
+function listHtml(){
+ if(tab==='backup')return '';
+ return '<h3 class="font-bold text-lg mb-3">Cadastrados ('+data[tab].length+')</h3>'+(data[tab].length?data[tab].map(x=>'<article class="card mb-3"><div class="flex flex-wrap items-start gap-3 justify-between"><div class="min-w-0 flex-1"><div class="flex flex-wrap gap-2 items-center"><strong>'+esc(x.nome)+'</strong><span class="pill '+(x.status==='publicado'?'published':'')+'">'+(x.status==='publicado'?'Publicado':'Rascunho')+'</span></div><p class="muted text-sm mt-1">'+esc(x.descricao||((tab==='paradas')?categoryLabel(x.categoria):''))+'</p>'+(x.destinoId?'<p class="tiny mt-1">Destino: '+esc(data.destinos.find(d=>d.id===x.destinoId)?.nome||x.destinoId)+'</p>':'')+(tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas · '+(x.paradas||[]).map(id=>esc(data.paradas.find(p=>p.id===id)?.nome||id)).join(' → ')+'</p>':'')+(tab==='rotas'?'<a class="text-orange-300 text-xs underline mt-2 block" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+'">Abrir prévia da rota ↗</a>':'')+(safeUrl(x.maps)?'<a class="text-orange-300 text-xs underline mt-2 block" target="_blank" rel="noopener noreferrer" href="'+esc(safeUrl(x.maps))+'">Ver no Google Maps ↗</a>':'')+'</div><div class="flex gap-2"><button type="button" class="subbtn text-xs" data-edit="'+esc(x.id)+'">Editar</button><button type="button" class="subbtn text-xs text-red-300" data-delete="'+esc(x.id)+'">Excluir</button></div></div></article>').join(''):'<p class="muted text-sm">Nenhum cadastro nesta seção.</p>');
+}
+function render(resetPicker=true){
+ const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
+ $('#sectionTitle').textContent=titles[tab];
+ $('#sectionHelp').textContent={destinos:'Os lugares principais que aparecem na página de viagens.',paradas:'Cadastre uma parada, escolha a categoria e cole o link do Google Maps.',rotas:'Monte uma sequência de paradas já cadastradas e publique um roteiro.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
+ if(resetPicker&&tab==='rotas')picked=[...(data.rotas.find(x=>x.id===editing)?.paradas||[])];
+ $('#editor').innerHTML=form();$('#listing').innerHTML=listHtml();
+ document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));
+ if(tab==='backup'){backupListeners();return;}
+ if(tab==='rotas'){renderPicker();$('#f_destinoId').addEventListener('change',()=>{picked=[];renderPicker()});$('#routePicker').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let i;if(b.dataset.up!==undefined){i=+b.dataset.up;if(i>0)[picked[i],picked[i-1]]=[picked[i-1],picked[i]]}if(b.dataset.down!==undefined){i=+b.dataset.down;if(i<picked.length-1)[picked[i],picked[i+1]]=[picked[i+1],picked[i]]}renderPicker()});$('#routePicker').addEventListener('change',e=>{const el=e.target;if(!el.matches('[data-pick]'))return;const p=el.dataset.pick;if(el.checked){if(!picked.includes(p))picked.push(p)}else picked=picked.filter(x=>x!==p);renderPicker()});}
+ $('#cancel').onclick=()=>{editing=null;render()};
+ $('#recordForm').addEventListener('submit',saveRecord);
+ document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;render();$('#editor').scrollIntoView({behavior:'smooth',block:'start'})});
+ document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeRecord(b.dataset.delete));
+}
+async function call(method,body,admin=true){
+ const res=await fetch(API+(method==='GET'&&admin?'?admin=1':''),{method,headers:{...(token?{'Authorization':'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),cache:'no-store'});
+ let payload;try{payload=await res.json()}catch{throw Error('A resposta do servidor não é JSON.')};
+ if(!res.ok)throw Error(payload.error||'Falha ao salvar no servidor');
+ return payload;
+}
+async function saveRecord(e){
+ e.preventDefault();if(busy)return;
+ const v=Object.fromEntries(new FormData(e.target)),old=data[tab].find(x=>x.id===editing);v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
+ if(tab==='rotas'){v.paradas=[...picked];if(v.paradas.some(id=>data.paradas.find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}}
+ if(tab==='paradas'&&v.maps&&!safeUrl(v.maps)){alert('Digite um link https do Google Maps.');return}
+ if(tab==='paradas'&&v.foto&&!safeUrl(v.foto)){alert('A URL da foto precisa começar com https.');return}
+ if(remote){busy=true;try{const x=await call('POST',{kind:tab,record:v});v.status=x.record.status;Object.assign(v,x.record);announce('Salvo no banco com sucesso.');}catch(e){alert('Não foi publicado: '+e.message);busy=false;return}busy=false}
+ data[tab]=old?data[tab].map(x=>x.id===editing?v:x):[...data[tab],v];
+ if(!remote){draft=copy(data);saveLocal();announce('Rascunho salvo apenas neste navegador; não foi publicado para outros visitantes.')}
+ editing=null;render();
+}
+async function removeRecord(id){
+ const entry=data[tab].find(x=>x.id===id);if(!entry||!confirm('Excluir '+entry.nome+'?'))return;
+ if(remote)try{await call('DELETE',{kind:tab,id})}catch(e){alert('Não foi excluído: '+e.message);return}
+ data[tab]=data[tab].filter(x=>x.id!==id);
+ if(!remote){draft=copy(data);saveLocal()}
+ editing=null;render();
+}
+function backupListeners(){
+ $('#export').onclick=()=>{const blob=new Blob([JSON.stringify(draft,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='asphalt-boys-rascunhos.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+ $('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>500000)throw Error('Arquivo muito grande');const obj=JSON.parse(await file.text());if(!types.every(t=>Array.isArray(obj[t])))throw Error('Arquivo não contém destinos, paradas e rotas');if(confirm('Importar e substituir os rascunhos locais?')){draft=obj;saveLocal();if(!remote)data=copy(obj);announce('Backup importado nos rascunhos locais.');render()}}catch(err){alert(err.message)}};
+}
+$('#connect').onclick=async()=>{
+ const v=$('#secret').value.trim();
+ if(!v){remote=false;token='';data=copy(draft);status();announce('Modo rascunho local. Informe um token quando configurar o D1 e ADMIN_TOKEN na Cloudflare.');render();return}
+ token=v;
+ try{const server=await call('GET');if(!types.every(t=>Array.isArray(server[t])))throw Error('Resposta incompleta do banco.');data=server;remote=true;editing=null;status();announce('Banco conectado. Edições serão compartilhadas com o site público quando o status estiver Publicado.');render()}
+ catch(e){remote=false;token='';data=copy(draft);status();announce('Sem conexão com banco: '+e.message+' Rascunhos locais preservados.');render()}
+};
+$('#sync').onclick=async()=>{
+ if(!remote)return;const total=types.reduce((n,t)=>n+draft[t].length,0);
+ if(!confirm('Enviar '+total+' rascunhos para o banco? Itens com o mesmo ID poderão ser atualizados.'))return;
+ let done=0;for(const kind of types)for(const record of draft[kind]){try{await call('POST',{kind,record});done++}catch(e){announce('Foram enviados '+done+' de '+total+'. Falha: '+e.message);return}}
+ try{data=await call('GET');render();announce(done+' cadastros enviados ao banco. Confira o status de cada cadastro.')}catch(e){announce('Envio concluído, mas não foi possível atualizar a lista.')}
+};
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;editing=null;render()});
+(async()=>{
+ try{const r=await fetch(API,{cache:'no-store'});if(r.ok)announce('API disponível. Para administrar o banco, informe o token configurado na Cloudflare.');else announce('Modo rascunho: banco ainda não ativado. Você pode preparar os cadastros e exportar backup.')}
+ catch{announce('Modo rascunho local. O painel continua disponível para testes.')}
+ status();render();
+})();
+})();
 </script></body></html>
