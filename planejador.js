@@ -79,7 +79,7 @@
   q('tripPreviewDesc').textContent=p.descricao||'Sem descrição cadastrada.';
   q('tripPreviewHours').textContent=p.horario?'Horário informado pelo grupo: '+p.horario:'Horários: consulte o Google Maps.';
   const photo=httpsUrl(p.foto),im=q('tripPreviewPhoto');im.hidden=!photo;im.onerror=()=>{im.hidden=true;q('tripPreviewPlaceholder').hidden=false};q('tripPreviewPlaceholder').hidden=!!photo;if(photo){im.src=photo;im.alt='Fotografia de '+p.nome}
-  q('tripPhotoCredit').hidden=!(p.linkFoto&&p.fonteFoto);if(p.linkFoto&&p.fonteFoto){q('tripPhotoCredit').textContent=p.fonteFoto;q('tripPhotoCredit').href=httpsUrl(p.linkFoto)||'#'}
+  // Atribuições das fotos iniciais ficam no rodapé do site, sem interromper a prévia.\n  q('tripPhotoCredit').hidden=true;q('tripPhotoCredit').textContent='';
   q('tripPreviewMap').href=mapLink(p);
   q('tripPreviewAdd').disabled=selected.includes(id)||selected.length>=3||!p.endereco;
   q('tripPreviewAdd').textContent=selected.includes(id)?'✓ Já está no roteiro':selected.length>=3?'Máximo de três paradas':'+ Adicionar ao roteiro';
