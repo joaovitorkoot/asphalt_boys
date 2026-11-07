@@ -89,7 +89,7 @@
   googleInfo.textContent='Consultando informações do Google Maps...';
   if(!localPreview)fetch('/api/place?stop='+encodeURIComponent(p.id),{cache:'no-store'}).then(async r=>{
     const result=await r.json();if(previewId!==id||q('tripStopPreview').hidden)return;
-    if(!r.ok||!result.available){googleInfo.textContent='Para fotos, avaliações e horários atualizados, consulte o Google Maps.';return}
+    if(!r.ok||!result.available){googleInfo.textContent=(result.message&&typeof result.message==='string'?result.message+' ':'')+'Você pode abrir a ficha completa no Google Maps pelo botão acima.';return}
     const chunks=['Informações fornecidas pelo Google Maps'];
     if(typeof result.rating==='number')chunks.push('★ '+result.rating.toFixed(1).replace('.',',')+'/5'+(typeof result.count==='number'?' ('+result.count+' avaliações)':''));
     if(Array.isArray(result.hours)&&result.hours.length)chunks.push(result.hours.join(' · '));
