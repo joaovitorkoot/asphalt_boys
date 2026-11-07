@@ -11,7 +11,7 @@
  const mapping=id=>id==='canoa'?'canoa-quebrada':id;
  const categories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
  const normalize=c=>/café|cafe/i.test(c)?'cafe':/restaurante|almo/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
- const initial={guaramiranga:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'https://upload.wikimedia.org/wikipedia/commons/e/e2/Pico_Alto_-_Guaramiranga_-_Cear%C3%A1_03.jpg',fonteFoto:'Foto: Paulo Mouta · CC BY-SA 3.0',linkFoto:'https://commons.wikimedia.org/wiki/File:Pico_Alto_-_Guaramiranga_-_Cear%C3%A1_03.jpg'}]};
+ const initial={guaramiranga:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'imagens/IMG_9038.jpeg',fonteFoto:'',linkFoto:''}]};
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
@@ -22,7 +22,7 @@
    if(!destination)return[];
    const destId=mapping(destination.id),stored=data.paradas.filter(p=>p.destinoId===destId);
    const seeds=initial[destId]||[];
-   const combined=stored.map(p=>{const found=seeds.find(s=>s.id===p.id||s.nome.toLowerCase()===String(p.nome||'').toLowerCase());return found?Object.assign({},found,p,{foto:p.foto||found.foto,fonteFoto:p.fonteFoto||found.fonteFoto,linkFoto:p.linkFoto||found.linkFoto}):p});
+   const combined=stored.map(p=>{const found=seeds.find(s=>s.id===p.id||s.nome.toLowerCase()===String(p.nome||'').toLowerCase());return found?Object.assign({},found,p,{foto:found.id==='pico-alto-parada'?found.foto:(p.foto||found.foto),fonteFoto:found.id==='pico-alto-parada'?'':(p.fonteFoto||found.fonteFoto),linkFoto:found.id==='pico-alto-parada'?'':(p.linkFoto||found.linkFoto)}):p});
    return combined.concat(seeds.filter(p=>!stored.some(x=>x.id===p.id||String(x.nome||'').toLowerCase()===p.nome.toLowerCase())));
  }
  function currentRoutes(){return destination?data.rotas.filter(r=>r.destinoId===mapping(destination.id)):[]}
@@ -97,7 +97,7 @@
     if(result.address)q('tripPreviewAddress').textContent=result.address;
     if(httpsUrl(result.map))q('tripPreviewMap').href=httpsUrl(result.map);
     // Foto oficial tem prioridade sobre a foto de fallback cadastrada, sem guardar a imagem no site.
-    if(httpsUrl(result.photo)){
+    if(httpsUrl(result.photo)&&p.id!=='pico-alto-parada'){
        im.src=httpsUrl(result.photo);im.hidden=false;q('tripPreviewPlaceholder').hidden=true;
        im.onerror=()=>{if(photo){im.onerror=null;im.src=photo}else{im.hidden=true;q('tripPreviewPlaceholder').hidden=false}};
        q('tripPhotoCredit').hidden=false;q('tripPhotoCredit').textContent='Foto: '+(Array.isArray(result.photoAttributions)&&result.photoAttributions.length?result.photoAttributions.map(a=>a.name).filter(Boolean).join(', '):'Google Maps');
