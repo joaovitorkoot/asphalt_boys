@@ -97,7 +97,7 @@ export async function onRequestPost({request,env}){
    let url,init;
    if(parsed.placeId&&/^[a-zA-Z0-9_-]{5,250}$/.test(parsed.placeId)){
      url="https://places.googleapis.com/v1/places/"+encodeURIComponent(parsed.placeId)+"?languageCode=pt-BR";
-     init={method:"GET",headers:{"X-Goog-Api-Key":key,"X-Goog-FieldMask":"id,displayName,formattedAddress,googleMapsUri,primaryTypeDisplayName"}};
+     init={method:"GET",headers:{"X-Goog-Api-Key":key,"X-Goog-FieldMask":"id,displayName,formattedAddress,googleMapsUri,primaryTypeDisplayName,location"}};
    }else{
      if(parsed.query.length<3)return json({error:"O link não contém um nome de local válido."},422);
      url="https://places.googleapis.com/v1/places:searchText";
