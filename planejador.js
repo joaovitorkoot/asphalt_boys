@@ -11,7 +11,7 @@
  const mapping=id=>id==='canoa'?'canoa-quebrada':id;
  const categories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
  const normalize=c=>/café|cafe/i.test(c)?'cafe':/restaurante|almo/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
- const initial={guaramiranga:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'https://asphalt-boys.pages.dev/imagens/IMG_9038.jpeg',fonteFoto:'',linkFoto:''}]};
+ // O D1 é a fonte de verdade. Não há paradas fixas no código que possam reaparecer após exclusão.
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
@@ -20,10 +20,8 @@
  function mergeData(a){if(!a||!['destinos','paradas','rotas'].every(k=>Array.isArray(a[k])))return false;data=a;return true}
  function currentStops(){
    if(!destination)return[];
-   const destId=mapping(destination.id),stored=data.paradas.filter(p=>p.destinoId===destId);
-   const seeds=initial[destId]||[];
-   const combined=stored.map(p=>{const found=seeds.find(s=>s.id===p.id||s.nome.toLowerCase()===String(p.nome||'').toLowerCase());return found?Object.assign({},found,p,{foto:p.foto||found.foto,fonteFoto:p.fonteFoto||found.fonteFoto||'',linkFoto:p.linkFoto||found.linkFoto||''}):p});
-   return combined.concat(seeds.filter(p=>!stored.some(x=>x.id===p.id||String(x.nome||'').toLowerCase()===p.nome.toLowerCase())));
+   const destId=mapping(destination.id);
+   return data.paradas.filter(p=>p.destinoId===destId);
  }
  function currentRoutes(){return destination?data.rotas.filter(r=>r.destinoId===mapping(destination.id)):[]}
  function stopById(id){return currentStops().find(p=>p.id===id)}
