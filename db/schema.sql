@@ -9,3 +9,11 @@ CREATE TABLE IF NOT EXISTS site_content (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_ab_content_public ON site_content (status,kind,destino_id);
+
+-- Fotos compactadas enviadas pelo painel (usar o mesmo DB binding já configurado).
+CREATE TABLE IF NOT EXISTS site_images (
+  id TEXT PRIMARY KEY NOT NULL,
+  mime TEXT NOT NULL,
+  data BLOB NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

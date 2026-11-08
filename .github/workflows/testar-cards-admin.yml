@@ -1,0 +1,26 @@
+name: Testar cards admin
+on:
+  push:
+    branches: [feature/admin-selecionar-card-viagem]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax and card isolation checks
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const html=fs.readFileSync('admin.html','utf8');
+          const js=html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>'));
+          new vm.Script(js);
+          new vm.Script(fs.readFileSync('planejador.js','utf8'));
+          for (const m of ['function destinationPicker()', 'v.destinoId=selectedDestId;', "v.id=creatingNewDestination?slugForDestination(v.nome):selectedDestId;", 'async function onPhotoChosen('])assert(html.includes(m),'missing: '+m);
+          for(const file of ['functions/api/image-upload.js','functions/api/image.js'])await import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync(file)).toString('base64'));
+          console.log('PASS: admin and server scripts, card association');
+          NODE

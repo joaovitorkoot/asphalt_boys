@@ -179,7 +179,7 @@
    }
    for(const p of data.destinos){
     let existing=lugares.find(l=>mapping(l.id)===p.id);
-    if(existing){if(p.descricao)existing.sub=p.descricao;if(httpsUrl(p.foto)){existing.img=p.foto;existing.cover=p.foto}if(p.mapa)existing.dest=p.mapa}
+    if(existing){if(p.nome)existing.nome=p.nome;if(p.descricao)existing.sub=p.descricao;if(httpsUrl(p.foto)){existing.img=p.foto;existing.cover=p.foto}if(p.mapa)existing.dest=p.mapa}
     else lugares.push({id:p.id,nome:p.nome,sub:p.descricao||'Explore este destino',img:httpsUrl(p.foto)||'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=80',note:'Destino do grupo',dest:p.mapa||p.nome});
    }
    if(typeof renderAsphaltCards==='function')renderAsphaltCards();
