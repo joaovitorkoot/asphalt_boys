@@ -1096,8 +1096,8 @@ function renderPublicationQueue(){
     const local=source==='local';
     const duplicate=kind==='paradas'?originalForDuplicate(record):null;
     const status=duplicate?'⚠️ Cópia repetida — não publique':local?'📱 Apenas neste aparelho':'📝 Salvo no banco · não publicado';
-    const disabled=!remote?' disabled aria-disabled="true"':'';
-    const title=local?'Publicar envia este rascunho do aparelho para o banco':'Publicar a versão salva no banco';
+    const disabled=!remote||duplicate?' disabled aria-disabled="true"':'';
+    const title=duplicate?'Remova a cópia duplicada e preserve o cadastro original':local?'Publicar envia este rascunho do aparelho para o banco':'Publicar a versão salva no banco';
     return '<article class="border border-zinc-700 bg-[#21252c] p-3 rounded-xl mb-2 last:mb-0">'+
       '<div class="flex gap-3 items-start">'+
        (photo?'<img src="'+esc(photo)+'" class="rounded-md w-16 h-16 object-cover flex-none" alt="" loading="lazy">':
