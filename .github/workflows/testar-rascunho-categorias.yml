@@ -26,7 +26,7 @@ jobs:
           const rstart=html.indexOf('function render(resetPicker=true){');
           const rstop=html.indexOf(" document.querySelectorAll('[data-select-dest]')",rstart);
           assert(rstart>0&&rstop>rstart,'render() not found');
-          const renderStart=html.slice(rstart,rstop)+'\\n}';
+          const renderStart=html.slice(rstart,rstop)+'\n}';
           const fields={'#sectionTitle':{},'#sectionHelp':{},'#editor':{},'#listing':{}};
           const renderContext={
             tab:'paradas',selectedDestId:'guaramiranga',editing:null,
@@ -37,9 +37,9 @@ jobs:
             form:()=>'<form id="recordForm"></form>',
             restoreUnfinishedForm:()=>false,$:selector=>fields[selector]||{}
           };
-          vm.runInNewContext(renderStart+'\\nrender()',renderContext);
+          vm.runInNewContext(renderStart+'\nrender()',renderContext);
           assert.equal(fields['#editor'].innerHTML,'<form id="recordForm"></form>');
-          assert(!html.includes("const form=$('#recordForm');\\n if(form){"),'render local shadows form()');
+          assert(!html.includes("const form=$('#recordForm');\n if(form){"),'render local shadows form()');
           const start=html.indexOf('const FORM_DRAFT_PREFIX=');
           const end=html.indexOf('function render(resetPicker=true)',start);
           assert(start>=0&&end>start);
