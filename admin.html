@@ -80,6 +80,7 @@ function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&typ
 let draft=local(),data=copy(draft),remote=false,token='',sessionReady=false,tab='destinos',editing=null,picked=[],busy=false,photoUploading=false,selectedDestId='',creatingNewDestination=false,selectedStopCategory='turismo';
 let placeMatches=[],placeSearchSeq=0,importMatches=[],mapsImportSeq=0,adminPhotoObserver=null,mapsLinkDraft={destinos:'',paradas:'',rotas:''};
 let photoSourceFile=null,photoSourceMeta=null,photoSourceForm=null,photoAppliedMode='',photoSourceKey='';
+let categoryUserEdited=false,categorySuggestionSeq=0;
 function announce(msg){$('#connection').textContent=msg}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
 function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
@@ -104,7 +105,14 @@ function stopCategoriesMarkup(record={}){
   '<input id="f_categoria" type="hidden" name="categoria" value="'+esc(primary)+'">'+
   '<div class="grid sm:grid-cols-2 gap-2">'+stopCategories.map(([id,label])=>
    '<label class="photoFrameChoice"><input type="checkbox" name="categorias" value="'+id+'" '+(values.includes(id)?'checked':'')+'><span class="font-bold text-sm">'+esc(label)+'</span></label>').join('')+
-  '</div><p id="categorySelectionStatus" class="tiny mt-2" role="status">Marque todas as categorias em que esta parada deve aparecer.</p></fieldset>';
+  '</div><p id="categorySelectionStatus" class="tiny mt-2" role="status">Marque todas as categorias em que esta parada deve aparecer.</p>'+
+  '<div id="categorySuggestBox" class="rounded-xl bg-[#1c2229] border border-orange-500/30 p-3 mt-3" hidden>'+
+   '<strong class="text-sm text-orange-200">✨ Sugestões do Google Maps</strong>'+
+   '<p id="categorySuggestStatus" class="tiny mt-1" role="status"></p>'+
+   '<div id="categorySuggestItems" class="space-y-1 mt-2"></div>'+
+   '<button type="button" id="applySuggestedCategories" class="subbtn text-sm mt-3" hidden>✓ Aplicar categorias sugeridas</button>'+
+   '<details id="categoryGoogleHours" class="mt-2" hidden><summary class="tiny cursor-pointer underline">Conferir os horários informados pelo Google</summary><div id="categoryGoogleHoursList" class="tiny mt-2 space-y-1"></div></details>'+
+  '</div></fieldset>';
 }
 function storedStops(destId){return data.paradas.filter(p=>p.destinoId===destId)}
 function builtInStop(id){return publicSeedStops.find(p=>p.id===id)}
@@ -711,10 +719,80 @@ function applyGooglePlace(place,fromPastedLink=false){
   if(description&&!description.value.trim()&&place.category)description.value=place.category;
  }
  if(tab==='paradas'){
+  suggestImportedPlaceCategories(place);
   const status=$('#coordinatesStatus');
   if(status)status.textContent=place.mapCoordinates?'GPS confirmado: '+place.mapCoordinates:'Link original preservado. Você pode abrir e conferir antes de salvar.';
  }
  const name=$('#f_nome');if(name)name.focus();
+}
+async function suggestImportedPlaceCategories(place){
+ if(tab!=='paradas')return;
+ const seq=++categorySuggestionSeq;
+ const box=$('#categorySuggestBox'),status=$('#categorySuggestStatus'),list=$('#categorySuggestItems');
+ const action=$('#applySuggestedCategories'),hoursBox=$('#categoryGoogleHours'),hoursList=$('#categoryGoogleHoursList');
+ const formAtStart=$('#recordForm');
+ if(!box||!status||!list||!action||!hoursBox||!hoursList)return;
+ box.hidden=false;list.replaceChildren();hoursList.replaceChildren();hoursBox.hidden=true;action.hidden=true;
+ const id=String(place?.id||'');
+ if(!/^[a-zA-Z0-9_-]{5,250}$/.test(id)){
+  status.textContent='Este link é um ponto GPS sem ficha de estabelecimento identificada. Escolha as categorias manualmente.';
+  return;
+ }
+ status.textContent='Analisando tipo de local e horários do Google Maps...';
+ try{
+  const response=await fetch('./api/category-suggest',{
+   method:'POST',headers:{...(token?{'Authorization':'Bearer '+token}:{}),'Content-Type':'application/json'},
+   body:JSON.stringify({placeId:id}),cache:'no-store'
+  });
+  const data=await response.json();
+  if(seq!==categorySuggestionSeq||!box.isConnected||formAtStart!==$('#recordForm'))return;
+  if(!response.ok)throw Error(data.error||'Falha na consulta ao Google Maps.');
+  const proposals=Array.isArray(data.suggestions)?
+   data.suggestions.filter(x=>stopCategories.some(([cat])=>cat===x.id)):[];
+  const ids=[...new Set(proposals.map(x=>x.id))];
+  const manual=categoryUserEdited||!!editing;
+  const apply=()=>{
+   if(seq!==categorySuggestionSeq||formAtStart!==$('#recordForm'))return;
+   const options=[...document.querySelectorAll('input[name="categorias"]')];
+   for(const input of options)input.checked=ids.includes(input.value);
+   const primary=$('#f_categoria');
+   if(primary&&!ids.includes(primary.value))primary.value=ids[0]||'';
+   const info=$('#categorySelectionStatus');
+   if(info)info.textContent='✓ Sugestões marcadas: '+ids.map(categoryLabel).join(' e ')+'. Revise antes de salvar.';
+   storeUnfinishedForm();
+  };
+  status.textContent=String(data.note||'Revise as categorias sugeridas.');
+  for(const proposal of proposals){
+   const row=document.createElement('p');row.className='tiny';
+   row.textContent=categoryLabel(proposal.id)+' — '+String(proposal.reason||'Sugestão da ficha Google.');
+   list.appendChild(row);
+  }
+  if(Array.isArray(data.hours)&&data.hours.length){
+   hoursBox.hidden=false;
+   for(const entry of data.hours.slice(0,7)){
+    const row=document.createElement('p');row.textContent=String(entry).slice(0,170);hoursList.appendChild(row);
+   }
+  }
+  if(!ids.length)return;
+  if(!manual){
+   apply();
+   const hint=document.createElement('p');hint.className='tiny text-orange-200 mt-2';
+   hint.textContent='✓ Já marquei as categorias para você. Confira se o local oferece esses serviços.';
+   list.appendChild(hint);
+  }else{
+   action.hidden=false;
+   action.onclick=()=>{
+    apply();categoryUserEdited=true;action.hidden=true;
+    status.textContent='✓ Sugestões aplicadas. Revise e salve quando estiver correto.';
+   };
+   const hint=document.createElement('p');hint.className='tiny mt-2';
+   hint.textContent='Mantive suas escolhas anteriores. Toque em Aplicar para usar estas sugestões.';
+   list.appendChild(hint);
+  }
+ }catch(error){
+  if(seq===categorySuggestionSeq&&box.isConnected&&formAtStart===$('#recordForm'))
+   status.textContent='Não foi possível sugerir: '+String(error.message||error)+'. Marque as categorias manualmente.';
+ }
 }
 function chooseRouteFromGoogle(route){
  const name=$('#f_nome'),desc=$('#f_descricao'),maps=$('#f_maps'),select=$('#f_destinoId');
@@ -919,6 +997,7 @@ function switchStopCategory(next){
 }
 
 function render(resetPicker=true){
+ categorySuggestionSeq++;categoryUserEdited=false;
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
  $('#sectionTitle').textContent=titles[tab];
  $('#sectionHelp').textContent={destinos:'Importe um destino pelo link do Google Maps ou pesquise pelo nome. Depois você pode editar e publicar.',paradas:'Busque locais no Google Maps, escolha a categoria e publique as paradas para os visitantes.',rotas:'Cole um link de trajeto do Google Maps para identificar paradas cadastradas, organizar e publicar uma rota.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
@@ -927,7 +1006,8 @@ function render(resetPicker=true){
  const keepPhoto=!!photoSourceFile&&photoSourceKey===unfinishedFormKey();
  if(!keepPhoto){photoSourceFile=null;photoSourceMeta=null;photoSourceForm=null;photoAppliedMode='';photoSourceKey=''}
  $('#editor').innerHTML=form();$('#listing').innerHTML='';
- restoreUnfinishedForm();
+ const recovered=restoreUnfinishedForm();
+ if(recovered&&tab==='paradas')categoryUserEdited=true;
  if(keepPhoto)photoSourceForm=$('#recordForm');
  document.querySelectorAll('[data-select-dest]').forEach(b=>b.onclick=()=>{
    selectedDestId=b.dataset.selectDest;creatingNewDestination=false;editing=null;picked=[];
@@ -955,7 +1035,7 @@ function render(resetPicker=true){
    '✓ Aparecerá em '+checked.map(categoryLabel).join(' e ')+' — uma foto e um cadastro.':
    'Marque ao menos uma categoria antes de salvar.';
  };
- choices.forEach(x=>x.addEventListener('change',syncCategoryChoice));
+ choices.forEach(x=>x.addEventListener('change',()=>{categoryUserEdited=true;syncCategoryChoice()}));
  if(choices.length)syncCategoryChoice();
  const mapsField=$('#f_maps');
  if(tab==='paradas'&&mapsField){
