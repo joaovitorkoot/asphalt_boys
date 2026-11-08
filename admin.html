@@ -876,12 +876,16 @@ function restoreUnfinishedForm(){
  let saved;
  try{saved=JSON.parse(localStorage.getItem(key)||'null')}catch{return false}
  if(!Array.isArray(saved?.values))return false;
+ const chosen=new Map();
  for(const [name,value] of saved.values){
-  for(const field of form.elements){
-   if(field.name!==name||field.type==='file')continue;
-   if(field.type==='radio'||field.type==='checkbox')field.checked=field.value===value;
-   else field.value=value;
-  }
+  if(!chosen.has(name))chosen.set(name,[]);
+  chosen.get(name).push(value);
+ }
+ for(const field of form.elements){
+  if(!field.name||field.type==='file')continue;
+  const values=chosen.get(field.name)||[];
+  if(field.type==='radio'||field.type==='checkbox')field.checked=values.includes(field.value);
+  else if(values.length)field.value=values[values.length-1];
  }
  const image=safeUrl($('#f_foto')?.value),preview=$('#photoPreview');
  if(preview&&image){preview.src=image;preview.hidden=false}
@@ -900,14 +904,13 @@ function switchStopCategory(next){
  let hasChanges=false;
  try{hasChanges=!!key&&!!localStorage.getItem(key)}catch{}
  if(form&&(hasChanges||photoSourceFile)){
-  const select=$('#f_categoria');
-  if(select)select.value=next;
+  // Mudar o filtro não altera as categorias marcadas no cadastro.
   storeUnfinishedForm();
- }else editing=null;
+ }else if(!editing)editing=null;
  tab='paradas';selectedStopCategory=next;
  render();
  const notice=$('#autoDraftNotice');
- if(form&&hasChanges&&notice)notice.textContent='✓ Categoria atualizada para '+categoryLabel(next)+'. Foto e demais dados preservados no rascunho.';
+ if(form&&hasChanges&&notice)notice.textContent='✓ Lista filtrada por '+categoryLabel(next)+'. Cadastro, foto e categorias marcadas preservados.';
  $('#stopCategoryBar')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -938,6 +941,18 @@ function render(resetPicker=true){
    b.onclick=()=>switchStopCategory(b.dataset.stopQuick);
  });
  document.querySelectorAll('[data-stop-category]').forEach(b=>b.onclick=()=>switchStopCategory(b.dataset.stopCategory));
+ const choices=[...document.querySelectorAll('input[name="categorias"]')];
+ const syncCategoryChoice=()=>{
+  const checked=choices.filter(x=>x.checked).map(x=>x.value);
+  const primary=$('#f_categoria');
+  if(primary&&!checked.includes(primary.value))primary.value=checked[0]||'';
+  const info=$('#categorySelectionStatus');
+  if(info)info.textContent=checked.length?
+   '✓ Aparecerá em '+checked.map(categoryLabel).join(' e ')+' — uma foto e um cadastro.':
+   'Marque ao menos uma categoria antes de salvar.';
+ };
+ choices.forEach(x=>x.addEventListener('change',syncCategoryChoice));
+ if(choices.length)syncCategoryChoice();
  const mapsField=$('#f_maps');
  if(tab==='paradas'&&mapsField){
   mapsField.addEventListener('input',()=>{
@@ -1030,7 +1045,8 @@ async function checkPublishedContent(){
    if(!received){problems.push(kind+': '+item.nome+' não aparece no site');continue}
    if(received.nome!==item.nome||String(received.foto||'')!==String(item.foto||'')||
       (kind!=='destinos'&&received.destinoId!==item.destinoId)||
-      (kind==='paradas'&&received.categoria!==item.categoria))
+      (kind==='paradas'&&(received.categoria!==item.categoria||
+       JSON.stringify(categoriesForStop(received).sort())!==JSON.stringify(categoriesForStop(item).sort()))))
      problems.push(kind+': dados diferentes para '+item.nome);
   }
   for(const item of current)if(!expected.some(p=>p.id===item.id))problems.push(kind+': cadastro publicado inesperado');
@@ -1095,13 +1111,13 @@ async function publishExistingStop(id){
  if(!record.nome?.trim()||!record.endereco?.trim()){
   alert('Antes de publicar, clique em Editar e informe o nome e endereço da parada.');return
  }
- if(!confirm('Publicar "'+record.nome+'" em '+(currentDestination()?.nome||selectedDestId)+' → '+categoryLabel(record.categoria)+'?'))return;
+ if(!confirm('Publicar "'+record.nome+'" em '+(currentDestination()?.nome||selectedDestId)+' → '+categoryLabelsForStop(record)+'?'))return;
  busy=true;
  const btn=document.querySelector('[data-publish-stop="'+id+'"]');
  if(btn){btn.disabled=true;btn.textContent='Publicando...'}
  try{
   const { _origin,...fields }=record;
-  const payload={...fields,id,destinoId:selectedDestId,categoria:normalize(record.categoria),status:'publicado'};
+  const payload={...fields,id,destinoId:selectedDestId,categoria:record.categoria,categorias:categoriesForStop(record),status:'publicado'};
   const result=await call('POST',{kind:'paradas',record:payload});
   const saved=result.record;
   data.paradas=data.paradas.filter(p=>p.id!==id).concat(saved);
@@ -1113,7 +1129,7 @@ async function publishExistingStop(id){
   if(!visible)throw Error('A parada foi salva, mas ainda não apareceu na API pública. Atualize o painel e verifique novamente.');
   editing=null;selectedStopCategory=normalize(saved.categoria);render();
   const destLink='./?dest='+encodeURIComponent(selectedDestId)+'&categoria='+encodeURIComponent(selectedStopCategory);
-  const statusText='✅ '+saved.nome+' publicado em '+(currentDestination()?.nome||selectedDestId)+' → '+categoryLabel(saved.categoria)+'. Atualize o site público para ver.';
+  const statusText='✅ '+saved.nome+' publicado em '+(currentDestination()?.nome||selectedDestId)+' → '+categoryLabelsForStop(saved)+'. Atualize o site público para ver.';
   announce(statusText);
   const note=$('#publicSyncStatus');
   if(note){note.textContent=statusText+' ';const link=document.createElement('a');link.href=destLink;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Ver no site';link.className='text-orange-300 underline font-bold';note.appendChild(link)}
@@ -1123,7 +1139,13 @@ async function publishExistingStop(id){
 async function saveRecord(e){
  e.preventDefault();if(busy)return;
  if(photoUploading){alert('Aguarde a foto terminar de enviar antes de salvar.');return}
- const v=Object.fromEntries(new FormData(e.target));
+ const formData=new FormData(e.target);
+ const v=Object.fromEntries(formData);
+ if(tab==='paradas'){
+  v.categorias=[...new Set(formData.getAll('categorias').filter(c=>stopCategories.some(([id])=>id===c)))];
+  if(!v.categorias.length){alert('Marque pelo menos uma categoria.');return}
+  if(!v.categorias.includes(v.categoria))v.categoria=v.categorias[0];
+ }
  if(tab==='destinos'){
    v.id=creatingNewDestination?slugForDestination(v.nome):selectedDestId;
    if(v.id==='guaramiranga')v.nome='Guaramiranga';
