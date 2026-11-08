@@ -21,6 +21,13 @@
  const mapping=id=>id==='canoa'?'canoa-quebrada':id;
  const categories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
  const normalize=c=>/café|cafe/i.test(c)?'cafe':/restaurante|almo/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
+ // Uma parada pode aparecer em várias categorias, sempre com o mesmo ID e foto.
+ const stopCategories=p=>{
+   const raw=Array.isArray(p?.categorias)&&p.categorias.length?p.categorias:[p?.categoria||'turismo'];
+   const valid=categories.map(([id])=>id);
+   return [...new Set(raw.filter(id=>valid.includes(id)))];
+ };
+ const categoryLabels=p=>stopCategories(p).map(id=>categories.find(([c])=>c===id)[1]).join(' · ');
  // O D1 é a fonte de verdade. Não há paradas fixas no código que possam reaparecer após exclusão.
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null;
  const urlParams=new URLSearchParams(location.search);
@@ -42,7 +49,7 @@
    panel.scrollTop=0;
  }
  function renderAvailable(){
-   const stops=currentStops().filter(p=>normalize(p.categoria)===category);
+   const stops=currentStops().filter(p=>stopCategories(p).includes(category));
    q('tripCategories').innerHTML=categories.map(([id,label])=>'<button type="button" class="tripCat" data-cat="'+id+'" aria-pressed="'+(category===id)+'">'+label+'</button>').join('');
    q('tripAvailable').innerHTML=stops.length?stops.map(p=>{
      const pic=httpsUrl(p.foto),dis=selected.includes(p.id),full=selected.length>=3,loc=String(p.endereco||'').trim();
@@ -50,7 +57,7 @@
   (httpsUrl(p.fotoFonteUrl)?' · <a href="'+esc(httpsUrl(p.fotoFonteUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Original</a>':'')+
   (httpsUrl(p.fotoLicencaUrl)?' · <a href="'+esc(httpsUrl(p.fotoLicencaUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Licença</a>':'')+
   '</p></details>':'';
-     return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categories.find(([id])=>id===normalize(p.categoria))[1])+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p>'+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Até 3 paradas':'+ Adicionar')+'</button></div></div></article>';
+     return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categoryLabels(p))+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p>'+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Até 3 paradas':'+ Adicionar')+'</button></div></div></article>';
    }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.</p>';
    loadPublicStopPhotos();
  }
@@ -147,8 +154,8 @@
   q('tripModalHero').hidden=true;
   q('tripStopPreview').hidden=false;
   q('tripPreviewName').textContent=p.nome;
-  const fallbackCategory=categories.find(([cat])=>cat===normalize(p.categoria));
-  q('tripPreviewCategory').textContent=fallbackCategory?fallbackCategory[1].replace(/^[^\s]+\s+/,''):'Ponto de parada';
+  q('tripPreviewCategory').textContent=stopCategories(p).length?
+   categoryLabels(p):'Ponto de parada';
   q('tripPreviewAddress').textContent=p.endereco||'Endereço ainda não cadastrado';
   q('tripPreviewDesc').textContent=p.descricao||'';
   const hoursDetails=q('tripHoursDetails');
