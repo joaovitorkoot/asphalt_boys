@@ -1,0 +1,88 @@
+name: Testar publicacao de paradas no cafe da manha
+on:
+  push:
+    branches: [fix/public-breakfast-stop-sync]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar publicacao rapida de parada local e leitura publica
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const page=fs.readFileSync('admin.html','utf8');
+          const planner=fs.readFileSync('planejador.js','utf8');
+          new vm.Script(page.slice(page.lastIndexOf('<script>')+8,page.lastIndexOf('</script>')));
+          new vm.Script(planner);
+          for(const term of [
+            'data-publish-stop', 'async function publishExistingStop(id)',
+            "result.record", "status:'publicado'", "await call('GET',undefined,false)",
+            "document.querySelectorAll('[data-publish-stop]')"
+          ])assert(page.includes(term),'Missing publish action: '+term);
+          assert(planner.includes("urlParams.get('categoria')"));
+          assert(planner.includes("Ainda não há paradas publicadas nesta categoria."));
+          const a=page.indexOf('async function publishExistingStop(id){'), b=page.indexOf('async function saveRecord(e){',a);
+          assert(a>=0&&b>a);
+          const fn=page.slice(a,b);
+          const existing={id:'quiosque-pico-alto',nome:'Quiosque Pico Alto',destinoId:'guaramiranga',
+            categoria:'cafe',endereco:'Pernambuquinho, Guaramiranga, Ceará',status:'rascunho',_origin:'local'};
+          let store=[{id:'pico-alto-parada',nome:'Pico Alto',destinoId:'guaramiranga',categoria:'turismo',status:'publicado'}];
+          let messages=[], saved=false,reqs=[],verified=false;
+          const note={textContent:'',appendChild(x){this.link=x}};
+          const state={
+            remote:true,token:'test-secret-longer-than-20-chars',busy:false,selectedDestId:'guaramiranga',
+            editableStops:()=>[existing],currentDestination:()=>({nome:'Guaramiranga'}),
+            categoryLabel:c=>c==='cafe'?'Café da manhã':c,
+            normalize:c=>c==='cafe'?'cafe':'turismo',
+            alert:x=>{throw Error('Unexpected alert '+x)},confirm:()=>true,
+            document:{querySelector:()=>({disabled:false,textContent:''}),createElement:()=>({})},
+            call:async(method,body,admin=true)=>{
+              reqs.push(method);
+              if(method==='POST'){
+                assert.equal(body.kind,'paradas');
+                assert.equal(body.record.id,'quiosque-pico-alto');
+                assert.equal(body.record.destinoId,'guaramiranga');
+                assert.equal(body.record.categoria,'cafe');
+                assert.equal(body.record.status,'publicado');
+                assert(!('_origin' in body.record));
+                const record=structuredClone(body.record);
+                store.push(record);return {record};
+              }
+              if(method==='GET'&&!admin){verified=true;return {paradas:store.filter(x=>x.status==='publicado')}}
+              throw Error('Unexpected action');
+            },
+            data:{paradas:[]},draft:{paradas:[existing]},saveLocal:()=>{saved=true},
+            render:()=>{},announce:msg=>messages.push(msg),
+            $:selector=>selector==='#publicSyncStatus'?note:null,encodeURIComponent,
+          };
+          const publish=vm.runInNewContext(fn+'\npublishExistingStop',state);
+          await publish(existing.id);
+          assert.equal(store.length,2);
+          assert(state.data.paradas.some(x=>x.nome==='Quiosque Pico Alto'&&x.status==='publicado'));
+          assert(state.draft.paradas[0].status==='publicado');
+          assert(saved&&verified);
+          assert(note.link?.href.includes('dest=guaramiranga&categoria=cafe'));
+          assert(messages.some(x=>x.includes('publicado')));
+          console.log('PASS: Parada do cafe publicada no D1, rascunho local atualizado, consulta publica OK, link direto para cafe.');
+          NODE
+      - name: Conferir API publica atual, sem modificar dados
+        run: |
+          python3 - <<'PY'
+          import json,urllib.request
+          url='https://asphalt-boys.pages.dev/api/content'
+          req=urllib.request.Request(url,headers={'Accept':'application/json','Cache-Control':'no-cache','User-Agent':'AsphaltBoys-Healthcheck/1.0'})
+          with urllib.request.urlopen(req,timeout=25) as r:
+            assert r.status==200
+            d=json.load(r)
+          stops=d['paradas']
+          assert all(p.get('status')=='publicado' for p in stops)
+          for s in stops:
+            assert s.get('destinoId') and s.get('categoria') in ('cafe','almoco','turismo','descanso')
+          print('PASS: API publica',len(stops),'paradas publicadas; cafe em Guaramiranga:',sum(s.get('categoria')=='cafe' and s.get('destinoId')=='guaramiranga' for s in stops))
+          PY

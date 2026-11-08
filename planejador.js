@@ -39,7 +39,7 @@
    q('tripAvailable').innerHTML=stops.length?stops.map(p=>{
      const pic=httpsUrl(p.foto),dis=selected.includes(p.id),full=selected.length>=3,loc=String(p.endereco||'').trim();
      return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categories.find(([id])=>id===normalize(p.categoria))[1])+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p><div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Até 3 paradas':'+ Adicionar')+'</button></div></div></article>';
-   }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há paradas cadastradas nesta categoria. O administrador poderá adicioná-las pelo painel.</p>';
+   }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.</p>';
    loadPublicStopPhotos();
  }
  async function loadPublicStopPhoto(node){
@@ -114,7 +114,10 @@
  function open(id,share){
    destination=typeof lugares!=='undefined'?lugares.find(l=>l.id===id):null;
    if(!destination)return false;
-   focusBefore=document.activeElement;tab='custom';category='turismo';selected=[];presetId='';
+   focusBefore=document.activeElement;tab='custom';
+   const requestedCategory=urlParams.get('dest')===id?urlParams.get('categoria'):'';
+   category=categories.some(([cat])=>cat===requestedCategory)?requestedCategory:'turismo';
+   selected=[];presetId='';
    q('tripTitle').textContent=destination.nome;
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
