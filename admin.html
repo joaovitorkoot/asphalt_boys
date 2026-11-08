@@ -501,6 +501,7 @@ async function uploadCardPhoto(file,meta=null){
   setPhotoCredits(meta);
   const googleIndex=$('#f_googlePhotoIndex');if(googleIndex)googleIndex.value='0';
   if(preview){preview.src=uploadedUrl;preview.hidden=false}
+  storeUnfinishedForm();
   note.textContent='✓ Foto adaptada e armazenada! '+(meta?'Créditos preservados. ':'')+'Agora clique em Salvar no banco.';
   return true;
  }catch(err){if(note.isConnected)note.textContent='Não consegui salvar a foto: '+String(err.message||err);return false}
@@ -835,7 +836,7 @@ function storeUnfinishedForm(){
  if(!key||!form)return false;
  const values=[];
  for(const field of form.elements){
-  if(!field.name||field.type==='file'||field.disabled)continue;
+  if(!field.name||field.type==='file')continue;
   if((field.type==='radio'||field.type==='checkbox')&&!field.checked)continue;
   values.push([field.name,String(field.value||'').slice(0,3000)]);
  }
@@ -875,6 +876,7 @@ function clearUnfinishedForm(){
 }
 function switchStopCategory(next){
  if(!stopCategories.some(([id])=>id===next))return;
+ if(photoUploading){alert('O envio da foto ainda está em andamento. Conclua antes de trocar de categoria.');return;}
  const form=$('#recordForm'),key=unfinishedFormKey();
  let hasChanges=false;
  try{hasChanges=!!key&&!!localStorage.getItem(key)}catch{}
