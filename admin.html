@@ -42,7 +42,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 <script>
 (function(){
 const KEY='asphalt-boys-admin-drafts-v1', API='./api/content';
-const seed={destinos:[{id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',mapa:'Guaramiranga, CE',status:'publicado'},{id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e litoral',mapa:'Canoa Quebrada, Aracati, CE',status:'publicado'}],paradas:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'https://asphalt-boys.pages.dev/imagens/IMG_9038.jpeg',status:'rascunho'}],rotas:[]};
+const seed={destinos:[{id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',mapa:'Guaramiranga, CE',status:'publicado'},{id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e litoral',mapa:'Canoa Quebrada, Aracati, CE',status:'publicado'}],paradas:[],rotas:[]};
 const types=['destinos','paradas','rotas']; const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const safeUrl=s=>{try{let u=new URL(String(s||''));return u.protocol==='https:'?u.href:''}catch{return ''}};
@@ -56,12 +56,8 @@ function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{a
 function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
 function listForDest(dest){return routeStops(dest)}
 const stopCategories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
-const publicSeedStops=[{
-  id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',
-  descricao:'Vista panorâmica do Maciço de Baturité.',
-  endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',
-  foto:'https://asphalt-boys.pages.dev/imagens/IMG_9038.jpeg',status:'publicado'
-}];
+// Paradas são gerenciadas pelo banco/rascunhos, nunca recriadas pelo código.
+const publicSeedStops=[];
 function categoryLabel(c){return stopCategories.find(([id])=>id===normalize(c))?.[1]||'📸 Pontos turísticos'}
 function storedStops(destId){return data.paradas.filter(p=>p.destinoId===destId)}
 function builtInStop(id){return publicSeedStops.find(p=>p.id===id)}
@@ -388,7 +384,7 @@ function listHtml(){
    (tab==='paradas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova parada</button>':tab==='rotas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova rota</button>':'')+
    '</div>'+
    (items.length?items.map(x=>{
-     const system=tab==='paradas'&&Boolean(builtInStop(x.id));
+     const system=false; // Inclusive as antigas paradas padrão agora podem ser excluídas.
      const origin=tab==='destinos'?'database':x._origin;
      const photo=safeUrl(x.foto);
      const autoGoogle=tab==='paradas'&&!photo;
@@ -726,14 +722,32 @@ async function saveRecord(e){
  }
 }
 async function removeRecord(id){
- if(tab==='paradas'&&builtInStop(id)){alert('Este local é padrão do site. Você pode editá-lo, mas não excluí-lo pelo painel.');return}
+ // Nenhuma parada é protegida apenas por ter sido incluída originalmente no código.
  const entry=tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===id):tab==='rotas'?editableRoutes(selectedDestId).find(x=>x.id===id):data[tab].find(x=>x.id===id);
- if(!entry||!confirm('Excluir '+entry.nome+'?'))return;
- if(remote&&entry._origin!=='local')try{await call('DELETE',{kind:tab,id})}catch(e){alert('Não foi excluído: '+e.message);return}
+ if(!entry)return;
+ if(tab==='paradas'){
+  const usingRoutes=editableRoutes(selectedDestId).filter(r=>Array.isArray(r.paradas)&&r.paradas.includes(id));
+  if(usingRoutes.length){
+   alert('Esta parada é usada em '+usingRoutes.length+' rota(s) pronta(s). Remova a parada dessas rotas antes de excluir, para não quebrar o roteiro.');
+   return;
+  }
+ }
+ const locationName=currentDestination()?.nome||selectedDestId;
+ if(!confirm('Excluir "'+entry.nome+'" de '+locationName+'?\n\nEla deixará de aparecer no site público. Esta ação não pode ser desfeita.'))return;
+ if(remote&&entry._origin!=='local'){
+  try{await call('DELETE',{kind:tab,id})}
+  catch(e){alert('Não foi excluído: '+e.message);return}
+ }
  data[tab]=data[tab].filter(x=>x.id!==id);
- if(remote){draft[tab]=draft[tab].filter(x=>x.id!==id);saveLocal()}
- else{draft=copy(data);saveLocal()}
+ draft[tab]=draft[tab].filter(x=>x.id!==id);saveLocal();
  editing=null;render();
+ if(remote){
+  try{
+   const publicData=await call('GET',undefined,false);
+   if(publicData[tab]?.some(x=>x.id===id))throw Error('O registro ainda aparece na API pública.');
+   announce('✅ '+entry.nome+' excluído do painel e confirmado como ausente do site público.');
+  }catch(e){announce('Exclusão enviada ao banco, mas não foi possível verificar o site público: '+String(e.message||e))}
+ }
 }
 function backupListeners(){
  $('#export').onclick=()=>{const blob=new Blob([JSON.stringify(draft,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='asphalt-boys-rascunhos.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
