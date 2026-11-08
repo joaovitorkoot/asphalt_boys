@@ -139,17 +139,33 @@ function slugForDestination(name){
  if(destinationsForPicker().some(x=>x.id===slug))slug+='-'+Math.random().toString(36).slice(2,7);
  return slug;
 }
+function photoCreditFields(record={}){
+ const keys=['fotoAutor','fotoLicenca','fotoLicencaUrl','fotoFonteUrl','fotoOrigem','fotoAdaptada'];
+ return keys.map(key=>'<input type="hidden" name="'+key+'" id="f_'+key+'" value="'+esc(record[key]||'')+'">').join('');
+}
 function photoPickerMarkup(){
  const enabled=remote&&!!token,tabName=tab==='destinos'?'destino':'parada';
  return '<div class="rounded-lg border border-zinc-600 p-3 mt-3">'+
   '<p class="font-bold text-sm">📸 Foto do '+tabName+'</p>'+
-  '<p class="tiny mt-1">Selecione uma foto do celular ou computador. Ela será adaptada automaticamente para '+(tab==='destinos'?'16:9 (card de viagem)':'1:1 (card de parada)')+', mantendo a foto inteira e preenchendo as bordas sem cortes.</p>'+
-  '<label class="subbtn inline-flex items-center cursor-pointer mt-3" for="photoFile">📷 Adicionar foto</label>'+
+  '<p class="tiny mt-1">Fotos adaptadas automaticamente para '+(tab==='destinos'?'16:9':'1:1')+' sem cortar a imagem original.</p>'+
+  '<section class="border border-orange-500/35 rounded-lg bg-orange-500/5 p-3 mt-3">'+
+   '<h4 class="font-bold text-sm">🔎 Buscar fotos gratuitas — sem Google Places</h4>'+
+   '<p class="tiny mt-1">Buscamos no Wikimedia Commons e Openverse. Confira se a foto realmente representa o local e veja a licença antes de escolher.</p>'+
+   '<label class="lbl" for="openPhotoQuery">Nome do local ou região</label>'+
+   '<div class="grid sm:grid-cols-[1fr_auto] gap-2"><input class="field" id="openPhotoQuery" type="search" autocomplete="off" maxlength="160" placeholder="Ex.: Pico Alto" value="'+esc($('#f_nome')?.value||'')+'">'+
+   '<button type="button" id="searchOpenPhotos" class="btn" '+(enabled?'':'disabled')+'>Buscar fotos</button></div>'+
+   '<p class="tiny mt-2">Para fotos da região (sem garantir que sejam do estabelecimento), use Buscar por região.</p>'+
+   '<button type="button" id="searchRegionPhotos" class="subbtn mt-2" '+(enabled?'':'disabled')+'>🌄 Buscar por região</button>'+
+   '<p id="openPhotosStatus" role="status" class="tiny mt-3">'+(enabled?'Busque pelo nome e selecione uma imagem licenciada.':'Conecte ao banco antes de buscar fotos.')+'</p>'+
+   '<div id="openPhotosGallery" class="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3"></div>'+
+  '</section>'+
+  '<label class="subbtn inline-flex items-center cursor-pointer mt-3" for="photoFile">📷 Enviar foto do dispositivo</label>'+
   '<input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp,image/avif" class="sr-only" aria-label="Adicionar foto do dispositivo">'+
-  (tab==='paradas'?'<div class="mt-3 border-t border-zinc-600 pt-3"><button type="button" id="browseGooglePhotos" class="subbtn text-sm" '+(enabled?'':'disabled')+'>🌄 Escolher foto do Google Maps</button>'+
-    '<p class="tiny mt-2">Busca exata pelo nome do local e destino. Sem foto própria, a primeira foto disponível do Google aparece automaticamente no card. Caso a API não entregue fotos, use Adicionar foto com autorização.</p>'+
-    '<div id="googlePhotoGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3" aria-label="Fotos do Google Maps"></div><p id="googlePhotoGalleryStatus" class="tiny mt-2" role="status"></p></div>':'')+
-  '<p id="photoUploadStatus" role="status" class="tiny mt-2">'+(enabled?'Escolha sua foto. Depois confira e salve o cadastro.':'Conecte ao banco antes de enviar uma imagem.')+'</p>'+
+  '<p id="photoLicensePreview" class="tiny mt-2"></p>'+
+  (tab==='paradas'?'<details class="mt-3 border-t border-zinc-600 pt-3"><summary class="tiny cursor-pointer">Busca antiga pelo Google Maps (opcional)</summary>'+
+    '<button type="button" id="browseGooglePhotos" class="subbtn text-sm mt-2" '+(enabled?'':'disabled')+'>Escolher foto do Google Maps</button>'+
+    '<div id="googlePhotoGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3"></div><p id="googlePhotoGalleryStatus" class="tiny mt-2" role="status"></p></details>':'')+
+  '<p id="photoUploadStatus" role="status" class="tiny mt-2">'+(enabled?'Selecione e salve a foto no cadastro.':'Conecte ao banco antes de enviar uma imagem.')+'</p>'+
   '<img id="photoPreview" alt="Prévia da foto selecionada" hidden class="rounded-lg w-full max-w-sm mt-3 object-contain bg-zinc-800 '+(tab==='destinos'?'aspect-video':'aspect-square')+'">'+
  '</div>';
 }
@@ -359,8 +375,8 @@ function form(){
  const d=tab==='destinos'?(creatingNewDestination?{}:(data.destinos.find(x=>x.id===selectedDestId)||currentDestination()||{})):(tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===editing):editableRoutes(selectedDestId).find(x=>x.id===editing))||{};
  const f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
  let fields='';
- if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoPickerMarkup();
- if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
+ if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup();
+ if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
  if(tab==='rotas'){const dest=selectedDestId;fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(dest)+'"><p class="tiny text-orange-300">Essa rota será adicionada somente a '+esc(currentDestination()?.nome||dest)+'.</p>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+f('maps','Link do trajeto no Google Maps','url')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
  return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
