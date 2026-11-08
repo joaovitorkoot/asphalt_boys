@@ -31,6 +31,24 @@
    return [...new Set(raw.filter(id=>valid.includes(id)))];
  };
  const categoryLabels=p=>stopCategories(p).map(id=>categories.find(([c])=>c===id)[1]).join(' · ');
+ // Aviso de possíveis erros de geolocalização nos destinos da serra.
+ // Nunca trocar automaticamente um local por outro de nome parecido.
+ function suspectStop(p){
+  if(!p)return '';
+  const address=String(p.endereco||'').trim();
+  if(/^(?:CE|BR)[-\\s]?\\d{2,3}(?:\\s*,\\s*\\d+)?$/i.test(address))
+   return 'Endereço contém somente o nome de uma rodovia.';
+  const gps=validCoords(p.mapCoordinates);
+  if(mapping(destination?.id)==='guaramiranga'&&gps){
+   const [lat,lon]=gps.split(',').map(Number);
+   const rad=Math.PI/180;
+   const dLat=(lat+4.2156)*rad,dLon=(lon+38.9585)*rad;
+   const a=Math.sin(dLat/2)**2+Math.cos(-4.2156*rad)*Math.cos(lat*rad)*Math.sin(dLon/2)**2;
+   const km=6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(Math.max(0,1-a)));
+   if(km>70)return 'Coordenadas a cerca de '+Math.round(km)+' km da região de Guaramiranga.';
+  }
+  return '';
+ }
  // O D1 é a fonte de verdade. Não há paradas fixas no código que possam reaparecer após exclusão.
  let reviewRequestEpoch=0;
  let originMode='gps';
@@ -146,18 +164,24 @@
    const p=stops.find(s=>s.id===id);
    const categoryNames=p?stopCategories(p).map(cat=>categories.find(([key])=>key===cat)?.[1]).filter(Boolean):[];
    const chips=categoryNames.map(name=>'<span class="tripPickedChip">'+esc(name)+'</span>').join('');
-   return '<div class="tripPicked"><span class="tripPickedIndex">'+(i+1)+'.</span><div class="tripPickedInfo"><div class="tripPickedName">'+esc(p?.nome||'Parada indisponível')+'</div><div class="tripPickedCategories">'+chips+'</div></div><div class="tripPickedActions"><button type="button" class="tripNavBtn" data-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="Mover parada para cima">↑</button><button type="button" class="tripNavBtn" data-down="'+i+'" '+(i===selected.length-1?'disabled':'')+' aria-label="Mover parada para baixo">↓</button><button type="button" class="tripNavBtn" data-remove="'+i+'" aria-label="Remover parada">×</button></div></div>';
+   const suspect=suspectStop(p);
+   const original=p?mapLink(p):'';
+   const check=original?'<a class="tripStopCheck" href="'+esc(original)+'" target="_blank" rel="noopener noreferrer" aria-label="Conferir local original no Google Maps: '+esc(p.nome)+'">📍 Ver ponto no Maps ↗</a>':'';
+   return '<div class="tripPicked"><span class="tripPickedIndex">'+(i+1)+'.</span><div class="tripPickedInfo"><div class="tripPickedName">'+esc(p?.nome||'Parada indisponível')+'</div><div class="tripPickedCategories">'+chips+'</div>'+(suspect?'<p class="tripStopWarning">⚠️ Localização suspeita: '+esc(suspect)+'</p>':'')+check+'</div><div class="tripPickedActions"><button type="button" class="tripNavBtn" data-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="Mover parada para cima">↑</button><button type="button" class="tripNavBtn" data-down="'+i+'" '+(i===selected.length-1?'disabled':'')+' aria-label="Mover parada para baixo">↓</button><button type="button" class="tripNavBtn" data-remove="'+i+'" aria-label="Remover parada">×</button></div></div>';
   }).join(''):'<p class="tripTiny">Nenhuma parada selecionada. Você pode explorar as categorias ou escolher uma rota pronta.</p>';
   q('tripCount').textContent=selected.length+' parada'+(selected.length===1?'':'s');
   q('tripRouteSummary').textContent=routeSummaryText();
   q('tripOpenMaps').disabled=selected.length>MAX_ROUTE_STOPS;
   q('tripOpenMaps').textContent=selected.length>APP_MAX_STOPS?'🗺️ Ver rota por trechos':selected.length>4?'🗺️ Tentar rota completa ('+selected.length+')':'🗺️ Abrir rota no Maps';
   q('tripOpenSegments').hidden=selected.length<=4||selected.length>APP_MAX_STOPS;
-  q('tripMapsHelp').textContent=selected.length>APP_MAX_STOPS
-   ?'Para não perder nenhuma das '+selected.length+' paradas, abra os trechos na ordem mostrada.'
-   :selected.length>4
-   ?'O aplicativo Maps pode aceitar as '+selected.length+' paradas. Se alguma sumir, use Abrir por trechos.'
-   :'Confira todas as paradas no Maps antes de iniciar.';
+  const suspicious=selected.map(stopById).filter(p=>suspectStop(p));
+   q('tripMapsHelp').textContent=suspicious.length
+    ?'⚠️ Confira a localização de '+suspicious.map(p=>p.nome).join(', ')+' antes de navegar. O cadastro pode criar um grande desvio.'
+    :selected.length>APP_MAX_STOPS
+    ?'Para não perder nenhuma das '+selected.length+' paradas, abra os trechos na ordem mostrada.'
+    :selected.length>4
+    ?'O aplicativo Maps pode aceitar as '+selected.length+' paradas. Se alguma sumir, use Abrir por trechos.'
+    :'Confira todas as paradas no Maps antes de iniciar.';
   q('tripRouteSegments').hidden=true;
   q('tripRouteSegments').replaceChildren();
  }
