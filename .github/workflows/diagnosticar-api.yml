@@ -66,5 +66,10 @@ jobs:
               if status==200 and result.get('available') and stop.get('maps'):
                 assert result.get('map')==stop['maps'],'Google substituiu o link original do Maps'
 
+          status,auth=get('/api/auth')
+          assert status==200,'API de login não respondeu em produção'
+          assert isinstance(auth.get('configured'),bool),'Estado da conta inválido'
+          assert auth.get('authenticated') is False,'API pública não pode afirmar sessão autenticada'
+          print('Producao: email login HTTP',status,'configurado',auth.get('configured'),'sessao anonima',not auth.get('authenticated'))
           print('PASS: diagnostico publico concluido sem editar registros e sem exibir credenciais')
           PY
