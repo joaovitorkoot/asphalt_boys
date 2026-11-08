@@ -33,7 +33,7 @@ jobs:
           assert(planner.includes('if(!httpsUrl(p.maps)&&httpsUrl(result.map))'));
           const helpers=planner.slice(planner.indexOf(' const httpsUrl=s=>'),planner.indexOf(' const mapLink=p=>'));
           const mapCode=planner.slice(planner.indexOf(' const mapLink=p=>'),planner.indexOf(' const mapping=id=>'));
-          const mapping=vm.runInNewContext(helpers+'\n'+mapCode+'\nmapLink');
+          const mapping=vm.runInNewContext(helpers+'\n'+mapCode+'\nmapLink',{URL});
           const original='https://maps.app.goo.gl/CCQuEH8HfXjQT5gG8';
           assert.equal(mapping({maps:original,googlePlaceId:'ChIJwrong'}),original,'Must open original shared Google Maps URL');
           const routeCode=planner.slice(planner.indexOf(' function googleUrl(){'),planner.indexOf(' function share(){'));
