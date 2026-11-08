@@ -51,13 +51,26 @@ jobs:
           assert.throws(()=>clean('paradas',{...fields,categorias:['cafe','invalida']}),/Categoria|categoria/);
           const as=admin.indexOf('function categoryLabel(c){'),ae=admin.indexOf('function storedStops(destId){',as);
           const adminHelpers=vm.runInNewContext(
-            "const stopCategories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Turismo'],['descanso','🏍️ Descanso']];\n"+
+            admin.slice(admin.indexOf('const stopCategories='),admin.indexOf('// Paradas são gerenciadas'))+'\n'+
             admin.slice(as,ae)+'\n({hasStopCategory,categoriesForStop,stopCategoriesMarkup})',
             {normalize:x=>x,selectedStopCategory:'cafe',esc:x=>String(x)});
           assert(adminHelpers.hasStopCategory(saved,'cafe'));
           assert(adminHelpers.hasStopCategory(saved,'almoco'));
           assert(!adminHelpers.hasStopCategory(saved,'turismo'));
-          const chooser=adminHelpers.stopCategoriesMarkup(saved);
+          const all=['cafe','almoco','cafe_tarde','jantar','turismo','descanso'];
+          const sample={...fields,categorias:all};
+          const savedSix=clean('paradas',sample);
+          assert.deepEqual(Array.from(savedSix.categorias),all);
+          assert.equal(savedSix.foto,fields.foto,'One photo for all six categories');
+          assert.equal(savedSix.id,fields.id,'No duplicate stop');
+          assert(adminHelpers.hasStopCategory(savedSix,'cafe_tarde'));
+          assert(adminHelpers.hasStopCategory(savedSix,'jantar'));
+          assert.equal(adminHelpers.categoriesForStop(savedSix).length,6);
+          const chooser=adminHelpers.stopCategoriesMarkup(savedSix);
+          assert(chooser.includes('value="cafe_tarde" checked'));
+          assert(chooser.includes('value="jantar" checked'));
+          assert(chooser.includes('value="cafe" checked'));
+          assert(chooser.includes('value="almoco" checked'));
           assert(chooser.includes('value="cafe" checked'));
           assert(chooser.includes('value="almoco" checked'));
           assert.equal(adminHelpers.categoriesForStop(legacy)[0],'almoco');
@@ -66,10 +79,20 @@ jobs:
           assert.deepEqual(Array.from(pub.stopCategories(saved)),['cafe','almoco']);
           assert.deepEqual(Array.from(pub.stopCategories(legacy)),['almoco']);
           assert(pub.categoryLabels(saved).includes('Almoço'));
+          assert.deepEqual(Array.from(pub.stopCategories(savedSix)),all);
+          assert(pub.categoryLabels(savedSix).includes('Café da tarde'));
+          assert(pub.categoryLabels(savedSix).includes('Jantar'));
+          assert(planner.includes("['cafe_tarde','🥐 Café da tarde']"));
+          assert(planner.includes("['jantar','🌙 Jantar']"));
+          assert(admin.includes('data-stop-quick="cafe_tarde"'));
+          assert(admin.includes('data-stop-quick="jantar"'));
+          assert(admin.includes('value="cafe_tarde" checked') || admin.includes("'+id+'"));
+          const homepage=fs.readFileSync('index.html','utf8');
+          assert(homepage.includes('grid-template-columns:repeat(3,minmax(0,1fr))'));
           assert(planner.includes('stopCategories(p).includes(category)'),'Public planner must use multi category filter');
           const listed=[saved].filter(p=>pub.stopCategories(p).includes('cafe'));
           const listed2=[saved].filter(p=>pub.stopCategories(p).includes('almoco'));
           assert.equal(listed.length,1);assert.equal(listed2.length,1);
           assert.strictEqual(listed[0],listed2[0],'Both tabs must reuse the same stop');
-          console.log('PASS: one D1 record, one photo and link, breakfast + lunch visible, legacy saved, invalid rejected');
+          console.log('PASS: 6 matching categories in admin + public site, 1 photo and record, legacy data preserved');
           NODE
