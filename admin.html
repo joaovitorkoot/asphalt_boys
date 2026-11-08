@@ -21,6 +21,7 @@ body{background:#0b0d10;color:#f5f5f4;font:15px/1.5 system-ui,-apple-system,Sego
 .pick{display:flex;gap:9px;align-items:center;padding:10px;border:1px solid #454b56;border-radius:9px}
 .pick input{width:18px;height:18px;accent-color:#fb923c}.tiny{font-size:12px;color:#aaafb9}
 button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
+[hidden]{display:none!important}
 </style>
 </head><body>
 <header class="border-b border-zinc-800"><div class="max-w-6xl mx-auto px-5 py-5 flex flex-wrap items-center justify-between gap-4"><a href="./" class="text-xl font-black italic">ASPHALT <span class="text-orange-400">BOYS</span></a><a href="./" class="text-sm text-zinc-300 underline">← Voltar ao site</a></div></header>
@@ -33,7 +34,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 </section>
 <div class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-5">
 <nav class="box p-3 h-fit grid sm:grid-cols-4 lg:grid-cols-1 gap-2" aria-label="Seções administrativas">
-<button type="button" class="tab" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button type="button" class="tab" data-tab="paradas" aria-selected="false">📍 Paradas</button><button type="button" class="tab" data-tab="rotas" aria-selected="false">🛣️ Rotas prontas</button><button type="button" class="tab" data-tab="backup" aria-selected="false">💾 Backup</button>
+<button type="button" class="tab" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button type="button" class="tab" data-tab="paradas" aria-selected="false">📍 Paradas</button><div id="adminStopQuickLinks" hidden class="sm:col-span-4 lg:col-span-1 grid grid-cols-2 lg:grid-cols-1 gap-1 pl-2 border-l-2 border-orange-500/40"><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe">☕ Café da manhã</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="almoco">🍽️ Almoço</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="turismo">📸 Pontos turísticos</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="descanso">🏍️ Descanso</button></div><button type="button" class="tab" data-tab="rotas" aria-selected="false">🛣️ Rotas prontas</button><button type="button" class="tab" data-tab="backup" aria-selected="false">💾 Backup</button>
 </nav>
 <section class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><div id="listing" class="mt-6"></div></section>
 </div>
@@ -48,25 +49,68 @@ const safeUrl=s=>{try{let u=new URL(String(s||''));return u.protocol==='https:'?
 const normalize=c=>/café|cafe/i.test(c)?'cafe':/almo|restaurante/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
 function copy(d){return JSON.parse(JSON.stringify(d))}
 function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&types.every(t=>Array.isArray(d[t]))?d:copy(seed)}catch{return copy(seed)}}
-let draft=local(),data=copy(draft),remote=false,token='',tab='destinos',editing=null,picked=[],busy=false,photoUploading=false,selectedDestId='',creatingNewDestination=false;
+let draft=local(),data=copy(draft),remote=false,token='',tab='destinos',editing=null,picked=[],busy=false,photoUploading=false,selectedDestId='',creatingNewDestination=false,selectedStopCategory='turismo';
 let placeMatches=[],placeSearchSeq=0,importMatches=[],mapsImportSeq=0,mapsLinkDraft={destinos:'',paradas:'',rotas:''};
 function announce(msg){$('#connection').textContent=msg}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
 function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
-function listForDest(dest){return data.paradas.filter(p=>p.destinoId===dest)}
-function categoryLabel(c){return ({cafe:'☕ Café da manhã',almoco:'🍽️ Almoço',turismo:'📸 Ponto turístico',descanso:'🏍️ Descanso'})[normalize(c)]}
+function listForDest(dest){return routeStops(dest)}
+const stopCategories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
+const publicSeedStops=[{
+  id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',
+  descricao:'Vista panorâmica do Maciço de Baturité.',
+  endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',
+  foto:'https://asphalt-boys.pages.dev/imagens/IMG_9038.jpeg',status:'publicado'
+}];
+function categoryLabel(c){return stopCategories.find(([id])=>id===normalize(c))?.[1]||'📸 Pontos turísticos'}
+function storedStops(destId){return data.paradas.filter(p=>p.destinoId===destId)}
+function builtInStop(id){return publicSeedStops.find(p=>p.id===id)}
+function editableStops(destId){
+  // Banco online tem prioridade. A parada padrão é exibida mesmo antes do primeiro cadastro no D1.
+  const map=new Map(publicSeedStops.filter(p=>p.destinoId===destId).map(p=>[p.id,{...p,_origin:'default'}]));
+  if(remote)for(const p of draft.paradas.filter(x=>x.destinoId===destId)){
+    const base=map.get(p.id);
+    const props=['nome','categoria','descricao','endereco','foto','horario','maps','googlePlaceId'];
+    const unchanged=base&&props.every(k=>String(base[k]||'')===String(p[k]||''));
+    if(!unchanged)map.set(p.id,{...p,_origin:'local'});
+  }
+  for(const p of storedStops(destId))map.set(p.id,{...p,_origin:remote?'database':'local'});
+  return [...map.values()];
+}
+function editableRoutes(destId){
+ const map=new Map();
+ if(remote)for(const r of draft.rotas.filter(x=>x.destinoId===destId))map.set(r.id,{...r,_origin:'local'});
+ for(const r of data.rotas.filter(x=>x.destinoId===destId))map.set(r.id,{...r,_origin:remote?'database':'local'});
+ return [...map.values()];
+}
+function routeStops(destId){
+  const map=new Map(publicSeedStops.filter(p=>p.destinoId===destId).map(p=>[p.id,p]));
+  for(const p of storedStops(destId))map.set(p.id,p);
+  return [...map.values()];
+}
+function stopCategoryTabs(){
+  if(tab!=='paradas')return '';
+  return '<section id="stopCategoryBar" class="rounded-xl border border-zinc-600 bg-[#1d2027] p-4 mb-4" aria-label="Categorias de paradas">'+
+   '<h3 class="text-lg font-black">2. Escolha a categoria da parada</h3>'+
+   '<p class="tiny mt-1 mb-3">As mesmas categorias disponíveis para o visitante na página de viagens.</p>'+
+   '<div class="grid grid-cols-2 lg:grid-cols-4 gap-2">'+stopCategories.map(([id,label])=>
+     '<button type="button" data-stop-category="'+id+'" aria-pressed="'+(selectedStopCategory===id)+'" class="subbtn text-left text-sm transition '+(selectedStopCategory===id?'!border-orange-400 !bg-orange-500/15 !text-orange-300':'')+'">'+esc(label)+' <span class="text-xs opacity-70">('+editableStops(selectedDestId).filter(p=>normalize(p.categoria)===id).length+')</span></button>').join('')+'</div>'+
+   '</section>';
+}
+
 function makeField(name,label,v,type='text',required=false){let common=' name="'+name+'" id="f_'+name+'" '+(required?'required':'');return '<label class="lbl" for="f_'+name+'">'+label+'</label>'+(type==='textarea'?'<textarea class="field" rows="3"'+common+'>'+esc(v||'')+'</textarea>':'<input class="field" type="'+type+'"'+common+' value="'+esc(v||'')+'">')}
 function opt(items,v){return '<option value="">Selecione...</option>'+items.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===v?'selected':'')+'>'+esc(x.nome)+'</option>').join('')}
 function drop(name,label,options,value){return '<label class="lbl" for="f_'+name+'">'+label+'</label><select class="field" id="f_'+name+'" name="'+name+'">'+options.map(([k,v])=>'<option value="'+esc(k)+'" '+(k===value?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select>'}
 
 // A seleção do card de viagem determina onde cada cadastro será salvo.
 const baseDestinations=[
- {id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',mapa:'Guaramiranga, CE',status:'rascunho'},
- {id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e litoral',mapa:'Canoa Quebrada, Aracati, CE',status:'rascunho'}
+ {id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',mapa:'Guaramiranga, CE',status:'publicado'},
+ {id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e litoral',mapa:'Canoa Quebrada, Aracati, CE',status:'publicado'}
 ];
 function destinationsForPicker(){
  const byId=new Map(baseDestinations.map(d=>[d.id,d]));
- for(const d of data.destinos)byId.set(d.id,{...byId.get(d.id),...d});
+ if(remote)for(const d of draft.destinos)if(!byId.has(d.id)&&!data.destinos.some(x=>x.id===d.id))byId.set(d.id,{...d,_origin:'local'});
+ for(const d of data.destinos)byId.set(d.id,{...byId.get(d.id),...d,_origin:remote?'database':'local'});
  return [...byId.values()];
 }
 function currentDestination(){
@@ -75,8 +119,8 @@ function currentDestination(){
 function destinationPicker(){
  const cards=destinationsForPicker().map(d=>{
    const active=!creatingNewDestination&&selectedDestId===d.id;
-   const cnt=data.paradas.filter(p=>p.destinoId===d.id).length;
-   const n=data.rotas.filter(r=>r.destinoId===d.id).length;
+   const cnt=editableStops(d.id).length;
+   const n=editableRoutes(d.id).length;
    const img=safeUrl(d.foto);
    return '<button type="button" data-select-dest="'+esc(d.id)+'" aria-pressed="'+active+'" class="text-left rounded-xl border p-3 transition '+(active?'border-orange-400 bg-orange-500/15':'border-zinc-600 hover:border-orange-400 bg-[#22262c]')+'">'+
       (img?'<img class="rounded-lg w-full h-24 object-cover mb-2" alt="" src="'+esc(img)+'" loading="lazy">':'<div class="h-16 text-3xl mb-1" aria-hidden="true">'+(d.id==='canoa-quebrada'?'🏖️':'🏍️')+'</div>')+
@@ -178,25 +222,54 @@ function placeLookupMarkup(){
 function form(){
  if(tab==='backup')return '<p class="muted mb-4">Guarde uma cópia dos seus cadastros. A importação substitui somente os rascunhos locais, nunca altera o banco público.</p><div class="flex flex-wrap gap-2"><button type="button" class="btn" id="export">Exportar JSON</button><label class="subbtn cursor-pointer">Importar JSON<input id="import" type="file" accept=".json,application/json" class="hidden"></label></div>';
  if(!selectedDestId&&!creatingNewDestination)return destinationPicker();
- const d=tab==='destinos'?(creatingNewDestination?{}:(data.destinos.find(x=>x.id===selectedDestId)||currentDestination()||{})):(data[tab].find(x=>x.id===editing&&x.destinoId===selectedDestId)||{});
+ const d=tab==='destinos'?(creatingNewDestination?{}:(data.destinos.find(x=>x.id===selectedDestId)||currentDestination()||{})):(tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===editing):editableRoutes(selectedDestId).find(x=>x.id===editing))||{};
  const f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
  let fields='';
  if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoPickerMarkup();
- if(tab==='paradas')fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
+ if(tab==='paradas')fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
  if(tab==='rotas'){const dest=selectedDestId;fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(dest)+'"><p class="tiny text-orange-300">Essa rota será adicionada somente a '+esc(currentDestination()?.nome||dest)+'.</p>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+f('maps','Link do trajeto no Google Maps','url')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
- return destinationPicker()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
+ return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
 }
 function renderPicker(){
  const el=$('#routePicker');if(!el)return;
  const dest=$('#f_destinoId').value;
- el.innerHTML=listForDest(dest).map(p=>'<div class="pick"><input aria-label="Selecionar '+esc(p.nome)+'" type="checkbox" data-pick="'+esc(p.id)+'" '+(picked.includes(p.id)?'checked':'')+'><span class="text-sm flex-1">'+esc(p.nome)+' <span class="tiny">('+esc(categoryLabel(p.categoria))+')</span></span></div>').join('')+'<div class="mt-3">'+picked.map((id,i)=>{const p=data.paradas.find(x=>x.id===id);return p?'<div class="flex gap-2 items-center border-b border-zinc-700 py-2 text-sm"><span class="flex-1">'+(i+1)+'. '+esc(p.nome)+'</span><button type="button" class="subbtn" data-up="'+i+'" '+(i===0?'disabled':'')+'>↑</button><button type="button" class="subbtn" data-down="'+i+'" '+(i===picked.length-1?'disabled':'')+'>↓</button></div>':''}).join('')+'</div>';
+ el.innerHTML=listForDest(dest).map(p=>'<div class="pick"><input aria-label="Selecionar '+esc(p.nome)+'" type="checkbox" data-pick="'+esc(p.id)+'" '+(picked.includes(p.id)?'checked':'')+'><span class="text-sm flex-1">'+esc(p.nome)+' <span class="tiny">('+esc(categoryLabel(p.categoria))+')</span></span></div>').join('')+'<div class="mt-3">'+picked.map((id,i)=>{const p=routeStops(dest).find(x=>x.id===id);return p?'<div class="flex gap-2 items-center border-b border-zinc-700 py-2 text-sm"><span class="flex-1">'+(i+1)+'. '+esc(p.nome)+'</span><button type="button" class="subbtn" data-up="'+i+'" '+(i===0?'disabled':'')+'>↑</button><button type="button" class="subbtn" data-down="'+i+'" '+(i===picked.length-1?'disabled':'')+'>↓</button></div>':''}).join('')+'</div>';
 }
 function listHtml(){
- if(tab==='backup')return '';
- const items=tab==='destinos'?data.destinos.filter(x=>x.id===selectedDestId):data[tab].filter(x=>x.destinoId===selectedDestId);
- if(!selectedDestId||creatingNewDestination)return '';
- return '<h3 class="font-bold text-lg mb-3">Cadastrados neste card ('+items.length+')</h3>'+(items.length?items.map(x=>'<article class="card mb-3"><div class="flex flex-wrap items-start gap-3 justify-between"><div class="min-w-0 flex-1"><div class="flex flex-wrap gap-2 items-center"><strong>'+esc(x.nome)+'</strong><span class="pill '+(x.status==='publicado'?'published':'')+'">'+(x.status==='publicado'?'Publicado':'Rascunho')+'</span></div><p class="muted text-sm mt-1">'+esc(x.descricao||((tab==='paradas')?categoryLabel(x.categoria):''))+'</p>'+(x.destinoId?'<p class="tiny mt-1">Destino: '+esc(data.destinos.find(d=>d.id===x.destinoId)?.nome||x.destinoId)+'</p>':'')+(tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas · '+(x.paradas||[]).map(id=>esc(data.paradas.find(p=>p.id===id)?.nome||id)).join(' → ')+'</p>':'')+(tab==='rotas'?'<a class="text-orange-300 text-xs underline mt-2 block" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote?'':'&preview=local')+'">Abrir prévia da rota ↗</a>':'')+(safeUrl(x.maps)?'<a class="text-orange-300 text-xs underline mt-2 block" target="_blank" rel="noopener noreferrer" href="'+esc(safeUrl(x.maps))+'">Ver no Google Maps ↗</a>':'')+'</div><div class="flex gap-2"><button type="button" class="subbtn text-xs" data-edit="'+esc(x.id)+'">Editar</button><button type="button" class="subbtn text-xs text-red-300" data-delete="'+esc(x.id)+'">Excluir</button></div></div></article>').join(''):'<p class="muted text-sm">'+(tab==='destinos'?'Este card existe no site, mas ainda não foi personalizado no banco. Edite os campos acima e salve para atualizar apenas este card.':'Nenhum cadastro neste card de viagem.')+'</p>');
+ if(tab==='backup'||!selectedDestId||creatingNewDestination)return '';
+ let items;
+ if(tab==='destinos')items=data.destinos.filter(x=>x.id===selectedDestId);
+ else if(tab==='paradas')items=editableStops(selectedDestId).filter(x=>normalize(x.categoria)===selectedStopCategory);
+ else items=editableRoutes(selectedDestId);
+ const category=tab==='paradas'?categoryLabel(selectedStopCategory):'';
+ const heading=tab==='paradas'?category+' · '+items.length+' local(is)':tab==='rotas'?'Rotas cadastradas · '+items.length:'Dados do card · '+items.length;
+ return '<section class="mb-5 rounded-xl border border-zinc-700 p-4 bg-[#14171c]" id="existingRecords">'+
+   '<div class="flex flex-wrap gap-2 justify-between items-center mb-3"><div><h3 class="font-black text-lg">'+esc(heading)+'</h3>'+
+   '<p class="tiny mt-1">'+(tab==='paradas'?'Abra um local já existente para editar seus dados, foto, categoria ou link.':'Abra um cadastro existente para editar sem criar outro.')+'</p></div>'+
+   (tab==='paradas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova parada</button>':tab==='rotas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova rota</button>':'')+
+   '</div>'+
+   (items.length?items.map(x=>{
+     const system=tab==='paradas'&&Boolean(builtInStop(x.id));
+     const origin=tab==='destinos'?'database':x._origin;
+     const photo=safeUrl(x.foto);
+     const badge=origin==='default'?'Padrão do site':origin==='local'?'Rascunho local':x.status==='publicado'?'Publicado':'Rascunho';
+     const icon=photo?'<img src="'+esc(photo)+'" class="w-20 h-16 object-cover rounded-md flex-none" alt="" loading="lazy">':'<div class="w-14 h-14 rounded-md bg-zinc-800 flex items-center justify-center flex-none text-2xl">'+(tab==='paradas'?'📍':'🏍️')+'</div>';
+     return '<article class="rounded-xl border border-zinc-700 p-3 mb-2 bg-[#21252c]">'+
+       '<div class="flex gap-3 items-start">'+icon+'<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2">'+
+       '<strong class="break-words">'+esc(x.nome)+'</strong><span class="pill '+(x.status==='publicado'?'published':'')+'">'+esc(badge)+'</span></div>'+
+       '<p class="tiny mt-1">'+esc(x.descricao||x.endereco||'')+'</p>'+
+       (tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas</p>':'')+
+       (origin==='local'&&remote?'<p class="text-xs text-amber-300 mt-1">Salvo apenas neste navegador. Abra e salve no banco para sincronizar.</p>':'')+
+       (origin==='default'?'<p class="tiny mt-1">Já aparece no site. Você pode personalizar e salvar no banco.</p>':'')+
+       (safeUrl(x.maps)?'<a class="text-xs text-orange-300 underline mt-2 block" target="_blank" rel="noopener noreferrer" href="'+esc(safeUrl(x.maps))+'">Google Maps</a>':'')+
+       '</div></div><div class="flex flex-wrap gap-2 mt-3">'+
+       '<button type="button" class="subbtn text-sm" data-edit="'+esc(x.id)+'">✏️ Editar</button>'+
+       (system?'':'<button type="button" class="subbtn text-sm text-red-300" data-delete="'+esc(x.id)+'">Excluir</button>')+
+       (tab==='rotas'?'<a class="subbtn text-sm" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote&&origin!=='local'?'':'&preview=local')+'">Ver rota</a>':'')+
+       '</div></article>';
+   }).join(''):'<p class="muted text-sm">'+(tab==='paradas'?'Nenhum local nesta categoria para '+esc(currentDestination()?.nome||selectedDestId)+'. Toque em + Nova parada.':tab==='destinos'?'Este card já existe no site; edite as informações no formulário abaixo.':'Nenhuma rota cadastrada neste destino.')+'</p>')+
+   '</section>';
 }
 
 function normalizedPlaceName(value){
@@ -345,9 +418,9 @@ function render(resetPicker=true){
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
  $('#sectionTitle').textContent=titles[tab];
  $('#sectionHelp').textContent={destinos:'Importe um destino pelo link do Google Maps ou pesquise pelo nome. Depois você pode editar e publicar.',paradas:'Busque locais no Google Maps, escolha a categoria e publique as paradas para os visitantes.',rotas:'Cole um link de trajeto do Google Maps para identificar paradas cadastradas, organizar e publicar uma rota.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
- if(resetPicker&&tab==='rotas')picked=[...(data.rotas.find(x=>x.id===editing)?.paradas||[])];
+ if(resetPicker&&tab==='rotas')picked=[...(editableRoutes(selectedDestId).find(x=>x.id===editing)?.paradas||[])];
  placeSearchSeq++;placeMatches=[];mapsImportSeq++;importMatches=[];
- $('#editor').innerHTML=form();$('#listing').innerHTML=listHtml();
+ $('#editor').innerHTML=form();$('#listing').innerHTML='';
  document.querySelectorAll('[data-select-dest]').forEach(b=>b.onclick=()=>{
    selectedDestId=b.dataset.selectDest;creatingNewDestination=false;editing=null;picked=[];
    render();$('#editor').scrollIntoView({behavior:'smooth',block:'start'});
@@ -355,6 +428,20 @@ function render(resetPicker=true){
  const createButton=$('#newDestinationButton');
  if(createButton)createButton.onclick=()=>{selectedDestId='';creatingNewDestination=true;editing=null;render();};
  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));
+ const quick=$('#adminStopQuickLinks');if(quick)quick.hidden=tab!=='paradas';
+ document.querySelectorAll('[data-stop-quick]').forEach(b=>{
+   const active=tab==='paradas'&&b.dataset.stopQuick===selectedStopCategory;
+   b.setAttribute('aria-pressed',String(active));
+   b.classList.toggle('text-orange-300',active);
+   b.classList.toggle('bg-orange-500/15',active);
+   b.onclick=()=>{tab='paradas';selectedStopCategory=b.dataset.stopQuick;editing=null;render();$('#stopCategoryBar')?.scrollIntoView({behavior:'smooth',block:'start'});};
+ });
+ document.querySelectorAll('[data-stop-category]').forEach(b=>b.onclick=()=>{
+   selectedStopCategory=b.dataset.stopCategory;editing=null;render();
+   $('#stopCategoryBar')?.scrollIntoView({behavior:'smooth',block:'start'});
+ });
+ const newRecord=$('#newRecordButton');
+ if(newRecord)newRecord.onclick=()=>{editing=null;picked=[];render();$('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'});};
  if(tab==='backup'){backupListeners();return;}
  if(!selectedDestId&&!creatingNewDestination)return;
  initMapsImport();
@@ -367,7 +454,7 @@ function render(resetPicker=true){
  if(tab==='rotas'){renderPicker();$('#routePicker').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let i;if(b.dataset.up!==undefined){i=+b.dataset.up;if(i>0)[picked[i],picked[i-1]]=[picked[i-1],picked[i]]}if(b.dataset.down!==undefined){i=+b.dataset.down;if(i<picked.length-1)[picked[i],picked[i+1]]=[picked[i+1],picked[i]]}renderPicker()});$('#routePicker').addEventListener('change',e=>{const el=e.target;if(!el.matches('[data-pick]'))return;const p=el.dataset.pick;if(el.checked){if(!picked.includes(p))picked.push(p)}else picked=picked.filter(x=>x!==p);renderPicker()});}
  $('#cancel').onclick=()=>{editing=null;if(tab==='destinos'&&creatingNewDestination){creatingNewDestination=false;selectedDestId=''}render()};
  $('#recordForm').addEventListener('submit',saveRecord);
- document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;render();$('#editor').scrollIntoView({behavior:'smooth',block:'start'})});
+ document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;render();$('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'})});
  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeRecord(b.dataset.delete));
 }
 async function call(method,body,admin=true){
@@ -388,20 +475,24 @@ async function saveRecord(e){
    v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
  }
  const old=data[tab].find(x=>x.id===v.id);
- if(tab==='rotas'){v.paradas=[...picked];if(v.paradas.some(id=>data.paradas.find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}}
+ if(tab==='rotas'){v.paradas=[...picked];if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}}
  if(v.maps&&!safeUrl(v.maps)){alert('Digite um link https do Google Maps.');return}
  if(v.foto&&!safeUrl(v.foto)){alert('A URL da foto precisa começar com https.');return}
  if(remote){busy=true;try{const x=await call('POST',{kind:tab,record:v});v.status=x.record.status;Object.assign(v,x.record);announce('Salvo no banco com sucesso.');}catch(e){alert('Não foi publicado: '+e.message);busy=false;return}busy=false}
  data[tab]=old?data[tab].map(x=>x.id===v.id?v:x):[...data[tab],v];
  if(tab==='destinos'){selectedDestId=v.id;creatingNewDestination=false;}
+ if(tab==='paradas')selectedStopCategory=normalize(v.categoria);
  if(!remote){draft=copy(data);saveLocal();announce('Rascunho salvo apenas neste navegador; não foi publicado para outros visitantes.')}
  editing=null;render();
 }
 async function removeRecord(id){
- const entry=data[tab].find(x=>x.id===id);if(!entry||!confirm('Excluir '+entry.nome+'?'))return;
- if(remote)try{await call('DELETE',{kind:tab,id})}catch(e){alert('Não foi excluído: '+e.message);return}
+ if(tab==='paradas'&&builtInStop(id)){alert('Este local é padrão do site. Você pode editá-lo, mas não excluí-lo pelo painel.');return}
+ const entry=tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===id):tab==='rotas'?editableRoutes(selectedDestId).find(x=>x.id===id):data[tab].find(x=>x.id===id);
+ if(!entry||!confirm('Excluir '+entry.nome+'?'))return;
+ if(remote&&entry._origin!=='local')try{await call('DELETE',{kind:tab,id})}catch(e){alert('Não foi excluído: '+e.message);return}
  data[tab]=data[tab].filter(x=>x.id!==id);
- if(!remote){draft=copy(data);saveLocal()}
+ if(remote){draft[tab]=draft[tab].filter(x=>x.id!==id);saveLocal()}
+ else{draft=copy(data);saveLocal()}
  editing=null;render();
 }
 function backupListeners(){
