@@ -40,7 +40,7 @@ abEl('ano').textContent=new Date().getFullYear();
 renderAsphaltCards();
 </script>
 <style>
-#tripModal[hidden],#tripMain[hidden],#tripStopPreview[hidden],#tripCustomSection[hidden],#tripPresetSection[hidden],#tripMineSection[hidden],#tripShareBox[hidden],#tripPhotoCredit[hidden],#tripGoogleRating[hidden],#tripGoogleSource[hidden],#tripHoursDetails[hidden],#tripModalHero[hidden],#tripManualOrigin[hidden],#tripPreviewPhoto[hidden],#tripPreviewPlaceholder[hidden],.tripPresetStops[hidden]{display:none!important}
+#tripModal[hidden],#tripMain[hidden],#tripStopPreview[hidden],#tripCustomSection[hidden],#tripPresetSection[hidden],#tripMineSection[hidden],#tripShareBox[hidden],#tripPhotoCredit[hidden],#tripGoogleRating[hidden],#tripGoogleSource[hidden],#tripHoursDetails[hidden],#tripModalHero[hidden],#tripManualOrigin[hidden],#tripOpenSegments[hidden],#tripPreviewPhoto[hidden],#tripPreviewPlaceholder[hidden],.tripPresetStops[hidden]{display:none!important}
 #tripModal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:10px;background:rgba(0,0,0,.84);backdrop-filter:blur(9px)}
 #tripPanel{width:min(820px,100%);max-height:calc(100dvh - 20px);overflow-y:auto;overscroll-behavior:contain;border:1px solid #444a53;border-radius:20px;background:#15191f;box-shadow:0 24px 80px #000b}
 #tripPanel:focus{outline:none}
@@ -63,7 +63,14 @@ renderAsphaltCards();
 .tripStop{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;align-items:center;padding:12px;border:1px solid #3a414b;border-radius:13px;background:#1a1f26}
 .tripStop img,.tripFallback{width:80px;height:88px;object-fit:contain;background:#242b33;border-radius:10px}
 .tripFallback{background:#292e38;display:grid;place-items:center;font-size:28px}
-.tripPicked{display:flex;gap:8px;align-items:center;padding:12px 10px;border:1px solid #3c414a;background:#20252d;border-radius:11px}
+.tripPicked{display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:12px 10px;border:1px solid #3c414a;background:#20252d;border-radius:11px}
+.tripPickedIndex{color:#fb923c;font-weight:800;flex:none}
+.tripPickedInfo{flex:1 1 170px;min-width:0}
+.tripPickedName{font-weight:750;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.tripPickedCategories{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.tripPickedChip{border:1px solid #56515a;background:#302a2b;color:#ffd0aa;padding:3px 7px;border-radius:100px;font-size:11px;line-height:1.2;white-space:nowrap}
+.tripPickedActions{display:flex;gap:6px;margin-left:auto;flex:none}
+.tripPickedActions button{min-width:35px;min-height:39px;font-size:17px}
 .tripPresetCard{border:1px solid #434953;padding:16px;background:#1b2028;border-radius:13px}
 .tripPresetStops{margin:13px 0 0 20px;list-style:decimal;color:#c5cbd4;font-size:13px}
 .tripPresetStops li{margin:5px 0}
@@ -160,7 +167,7 @@ renderAsphaltCards();
 <h3 class="font-black text-lg mb-1">Escolha suas paradas</h3><p class="tripTiny mb-3">Escolha uma categoria, toque em Prévia para conhecer o local e adicione ao roteiro.</p>
 <div id="tripCategories" class="mb-4"></div>
 <div id="tripAvailable" class="space-y-2"></div>
-<p class="tripTiny mt-3">Você pode escolher até 20 paradas. No Google Maps do celular, até 4 aparecem no mesmo trajeto; a última será o destino final. Com mais paradas, abra os trechos em sequência.</p>
+<p class="tripTiny mt-3">Escolha até 20 paradas. Tentamos abrir até 9 em uma rota no aplicativo Google Maps; se o navegador limitar os pontos, use os trechos.</p>
 </div>
 <div id="tripPresetSection" hidden>
 <h3 class="font-black text-lg mb-1">Rotas prontas do grupo</h3><p class="tripTiny mb-3">Veja as paradas e escolha um roteiro cadastrado pelo Asphalt Boys.</p><div id="tripPresets" class="space-y-3"></div>
@@ -171,10 +178,12 @@ renderAsphaltCards();
 <p id="tripRouteSummary" class="font-bold text-sm mt-4"></p>
 <div class="flex gap-2 flex-wrap mt-4">
 <button id="tripOpenMaps" type="button" class="tripBtn">Google Maps ↗</button>
+ <button id="tripOpenSegments" type="button" class="tripNavBtn" hidden>🧩 Abrir por trechos</button>
 <button id="tripOpenWaze" type="button" class="tripNavBtn">Waze ↗</button>
 <button id="tripShare" type="button" class="tripNavBtn">↗ Compartilhar</button>
 </div>
-<div id="tripRouteSegments" hidden class="mt-4 rounded-xl border border-orange-500/35 bg-[#242831] p-3" role="region" aria-label="Trechos para navegar no Google Maps"></div>
+<p id="tripMapsHelp" class="tripTiny mt-2"></p>
+ <div id="tripRouteSegments" hidden class="mt-4 rounded-xl border border-orange-500/35 bg-[#242831] p-3" role="region" aria-label="Trechos para navegar no Google Maps"></div>
 <div id="tripShareBox" hidden class="mt-4 p-3 rounded-xl border border-zinc-600">
 <label for="tripShareLink" class="font-semibold text-sm block mb-2">Link para o seu motogrupo</label><input id="tripShareLink" class="tripField" type="text" readonly>
 <div class="flex flex-wrap gap-2 mt-3"><button id="tripCopy" type="button" class="tripNavBtn">Copiar link</button><a id="tripShareWhats" class="tripNavBtn inline-flex items-center justify-center" target="_blank" rel="noopener noreferrer" href="https://www.whatsapp.com/">Enviar pelo WhatsApp ↗</a></div>
@@ -251,5 +260,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261108-maps4"></script>
+<script src="planejador.js?v=20261108-maps9"></script>
 </body></html>
