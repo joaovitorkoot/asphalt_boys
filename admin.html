@@ -1019,7 +1019,7 @@ function publicationQueueItems(){
   }
   // Rascunhos antigos somente no navegador podem ainda não existir no D1.
   if(remote)for(const record of draft[kind]||[]){
-   if(!record?.id||known.has(record.id))continue;
+   if(!record?.id||known.has(record.id)||record.status==='publicado')continue;
    result.push({kind,record,source:'local'});
    known.add(record.id);
   }
@@ -1034,7 +1034,9 @@ function renderPublicationQueue(){
  counts.textContent=queue.length+' pendente(s)'+(remote?' · '+published+' publicado(s)':' · conexão necessária');
  if(shortcut)shortcut.textContent=String(queue.length);
  if(!queue.length){
-  container.innerHTML='<p class="text-sm text-emerald-300 border border-emerald-700/50 rounded-xl p-4">✓ Nenhum cadastro aguardando publicação. Tudo que foi salvo no banco está publicado!</p>';
+  container.innerHTML=remote?
+   '<p class="text-sm text-emerald-300 border border-emerald-700/50 rounded-xl p-4">✓ Nenhum cadastro aguardando publicação. Os itens salvos no banco estão publicados!</p>':
+   '<p class="text-sm text-zinc-300 border border-zinc-700 rounded-xl p-4">Nenhum rascunho pendente neste aparelho. Conecte-se ao banco para conferir as publicações.</p>';
   return;
  }
  const headings={destinos:'🌄 Destinos',paradas:'📍 Paradas',rotas:'🛣️ Rotas prontas'};
@@ -1093,6 +1095,11 @@ async function publishQueuedRecord(kind,id,button){
  const destination=kind==='destinos'?name:
    (destinationsForPicker().find(d=>d.id===record.destinoId)?.nome||record.destinoId||'');
  if(!name){alert('Abra o cadastro e informe o nome antes de publicar.');return}
+ if(kind!=='destinos'&&record.destinoId&&
+  !['guaramiranga','canoa-quebrada'].includes(record.destinoId)&&
+  !data.destinos.some(d=>d.id===record.destinoId&&d.status==='publicado')){
+  alert('Publique primeiro o destino "'+destination+'". Ele também aparece aqui na fila de pendências.');return;
+ }
  if(kind==='paradas'){
   if(!record.destinoId||!String(record.endereco||'').trim()){
    alert('Abra a parada e informe o destino e o endereço antes de publicar.');return
@@ -1130,7 +1137,8 @@ async function publishQueuedRecord(kind,id,button){
   data[kind]=data[kind].filter(p=>p.id!==id).concat(result.record);
   draft[kind]=draft[kind].map(p=>p.id===id?{...result.record}:p);
   saveLocal();
-  storeUnfinishedForm();
+  if(tab===kind&&editing===id){clearUnfinishedForm();editing=null}
+  else storeUnfinishedForm();
   render();
   const notification=$('#publicationQueueMessage');
   if(notification)notification.textContent='✅ "'+name+'" publicado e confirmado no site! Faltam '+publicationQueueItems().length+' cadastro(s).';
