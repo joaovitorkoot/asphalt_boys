@@ -52,7 +52,9 @@ jobs:
           const createForm=(cat='cafe',photo='')=>({
             elements:[
               {name:'nome',type:'text',value:'Canaã Pães e Lanches'},
-              {name:'categoria',type:'select-one',value:cat},
+              {name:'categoria',type:'hidden',value:cat},
+              {name:'categorias',type:'checkbox',value:'cafe',checked:true},
+              {name:'categorias',type:'checkbox',value:'almoco',checked:true},
               {name:'maps',type:'url',value:'https://maps.app.goo.gl/CCQuEH8HfXjQT5gG8'},
               {name:'foto',type:'url',value:photo},
               {name:'fotoEnquadramento',type:'radio',value:'zoom',checked:true},
@@ -94,7 +96,9 @@ jobs:
           helpers.switchStopCategory('almoco');
           assert.equal(context.editing,'item-123','Existing record must not be cleared');
           assert.equal(context.selectedStopCategory,'almoco');
-          assert.equal(form.elements.find(x=>x.name==='categoria').value,'almoco');
+          assert.equal(form.elements.find(x=>x.name==='categoria').value,'cafe','A troca de filtro não deve alterar as categorias vinculadas');
+          assert.equal(form.elements.find(x=>x.name==='categorias'&&x.value==='cafe').checked,true);
+          assert.equal(form.elements.find(x=>x.name==='categorias'&&x.value==='almoco').checked,true);
           assert.equal(form.elements.find(x=>x.name==='foto').value,'https://asphalt-boys.pages.dev/api/image?id=1234');
           assert.equal(form.elements.find(x=>x.name==='horario').value,'8h às 17h');
           assert.equal(form.elements.find(x=>x.name==='fotoEnquadramento'&&x.value==='zoom').checked,true);
