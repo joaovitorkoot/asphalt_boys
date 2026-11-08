@@ -95,5 +95,19 @@ jobs:
           assert.equal(sr.record.foto,destination.foto);
           const visible=await content.onRequestGet({env,request:new Request('https://asphalt-boys.pages.dev/api/content')});
           assert.equal((await visible.json()).destinos[0].nome,'Guaramiranga');
-          console.log('PASS: exact Pico Alto link and coordinates, card city name and photo preserved, compact credits');
+          const resolver=(await mod('functions/api/map-coordinates.js')).onRequestPost;
+          const resolved=await resolver({request:new Request('https://asphalt-boys.pages.dev/api/map-coordinates',{
+            method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
+            body:JSON.stringify({url:link})
+          }),env:{ADMIN_TOKEN:key}});
+          assert.equal(resolved.status,200);
+          assert.equal((await resolved.json()).mapCoordinates,'-4.2080812,-38.9747743');
+          const bad=await resolver({request:new Request('https://asphalt-boys.pages.dev/api/map-coordinates',{
+            method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
+            body:JSON.stringify({url:'https://evil.example.com/hack'})
+          }),env:{ADMIN_TOKEN:key}});
+          assert.equal(bad.status,400);
+          assert(admin.includes("fetch('./api/map-coordinates'"));
+          assert(admin.includes('async function publishExistingDestination(id)'));
+          console.log('PASS: exact Pico Alto link and coordinates, city card/photo preserved, no unsafe URLs, compact credits');
           NODE
