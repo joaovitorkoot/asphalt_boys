@@ -19,18 +19,33 @@ function allowed(raw){
   if(u.protocol!=='https:'||u.username||u.password||u.port)return null;
   const name=u.hostname.toLowerCase();
   if(['maps.app.goo.gl','www.google.com','google.com','maps.google.com','google.com.br',
-      'www.google.com.br','goo.gl'].includes(name))return u;
+      'www.google.com.br','maps.google.com.br','goo.gl'].includes(name))return u;
   return null;
  }catch{return null}
 }
+// Priorize o pin compartilhado. @latitude,longitude muitas vezes é apenas
+// o centro da tela, portanto não serve para identificar outro estabelecimento.
 function coords(u){
- const v=decodeURIComponent(u.pathname);
- const m=v.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)||
-   v.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
- if(!m)return '';
- const lat=Number(m[1]),lng=Number(m[2]);
- if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)return '';
- return lat.toFixed(7)+','+lng.toFixed(7);
+ const decoded=value=>{try{return decodeURIComponent(value)}catch{return value}};
+ const path=decoded(u.pathname),full=decoded(u.pathname+u.search+u.hash);
+ function valid(m){
+  if(!m)return '';
+  const lat=Number(m[1]),lng=Number(m[2]);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)return '';
+  return lat.toFixed(7)+','+lng.toFixed(7);
+ }
+ const pin=valid(full.match(/!3d(-?\\d+(?:\\.\\d+)?)!4d(-?\\d+(?:\\.\\d+)?)/));
+ if(pin)return pin;
+ // As coordenadas explícitas de um link (?q=, ?query=...) são o próprio ponto.
+ for(const key of ['q','query','ll','daddr','destination']){
+  const v=String(u.searchParams.get(key)||'').trim();
+  const match=v.match(/^\\s*\\(?(-?\\d+(?:\\.\\d+)?)\\s*[,;]\\s*(-?\\d+(?:\\.\\d+)?)\\)?\\s*$/);
+  const point=valid(match);if(point)return point;
+ }
+ const direct=valid(path.match(/\\/maps\\/(?:search|place)\\/(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)(?:\\/|$)/));
+ if(direct)return direct;
+ if(/\\/maps\\/@/.test(path))return valid(path.match(/@(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/));
+ return '';
 }
 export async function onRequestPost({request,env}){
  if(!(await auth(request,env)))return json({error:'Conecte ao banco para verificar o link.'},401);
@@ -42,7 +57,7 @@ export async function onRequestPost({request,env}){
   for(let i=0;i<5;i++){
    let position=coords(u);
    if(position)return json({mapCoordinates:position,verified:true});
-   if(!['maps.app.goo.gl','goo.gl'].includes(u.hostname))break;
+   if(!['maps.app.goo.gl','goo.gl','maps.google.com','www.google.com','google.com','maps.google.com.br','www.google.com.br','google.com.br'].includes(u.hostname))break;
    const result=await fetch(u.href,{method:'GET',redirect:'manual',
       headers:{'User-Agent':'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36'}});
    if(result.status>=300&&result.status<400&&result.headers.has('location')){
