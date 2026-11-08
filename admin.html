@@ -49,6 +49,7 @@ const normalize=c=>/café|cafe/i.test(c)?'cafe':/almo|restaurante/i.test(c)?'alm
 function copy(d){return JSON.parse(JSON.stringify(d))}
 function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&types.every(t=>Array.isArray(d[t]))?d:copy(seed)}catch{return copy(seed)}}
 let draft=local(),data=copy(draft),remote=false,token='',tab='destinos',editing=null,picked=[],busy=false;
+let placeMatches=[],placeSearchSeq=0;
 function announce(msg){$('#connection').textContent=msg}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
 function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
@@ -57,15 +58,29 @@ function categoryLabel(c){return ({cafe:'☕ Café da manhã',almoco:'🍽️ Al
 function makeField(name,label,v,type='text',required=false){let common=' name="'+name+'" id="f_'+name+'" '+(required?'required':'');return '<label class="lbl" for="f_'+name+'">'+label+'</label>'+(type==='textarea'?'<textarea class="field" rows="3"'+common+'>'+esc(v||'')+'</textarea>':'<input class="field" type="'+type+'"'+common+' value="'+esc(v||'')+'">')}
 function opt(items,v){return '<option value="">Selecione...</option>'+items.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===v?'selected':'')+'>'+esc(x.nome)+'</option>').join('')}
 function drop(name,label,options,value){return '<label class="lbl" for="f_'+name+'">'+label+'</label><select class="field" id="f_'+name+'" name="'+name+'">'+options.map(([k,v])=>'<option value="'+esc(k)+'" '+(k===value?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select>'}
+
+function placeLookupMarkup(){
+ const enabled=remote&&!!token;
+ return '<section id="googlePlaceLookup" class="rounded-xl border border-orange-500/35 bg-orange-500/5 p-4 mb-4">'+
+ '<div class="flex items-center gap-2"><span aria-hidden="true">🔎</span><h3 class="font-black text-base">Buscar local no Google Maps</h3></div>'+
+ '<p class="tiny mt-1">Pesquise pelo nome e cidade, escolha o lugar certo e preencha nome, endereço, link do Maps e Place ID automaticamente.</p>'+
+ '<label class="lbl" for="googlePlaceQuery">Nome do lugar</label>'+
+ '<div class="grid sm:grid-cols-[1fr_auto] gap-2"><input class="field" id="googlePlaceQuery" type="search" maxlength="120" autocomplete="off" placeholder="Ex.: Pico Alto, Guaramiranga" '+(enabled?'':'disabled')+'>'+
+ '<button id="googlePlaceSearchBtn" class="btn" type="button" '+(enabled?'':'disabled')+'>Pesquisar</button></div>'+
+ '<p id="googlePlaceLookupStatus" class="tiny mt-3" role="status">'+(enabled?'Digite um local e toque em Pesquisar. Cada busca consulta a API do Google.':'Conecte ao banco com o token de administrador para pesquisar no Google.')+'</p>'+
+ '<div id="googlePlaceResults" class="space-y-2 mt-3"></div>'+
+ '<p class="tiny mt-3">'+(data.destinos.length?'':'Antes de salvar uma parada, cadastre um destino na aba Destinos. ')+'Fotos e avaliações serão consultadas pelo Google ao abrir a prévia no site. A pesquisa não publica a parada automaticamente.</p>'+
+ '</section>';
+}
 function form(){
  if(tab==='backup')return '<p class="muted mb-4">Guarde uma cópia dos seus cadastros. A importação substitui somente os rascunhos locais, nunca altera o banco público.</p><div class="flex flex-wrap gap-2"><button type="button" class="btn" id="export">Exportar JSON</button><label class="subbtn cursor-pointer">Importar JSON<input id="import" type="file" accept=".json,application/json" class="hidden"></label></div>';
  const d=data[tab].find(x=>x.id===editing)||{},f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
  let fields='';
  if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição','textarea')+f('mapa','Localização para navegação')+f('foto','URL de foto autorizada (opcional)','url');
- if(tab==='paradas')fields='<label class="lbl" for="f_destinoId">Destino da parada</label><select class="field" id="f_destinoId" name="destinoId" required>'+opt(data.destinos,d.destinoId)+'</select>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">O link abre a ficha real no Google. Fotos, avaliações e horários automáticos exigem Google Places API configurada; o link sozinho não libera esses dados.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID (opcional, para integração futura)');
+ if(tab==='paradas')fields='<label class="lbl" for="f_destinoId">Destino da parada</label><select class="field" id="f_destinoId" name="destinoId" required>'+opt(data.destinos,d.destinoId)+'</select>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
  if(tab==='rotas'){const dest=d.destinoId||data.destinos[0]?.id||'';fields='<label class="lbl" for="f_destinoId">Destino da rota</label><select class="field" id="f_destinoId" name="destinoId" required>'+opt(data.destinos,dest)+'</select>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
- return '<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(editing?'Editar cadastro':'Novo cadastro')+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
+ return (tab==='paradas'?placeLookupMarkup():'')+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(editing?'Editar cadastro':'Novo cadastro')+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
 }
 function renderPicker(){
  const el=$('#routePicker');if(!el)return;
@@ -76,14 +91,67 @@ function listHtml(){
  if(tab==='backup')return '';
  return '<h3 class="font-bold text-lg mb-3">Cadastrados ('+data[tab].length+')</h3>'+(data[tab].length?data[tab].map(x=>'<article class="card mb-3"><div class="flex flex-wrap items-start gap-3 justify-between"><div class="min-w-0 flex-1"><div class="flex flex-wrap gap-2 items-center"><strong>'+esc(x.nome)+'</strong><span class="pill '+(x.status==='publicado'?'published':'')+'">'+(x.status==='publicado'?'Publicado':'Rascunho')+'</span></div><p class="muted text-sm mt-1">'+esc(x.descricao||((tab==='paradas')?categoryLabel(x.categoria):''))+'</p>'+(x.destinoId?'<p class="tiny mt-1">Destino: '+esc(data.destinos.find(d=>d.id===x.destinoId)?.nome||x.destinoId)+'</p>':'')+(tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas · '+(x.paradas||[]).map(id=>esc(data.paradas.find(p=>p.id===id)?.nome||id)).join(' → ')+'</p>':'')+(tab==='rotas'?'<a class="text-orange-300 text-xs underline mt-2 block" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote?'':'&preview=local')+'">Abrir prévia da rota ↗</a>':'')+(safeUrl(x.maps)?'<a class="text-orange-300 text-xs underline mt-2 block" target="_blank" rel="noopener noreferrer" href="'+esc(safeUrl(x.maps))+'">Ver no Google Maps ↗</a>':'')+'</div><div class="flex gap-2"><button type="button" class="subbtn text-xs" data-edit="'+esc(x.id)+'">Editar</button><button type="button" class="subbtn text-xs text-red-300" data-delete="'+esc(x.id)+'">Excluir</button></div></div></article>').join(''):'<p class="muted text-sm">Nenhum cadastro nesta seção.</p>');
 }
+
+function initPlacesLookup(){
+ const button=$('#googlePlaceSearchBtn'),input=$('#googlePlaceQuery'),results=$('#googlePlaceResults'),note=$('#googlePlaceLookupStatus');
+ if(!button||!input||!results||!note)return;
+ button.addEventListener('click',searchPlaces);
+ input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchPlaces()}});
+ results.addEventListener('click',e=>{
+   const choice=e.target.closest('button[data-place-index]');
+   if(!choice)return;
+   const place=placeMatches[Number(choice.dataset.placeIndex)];
+   if(!place)return;
+   const values={nome:place.name,endereco:place.address,maps:place.maps,googlePlaceId:place.id};
+   for(const [name,value] of Object.entries(values)){
+     const field=$('#f_'+name);
+     if(field&&typeof value==='string')field.value=value;
+   }
+   note.textContent='✓ Local selecionado: '+place.name+'. Confira a categoria, a descrição e a situação; depois toque em Salvar no banco.';
+   results.innerHTML='';
+   $('#f_nome')?.focus();
+ });
+}
+async function searchPlaces(){
+ const input=$('#googlePlaceQuery'),button=$('#googlePlaceSearchBtn'),note=$('#googlePlaceLookupStatus'),results=$('#googlePlaceResults');
+ if(!input||!button||!note||!results||tab!=='paradas')return;
+ if(!remote||!token){note.textContent='Conecte ao banco primeiro usando o token de administrador.';return}
+ const query=input.value.trim();
+ if(query.length<3){note.textContent='Digite pelo menos 3 caracteres, incluindo a cidade se possível.';input.focus();return}
+ const seq=++placeSearchSeq;
+ placeMatches=[];results.innerHTML='';button.disabled=true;
+ note.textContent='Pesquisando locais no Google Maps…';
+ try{
+   const response=await fetch('./api/places-search',{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query}),cache:'no-store'});
+   const payload=await response.json();
+   if(seq!==placeSearchSeq||tab!=='paradas'||!document.contains(results))return;
+   if(!response.ok)throw Error(payload.error||'Não foi possível pesquisar no Google.');
+   placeMatches=Array.isArray(payload.results)?payload.results:[];
+   if(!placeMatches.length){note.textContent='Nenhum local encontrado. Tente pesquisar o nome junto com a cidade.';return}
+   note.textContent='Selecione o local correto na lista ('+placeMatches.length+' resultado'+(placeMatches.length===1?'':'s')+').';
+   results.innerHTML=placeMatches.map((place,i)=>'<button type="button" data-place-index="'+i+'" class="block w-full text-left border border-zinc-600 hover:border-orange-400 rounded-xl p-3 bg-[#242831] focus:outline-orange-400">'+
+     '<span class="block font-bold text-white">'+esc(place.name)+'</span>'+
+     '<span class="block tiny mt-1">'+esc(place.address||'Endereço não informado')+'</span>'+
+     (place.category?'<span class="block tiny mt-1 text-orange-300">'+esc(place.category)+'</span>':'')+
+     '<span class="block text-orange-300 text-sm font-bold mt-2">Usar este local →</span></button>').join('');
+ }catch(err){
+   if(seq===placeSearchSeq&&tab==='paradas'&&document.contains(note)){
+     note.textContent='Pesquisa não concluída: '+String(err.message||err);
+   }
+ }finally{
+   if(seq===placeSearchSeq&&document.contains(button))button.disabled=false;
+ }
+}
 function render(resetPicker=true){
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
  $('#sectionTitle').textContent=titles[tab];
- $('#sectionHelp').textContent={destinos:'Os lugares principais que aparecem na página de viagens.',paradas:'Cadastre uma parada, escolha a categoria e cole o link do Google Maps.',rotas:'Monte uma sequência de paradas já cadastradas e publique um roteiro.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
+ $('#sectionHelp').textContent={destinos:'Os lugares principais que aparecem na página de viagens.',paradas:'Busque locais no Google Maps, escolha a categoria e publique as paradas para os visitantes.',rotas:'Monte uma sequência de paradas já cadastradas e publique um roteiro.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
  if(resetPicker&&tab==='rotas')picked=[...(data.rotas.find(x=>x.id===editing)?.paradas||[])];
+ placeSearchSeq++;placeMatches=[];
  $('#editor').innerHTML=form();$('#listing').innerHTML=listHtml();
  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));
  if(tab==='backup'){backupListeners();return;}
+ if(tab==='paradas')initPlacesLookup();
  if(tab==='rotas'){renderPicker();$('#f_destinoId').addEventListener('change',()=>{picked=[];renderPicker()});$('#routePicker').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let i;if(b.dataset.up!==undefined){i=+b.dataset.up;if(i>0)[picked[i],picked[i-1]]=[picked[i-1],picked[i]]}if(b.dataset.down!==undefined){i=+b.dataset.down;if(i<picked.length-1)[picked[i],picked[i+1]]=[picked[i+1],picked[i]]}renderPicker()});$('#routePicker').addEventListener('change',e=>{const el=e.target;if(!el.matches('[data-pick]'))return;const p=el.dataset.pick;if(el.checked){if(!picked.includes(p))picked.push(p)}else picked=picked.filter(x=>x!==p);renderPicker()});}
  $('#cancel').onclick=()=>{editing=null;render()};
  $('#recordForm').addEventListener('submit',saveRecord);
