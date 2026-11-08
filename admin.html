@@ -79,7 +79,7 @@ function copy(d){return JSON.parse(JSON.stringify(d))}
 function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&types.every(t=>Array.isArray(d[t]))?d:copy(seed)}catch{return copy(seed)}}
 let draft=local(),data=copy(draft),remote=false,token='',sessionReady=false,tab='destinos',editing=null,picked=[],busy=false,photoUploading=false,selectedDestId='',creatingNewDestination=false,selectedStopCategory='turismo';
 let placeMatches=[],placeSearchSeq=0,importMatches=[],mapsImportSeq=0,adminPhotoObserver=null,mapsLinkDraft={destinos:'',paradas:'',rotas:''};
-let photoSourceFile=null,photoSourceMeta=null,photoSourceForm=null,photoAppliedMode='';
+let photoSourceFile=null,photoSourceMeta=null,photoSourceForm=null,photoAppliedMode='',photoSourceKey='';
 function announce(msg){$('#connection').textContent=msg}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
 function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
@@ -493,7 +493,8 @@ async function uploadCardPhoto(file,meta=null){
   });
   if(!inputAtStart.isConnected||inputAtStart!==$('#f_foto'))throw Error('Você mudou de cadastro durante o envio. Volte e selecione a foto novamente.');
   inputAtStart.value=uploadedUrl;
-  photoSourceFile=file;photoSourceMeta=meta;photoSourceForm=$('#recordForm');photoAppliedMode=selectedMode;
+  photoSourceFile=file;photoSourceMeta=meta;photoSourceForm=$('#recordForm');photoAppliedMode=selectedMode;photoSourceKey=unfinishedFormKey();
+  storeUnfinishedForm();
   if(hint?.isConnected)hint.textContent=selectedMode==='zoom'?
    '✓ Zoom aplicado sem distorção. As bordas podem ter sido cortadas.':
    '✓ Foto inteira com fundo desfocado. Você pode experimentar o zoom.';
@@ -610,7 +611,7 @@ function form(){
  if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Link exato do Google Maps (será respeitado no site)','url')+'<div class="flex gap-2 items-center flex-wrap mt-2"><button type="button" id="testExactMapsLink" class="subbtn text-sm">📍 Testar ponto compartilhado</button><span id="coordinatesStatus" class="tiny">'+(d.mapCoordinates?'GPS confirmado: '+esc(d.mapCoordinates):'O link original será aberto sem substituição.')+'</span></div><input type="hidden" id="f_mapCoordinates" name="mapCoordinates" value="'+esc(d.mapCoordinates||'')+'"><p class="tiny mt-1">O botão acima abre o link exatamente como foi colado. Ao salvar, o site tenta usar as coordenadas exatas também no roteiro, sem buscar um ponto com nome parecido.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup(d)+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
  if(tab==='rotas'){const dest=selectedDestId;fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(dest)+'"><p class="tiny text-orange-300">Essa rota será adicionada somente a '+esc(currentDestination()?.nome||dest)+'.</p>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+f('maps','Link do trajeto no Google Maps','url')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
- return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
+ return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3><p id="autoDraftNotice" class="tiny text-orange-300 mt-2" role="status">Seus campos são preservados neste aparelho durante a edição.</p>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
 }
 function renderPicker(){
  const el=$('#routePicker');if(!el)return;
@@ -823,14 +824,83 @@ async function searchPlaces(){
    if(seq===placeSearchSeq&&document.contains(button))button.disabled=false;
  }
 }
+// Rascunhos separados por viagem e por cadastro. Nunca publica sem o botão Salvar.
+const FORM_DRAFT_PREFIX='asphalt-boys-unsaved-form-v1:';
+function unfinishedFormKey(){
+ if(tab==='backup'||(!selectedDestId&&!creatingNewDestination))return '';
+ return FORM_DRAFT_PREFIX+tab+':'+(creatingNewDestination?'novo-destino':selectedDestId)+':'+(editing||'novo');
+}
+function storeUnfinishedForm(){
+ const key=unfinishedFormKey(),form=$('#recordForm');
+ if(!key||!form)return false;
+ const values=[];
+ for(const field of form.elements){
+  if(!field.name||field.type==='file'||field.disabled)continue;
+  if((field.type==='radio'||field.type==='checkbox')&&!field.checked)continue;
+  values.push([field.name,String(field.value||'').slice(0,3000)]);
+ }
+ try{
+  localStorage.setItem(key,JSON.stringify({values,updated:Date.now()}));
+  const message=$('#autoDraftNotice');
+  if(message)message.textContent='✓ Alterações guardadas neste aparelho. Para publicar, clique em Salvar no banco.';
+  return true;
+ }catch{
+  const message=$('#autoDraftNotice');
+  if(message)message.textContent='⚠️ Não foi possível guardar o rascunho. Salve no banco antes de sair.';
+  return false;
+ }
+}
+function restoreUnfinishedForm(){
+ const key=unfinishedFormKey(),form=$('#recordForm');
+ if(!key||!form)return false;
+ let saved;
+ try{saved=JSON.parse(localStorage.getItem(key)||'null')}catch{return false}
+ if(!Array.isArray(saved?.values))return false;
+ for(const [name,value] of saved.values){
+  for(const field of form.elements){
+   if(field.name!==name||field.type==='file')continue;
+   if(field.type==='radio'||field.type==='checkbox')field.checked=field.value===value;
+   else field.value=value;
+  }
+ }
+ const image=safeUrl($('#f_foto')?.value),preview=$('#photoPreview');
+ if(preview&&image){preview.src=image;preview.hidden=false}
+ const message=$('#autoDraftNotice');
+ if(message)message.textContent='✓ Rascunho recuperado deste aparelho. Foto e campos preservados. Clique em Salvar no banco ao finalizar.';
+ return true;
+}
+function clearUnfinishedForm(){
+ const key=unfinishedFormKey();
+ if(key)try{localStorage.removeItem(key)}catch{}
+}
+function switchStopCategory(next){
+ if(!stopCategories.some(([id])=>id===next))return;
+ const form=$('#recordForm'),key=unfinishedFormKey();
+ let hasChanges=false;
+ try{hasChanges=!!key&&!!localStorage.getItem(key)}catch{}
+ if(form&&(hasChanges||photoSourceFile)){
+  const select=$('#f_categoria');
+  if(select)select.value=next;
+  storeUnfinishedForm();
+ }else editing=null;
+ tab='paradas';selectedStopCategory=next;
+ render();
+ const notice=$('#autoDraftNotice');
+ if(form&&hasChanges&&notice)notice.textContent='✓ Categoria atualizada para '+categoryLabel(next)+'. Foto e demais dados preservados no rascunho.';
+ $('#stopCategoryBar')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 function render(resetPicker=true){
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
  $('#sectionTitle').textContent=titles[tab];
  $('#sectionHelp').textContent={destinos:'Importe um destino pelo link do Google Maps ou pesquise pelo nome. Depois você pode editar e publicar.',paradas:'Busque locais no Google Maps, escolha a categoria e publique as paradas para os visitantes.',rotas:'Cole um link de trajeto do Google Maps para identificar paradas cadastradas, organizar e publicar uma rota.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
  if(resetPicker&&tab==='rotas')picked=[...(editableRoutes(selectedDestId).find(x=>x.id===editing)?.paradas||[])];
  placeSearchSeq++;placeMatches=[];mapsImportSeq++;importMatches=[];
- photoSourceFile=null;photoSourceMeta=null;photoSourceForm=null;photoAppliedMode='';
+ const keepPhoto=!!photoSourceFile&&photoSourceKey===unfinishedFormKey();
+ if(!keepPhoto){photoSourceFile=null;photoSourceMeta=null;photoSourceForm=null;photoAppliedMode='';photoSourceKey=''}
  $('#editor').innerHTML=form();$('#listing').innerHTML='';
+ restoreUnfinishedForm();
+ if(keepPhoto)photoSourceForm=$('#recordForm');
  document.querySelectorAll('[data-select-dest]').forEach(b=>b.onclick=()=>{
    selectedDestId=b.dataset.selectDest;creatingNewDestination=false;editing=null;picked=[];
    render();$('#editor').scrollIntoView({behavior:'smooth',block:'start'});
@@ -910,8 +980,13 @@ function render(resetPicker=true){
    const photoPreview=$('#photoPreview');if(photoPreview&&currentPhoto){photoPreview.src=currentPhoto;photoPreview.hidden=false}
  }
  if(tab==='rotas'){renderPicker();$('#routePicker').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let i;if(b.dataset.up!==undefined){i=+b.dataset.up;if(i>0)[picked[i],picked[i-1]]=[picked[i-1],picked[i]]}if(b.dataset.down!==undefined){i=+b.dataset.down;if(i<picked.length-1)[picked[i],picked[i+1]]=[picked[i+1],picked[i]]}renderPicker()});$('#routePicker').addEventListener('change',e=>{const el=e.target;if(!el.matches('[data-pick]'))return;const p=el.dataset.pick;if(el.checked){if(!picked.includes(p))picked.push(p)}else picked=picked.filter(x=>x!==p);renderPicker()});}
- $('#cancel').onclick=()=>{editing=null;if(tab==='destinos'&&creatingNewDestination){creatingNewDestination=false;selectedDestId=''}render()};
- $('#recordForm').addEventListener('submit',saveRecord);
+ $('#cancel').onclick=()=>{clearUnfinishedForm();editing=null;if(tab==='destinos'&&creatingNewDestination){creatingNewDestination=false;selectedDestId=''}render()};
+ const form=$('#recordForm');
+ if(form){
+  form.addEventListener('input',storeUnfinishedForm);
+  form.addEventListener('change',storeUnfinishedForm);
+  form.addEventListener('submit',saveRecord);
+ }
  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;render();$('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'})});
  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeRecord(b.dataset.delete));
  document.querySelectorAll('[data-publish-stop]').forEach(b=>b.onclick=()=>publishExistingStop(b.dataset.publishStop));
@@ -1067,6 +1142,7 @@ async function saveRecord(e){
  if(tab==='destinos'){selectedDestId=v.id;creatingNewDestination=false;}
  if(tab==='paradas')selectedStopCategory=normalize(v.categoria);
  if(!remote){draft=copy(data);saveLocal();announce('Rascunho salvo apenas neste navegador; não foi publicado para outros visitantes.')}
+ clearUnfinishedForm();
  editing=null;render();
  if(remote){
   const note=$('#publicSyncStatus');
