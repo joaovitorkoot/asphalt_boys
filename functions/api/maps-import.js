@@ -80,9 +80,8 @@ function exactCoords(u){
  }
  const embedded=valid(path.match(/\/maps\/(?:place|search)\/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:\/|$)/));
  if(embedded)return embedded;
- // Link compartilhado que aponta só para uma coordenada da tela.
- if(/\/maps\/@/.test(path))
-   return valid(path.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/));
+ // /maps/@lat,lng é o centro da câmera, não a posição confirmada do local.
+ // A importação conserva o link original, mas não deve gravar esse GPS no banco.
  return '';
 }
 function distanceMeters(a,b){
