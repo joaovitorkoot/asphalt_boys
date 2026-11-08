@@ -1,0 +1,86 @@
+name: Testar ajuste automatico das fotos
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'admin.html'
+      - '.github/workflows/testar-ajuste-fotos.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar redimensionamento, WebP e fallback JPEG no iPhone
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const html=fs.readFileSync('admin.html','utf8');
+          new vm.Script(html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>')));
+          const first=html.indexOf('async function preparePhoto(file,kind=tab){');
+          const last=html.indexOf('function setPhotoCredits(meta)',first);
+          assert(first>0&&last>first,'Photo preparation not found');
+          const fn=html.slice(first,last);
+          function mock(mode){
+            const shapes=[],encoded=[];
+            class MockImage{
+              naturalWidth=2400;naturalHeight=1600;
+              set src(url){if(this.onload)this.onload()}
+            }
+            const url={createObjectURL:()=> 'blob:photo',revokeObjectURL:()=>{}};
+            const document={createElement(kind){
+              assert.equal(kind,'canvas');
+              const canvas={width:0,height:0};
+              const ctx={filter:'',fillStyle:'',save(){},restore(){},fillRect(){},
+                drawImage(img,x,y,w,h){
+                  shapes.push({cw:canvas.width,ch:canvas.height,x,y,w,h})
+                }
+              };
+              canvas.getContext=()=>ctx;
+              canvas.toBlob=(callback,type,quality)=>{
+                encoded.push({type,quality,width:canvas.width,height:canvas.height});
+                // Safari/iOS may silently substitute PNG when requesting WebP.
+                if(mode==='safari'&&type==='image/webp')
+                  return callback({type:'image/png',size:450000});
+                if(mode==='safari'&&type==='image/jpeg')
+                  return callback({type:'image/jpeg',size:125000});
+                if(mode==='large'){
+                  const bytes=Math.round((canvas.width*canvas.height)/2);
+                  return callback({type,size:bytes});
+                }
+                return callback({type,size:115000});
+              };
+              return canvas;
+            }};
+            return {url,document,MockImage,shapes,encoded};
+          }
+          async function check(mode,kind,expectedMime){
+            const m=mock(mode);
+            const context={URL:m.url,document:m.document,Image:m.MockImage,tab:kind,Error,Math,Promise};
+            const prepare=vm.runInNewContext(fn+'\npreparePhoto',context);
+            const result=await prepare({type:'image/jpeg',size:15000000},kind);
+            assert.equal(result.type,expectedMime);
+            assert(result.size<=200000);
+            assert(m.shapes.length>=2,'Must draw background and original image');
+            for(let i=1;i<m.shapes.length;i+=2){
+              const image=m.shapes[i];
+              assert(image.w<=image.cw&&image.h<=image.ch,'Image was cropped');
+              assert(image.x>=0&&image.y>=0,'Original photo was cropped');
+            }
+            if(kind==='paradas')assert(m.encoded.every(x=>x.width===x.height));
+            else assert(m.encoded.every(x=>Math.abs(x.width/x.height-16/9)<.02));
+            return m.encoded;
+          }
+          const safari=await check('safari','paradas','image/jpeg');
+          assert(safari.some(x=>x.type==='image/webp'));
+          assert(safari.some(x=>x.type==='image/jpeg'));
+          const large=await check('large','paradas','image/webp');
+          assert(large.some(x=>x.width<900),'Must reduce dimensions for large outputs');
+          await check('safari','destinos','image/jpeg');
+          console.log('PASS: iPhone JPEG fallback, 1:1 and 16:9, full image preserved, auto compression');
+          NODE
