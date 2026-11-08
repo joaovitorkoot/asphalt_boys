@@ -392,7 +392,8 @@ function listHtml(){
      const origin=tab==='destinos'?'database':x._origin;
      const photo=safeUrl(x.foto);
      const autoGoogle=tab==='paradas'&&!photo;
-     const badge=origin==='default'?'Padrão do site':origin==='local'?'Rascunho local':x.status==='publicado'?'Publicado':'Rascunho';
+     const badge=origin==='default'?'Padrão do site':origin==='local'?'Somente no navegador':x.status==='publicado'?'Publicado no site':'Rascunho — não aparece no site';
+     const canPublish=tab==='paradas'&&!system&&remote&&(origin==='local'||x.status!=='publicado');
      const icon=photo?'<img src="'+esc(photo)+'" class="w-20 h-16 object-cover rounded-md flex-none" alt="" loading="lazy">':
        autoGoogle?'<div class="w-20 flex-none" data-admin-google-photo="'+esc(x.id)+'"><div class="w-20 h-16 bg-zinc-800 rounded-md flex items-center justify-center text-2xl" data-google-photo-frame>📍</div><span class="tiny text-center block mt-1" data-google-photo-credit></span></div>':
        '<div class="w-14 h-14 rounded-md bg-zinc-800 flex items-center justify-center flex-none text-2xl">🏍️</div>';
@@ -406,6 +407,7 @@ function listHtml(){
        (safeUrl(x.maps)?'<a class="text-xs text-orange-300 underline mt-2 block" target="_blank" rel="noopener noreferrer" href="'+esc(safeUrl(x.maps))+'">Google Maps</a>':'')+
        '</div></div><div class="flex flex-wrap gap-2 mt-3">'+
        '<button type="button" class="subbtn text-sm" data-edit="'+esc(x.id)+'">✏️ Editar</button>'+
+       (canPublish?'<button type="button" class="btn text-sm" data-publish-stop="'+esc(x.id)+'">🚀 Publicar no site</button>':'')+
        (system?'':'<button type="button" class="subbtn text-sm text-red-300" data-delete="'+esc(x.id)+'">Excluir</button>')+
        (tab==='rotas'?'<a class="subbtn text-sm" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote&&origin!=='local'?'':'&preview=local')+'">Ver rota</a>':'')+
        '</div></article>';
@@ -598,6 +600,7 @@ function render(resetPicker=true){
  $('#recordForm').addEventListener('submit',saveRecord);
  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;render();$('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'})});
  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeRecord(b.dataset.delete));
+ document.querySelectorAll('[data-publish-stop]').forEach(b=>b.onclick=()=>publishExistingStop(b.dataset.publishStop));
  loadAutoGoogleCardPhotos();
 }
 async function call(method,body,admin=true){
@@ -651,6 +654,39 @@ $('#checkPublicSync').onclick=async()=>{
  catch(e){note.textContent='⚠️ Não consegui confirmar a integração: '+String(e.message||e)}
  finally{btn.disabled=false}
 };
+async function publishExistingStop(id){
+ if(!remote||!token){alert('Conecte ao banco com sua senha de administrador.');return}
+ if(busy)return;
+ const record=editableStops(selectedDestId).find(p=>p.id===id);
+ if(!record||record.destinoId!==selectedDestId){alert('Essa parada não pertence ao destino selecionado.');return}
+ if(!record.nome?.trim()||!record.endereco?.trim()){
+  alert('Antes de publicar, clique em Editar e informe o nome e endereço da parada.');return
+ }
+ if(!confirm('Publicar "'+record.nome+'" em '+(currentDestination()?.nome||selectedDestId)+' → '+categoryLabel(record.categoria)+'?'))return;
+ busy=true;
+ const btn=document.querySelector('[data-publish-stop="'+id+'"]');
+ if(btn){btn.disabled=true;btn.textContent='Publicando...'}
+ try{
+  const { _origin,...fields }=record;
+  const payload={...fields,id,destinoId:selectedDestId,categoria:normalize(record.categoria),status:'publicado'};
+  const result=await call('POST',{kind:'paradas',record:payload});
+  const saved=result.record;
+  data.paradas=data.paradas.filter(p=>p.id!==id).concat(saved);
+  // Atualiza somente o rascunho correspondente, preservando todos os demais.
+  draft.paradas=draft.paradas.map(p=>p.id===id?{...saved}:p);
+  saveLocal();
+  const verified=await call('GET',undefined,false);
+  const visible=verified.paradas?.find(p=>p.id===id&&p.destinoId===selectedDestId&&p.status==='publicado');
+  if(!visible)throw Error('A parada foi salva, mas ainda não apareceu na API pública. Atualize o painel e verifique novamente.');
+  editing=null;selectedStopCategory=normalize(saved.categoria);render();
+  const destLink='./?dest='+encodeURIComponent(selectedDestId)+'&categoria='+encodeURIComponent(selectedStopCategory);
+  const statusText='✅ '+saved.nome+' publicado em '+(currentDestination()?.nome||selectedDestId)+' → '+categoryLabel(saved.categoria)+'. Atualize o site público para ver.';
+  announce(statusText);
+  const note=$('#publicSyncStatus');
+  if(note){note.textContent=statusText+' ';const link=document.createElement('a');link.href=destLink;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Ver no site';link.className='text-orange-300 underline font-bold';note.appendChild(link)}
+ }catch(e){alert('Não foi possível confirmar a publicação: '+String(e.message||e));render()}
+ finally{busy=false}
+}
 async function saveRecord(e){
  e.preventDefault();if(busy)return;
  if(photoUploading){alert('Aguarde a foto terminar de enviar antes de salvar.');return}
