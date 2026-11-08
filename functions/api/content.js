@@ -1,7 +1,7 @@
 // Asphalt Boys · Cloudflare Pages Function
 // D1 binding: DB. Admin secret: ADMIN_TOKEN (Cloudflare Pages secret).
 const TYPES = ['destinos','paradas','rotas'];
-const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,mapa:400,maps:1200,foto:1200,fotoAutor:200,fotoLicenca:80,fotoLicencaUrl:600,fotoFonteUrl:1200,fotoOrigem:80,fotoAdaptada:12,googlePlaceId:250,googlePhotoIndex:2,mapCoordinates:64};
+const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,mapa:400,maps:1200,foto:1200,fotoAutor:200,fotoLicenca:80,fotoLicencaUrl:600,fotoFonteUrl:1200,fotoOrigem:80,fotoAdaptada:12,fotoEnquadramento:12,googlePlaceId:250,googlePhotoIndex:2,mapCoordinates:64};
 function reply(body,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}})}
 async function safeEqual(a,b){
   if(!a||!b)return false;
@@ -19,6 +19,7 @@ function cleanRecord(kind,r){
   if(!r||typeof r!=='object'||Array.isArray(r))throw Error('Cadastro inválido.');
   const out={};for(const [key,max] of Object.entries(LIMITS))if(r[key]!==undefined)out[key]=String(r[key]||'').trim().slice(0,max);
   if(!out.nome)throw Error('Informe o nome.');
+  if(out.fotoEnquadramento)out.fotoEnquadramento=out.fotoEnquadramento==='zoom'?'zoom':'blur';
   out.id=String(r.id||crypto.randomUUID()).trim().slice(0,120);
   if(!/^[a-zA-Z0-9_-]{3,120}$/.test(out.id))throw Error('ID inválido.');
   if(kind!=='destinos'&&!out.destinoId)throw Error('Selecione um destino.');
