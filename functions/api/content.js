@@ -1,7 +1,7 @@
 // Asphalt Boys · Cloudflare Pages Function
 // D1 binding: DB. Admin secret: ADMIN_TOKEN (Cloudflare Pages secret).
 const TYPES = ['destinos','paradas','rotas'];
-const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,mapa:400,maps:1200,foto:1200,fotoAutor:200,fotoLicenca:80,fotoLicencaUrl:600,fotoFonteUrl:1200,fotoOrigem:80,fotoAdaptada:12,googlePlaceId:250,googlePhotoIndex:2};
+const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,mapa:400,maps:1200,foto:1200,fotoAutor:200,fotoLicenca:80,fotoLicencaUrl:600,fotoFonteUrl:1200,fotoOrigem:80,fotoAdaptada:12,googlePlaceId:250,googlePhotoIndex:2,mapCoordinates:64};
 function reply(body,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}})}
 async function safeEqual(a,b){
   if(!a||!b)return false;
@@ -22,6 +22,11 @@ function cleanRecord(kind,r){
   out.id=String(r.id||crypto.randomUUID()).trim().slice(0,120);
   if(!/^[a-zA-Z0-9_-]{3,120}$/.test(out.id))throw Error('ID inválido.');
   if(kind!=='destinos'&&!out.destinoId)throw Error('Selecione um destino.');
+  // Cards iniciais têm títulos fixos, mas mantêm fotos e demais campos editáveis.
+  if(kind==='destinos'&&out.id==='guaramiranga')out.nome='Guaramiranga';
+  if(kind==='destinos'&&out.id==='canoa-quebrada')out.nome='Canoa Quebrada';
+  if(out.mapCoordinates&&!/^-?\d{1,2}(?:\.\d{1,9})?,-?\d{1,3}(?:\.\d{1,9})?$/.test(out.mapCoordinates))
+   throw Error('Coordenadas do ponto inválidas.');
   // Fotos abertas: manter créditos e licença também na resposta pública.
   for(const field of ['fotoLicencaUrl','fotoFonteUrl']){
     if(!out[field])continue;
@@ -48,7 +53,14 @@ async function readData(db,admin){
   const stmt=admin?db.prepare(sql):db.prepare(sql).bind('publicado');
   const rows=(await stmt.all()).results||[];
   const data={destinos:[],paradas:[],rotas:[]};
-  for(const row of rows){if(!TYPES.includes(row.kind))continue;try{data[row.kind].push(JSON.parse(row.payload))}catch{}}
+  for(const row of rows){if(!TYPES.includes(row.kind))continue;try{
+    const p=JSON.parse(row.payload);
+    // Dados legados podem ter sido importados como "Pico Alto" no card Guaramiranga.
+    // Corrigir somente o título retornado, mantendo a mesma foto, ID e paradas.
+    if(row.kind==='destinos'&&p.id==='guaramiranga')p.nome='Guaramiranga';
+    if(row.kind==='destinos'&&p.id==='canoa-quebrada')p.nome='Canoa Quebrada';
+    data[row.kind].push(p);
+   }catch{}}
   return data;
 }
 export async function onRequestGet({request,env}){
