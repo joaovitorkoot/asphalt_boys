@@ -22,8 +22,7 @@ jobs:
           const admin=html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>'));
           new vm.Script(admin);new vm.Script(publicJs);
           const helper=admin.slice(admin.indexOf('const KEY='),admin.indexOf('function normalizedPlaceName'));
-          const sandbox={localStorage:{getItem(){return null},setItem(){}}};
-          const run=(code)=>vm.runInNewContext(helper+'\n'+code,sandbox);
+          const run=(code)=>vm.runInNewContext(helper+'\n'+code,{localStorage:{getItem(){return null},setItem(){}}});
           for(const value of ['cafe','almoco','turismo','descanso']){
             assert(publicJs.includes("['"+value+"'"),'Public missing '+value);
             assert(html.includes("['"+value+"'"),'Admin missing '+value);
