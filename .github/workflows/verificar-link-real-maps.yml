@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
       - name: Consultar Google Maps sem usar API nem chaves
         shell: bash
         run: |
