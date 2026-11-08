@@ -859,6 +859,9 @@ function storeUnfinishedForm(){
   if((field.type==='radio'||field.type==='checkbox')&&!field.checked)continue;
   values.push([field.name,String(field.value||'').slice(0,3000)]);
  }
+ // Memorizar também a seleção vazia, para não marcar uma categoria por engano.
+ if([...form.elements].some(field=>field.name==='categorias')&&!values.some(([name])=>name==='categorias'))
+  values.push(['categorias','']);
  try{
   localStorage.setItem(key,JSON.stringify({values,updated:Date.now()}));
   const message=$('#autoDraftNotice');
@@ -884,8 +887,9 @@ function restoreUnfinishedForm(){
  for(const field of form.elements){
   if(!field.name||field.type==='file')continue;
   const values=chosen.get(field.name)||[];
-  if(field.type==='radio'||field.type==='checkbox')field.checked=values.includes(field.value);
-  else if(values.length)field.value=values[values.length-1];
+  if(field.type==='radio'||field.type==='checkbox'){
+   if(chosen.has(field.name))field.checked=values.includes(field.value);
+  }else if(values.length)field.value=values[values.length-1];
  }
  const image=safeUrl($('#f_foto')?.value),preview=$('#photoPreview');
  if(preview&&image){preview.src=image;preview.hidden=false}
