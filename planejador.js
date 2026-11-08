@@ -11,6 +11,7 @@
  const validPlaceId=s=>/^[a-zA-Z0-9_-]{5,250}$/.test(String(s||''))?String(s):'';
  const MAX_ROUTE_STOPS=20;
  const MOBILE_WAYPOINTS=3;
+ const TESTED_APP_STOPS=8;
  const APP_MAX_STOPS=9;
  // Abrir o link ORIGINAL de quem cadastrou. Nunca trocar por resultado por nome.
  const mapLink=p=>{
@@ -51,7 +52,7 @@
  }
  // O D1 é a fonte de verdade. Não há paradas fixas no código que possam reaparecer após exclusão.
  let reviewRequestEpoch=0;
- let originMode='gps',activeLegIndex=0;
+ let originMode='gps',activeLegIndex=0,segmentMode='eight';
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
@@ -63,14 +64,15 @@
  function saveRoute(){
   if(!destination)return;
   safeStore(draftKey(destination.id),JSON.stringify({v:1,stops:selected.slice(0,MAX_ROUTE_STOPS),originMode,
-   origin:q('tripOrigin').value.trim().slice(0,150),presetId,tab,category,legIndex:activeLegIndex}));
+   origin:q('tripOrigin').value.trim().slice(0,150),presetId,tab,category,legIndex:activeLegIndex,segmentMode}));
  }
  function restoreRoute(){
   if(!destination)return false;
   let saved;try{saved=JSON.parse(safeRead(draftKey(destination.id))||'null')}catch{return false}
   if(!saved||saved.v!==1||!Array.isArray(saved.stops))return false;
   selected=[...new Set(saved.stops.filter(id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{3,120}$/.test(id)&&stopById(id)))].slice(0,MAX_ROUTE_STOPS);
-  activeLegIndex=Number.isInteger(saved.legIndex)&&saved.legIndex>=0&&saved.legIndex<MAX_ROUTE_STOPS?saved.legIndex:0;
+  segmentMode=saved.segmentMode==='four'?'four':'eight';
+  activeLegIndex=saved.segmentMode&&Number.isInteger(saved.legIndex)&&saved.legIndex>=0&&saved.legIndex<MAX_ROUTE_STOPS?saved.legIndex:0;
   presetId=typeof saved.presetId==='string'&&currentRoutes().some(r=>r.id===saved.presetId)?saved.presetId:'';
   category=categories.some(([id])=>id===saved.category)?saved.category:category;
   q('tripOrigin').value=typeof saved.origin==='string'?saved.origin.slice(0,150):'';
@@ -198,12 +200,13 @@
   q('tripRouteSummary').textContent=routeSummaryText();
   q('tripOpenMaps').disabled=selected.length>MAX_ROUTE_STOPS;
   q('tripOpenMaps').textContent=selected.length>APP_MAX_STOPS?'🧭 Navegar '+selected.length+' paradas por etapas':selected.length>4?'🗺️ Tentar rota completa ('+selected.length+')':'🗺️ Abrir rota no Maps';
-  q('tripOpenSegments').hidden=selected.length<=4||selected.length>APP_MAX_STOPS;
+  q('tripOpenSegments').hidden=selected.length<=4;
+   q('tripOpenSegments').textContent=segmentMode==='four'?'🏍️ Usar 8 paradas por etapa':'🛡️ Modo compatível: 4 por etapa';
   const suspicious=selected.map(stopById).filter(p=>suspectStop(p));
    q('tripMapsHelp').textContent=suspicious.length
     ?'⚠️ Confira a localização de '+suspicious.map(p=>p.nome).join(', ')+' antes de navegar. O cadastro pode criar um grande desvio.'
     :selected.length>APP_MAX_STOPS
-    ?'Seu roteiro de '+selected.length+' paradas está salvo aqui. O Maps recebe uma etapa por vez; avance quando terminar a anterior.'
+    ?'Seu roteiro de '+selected.length+' paradas está salvo. Vamos tentar grupos de até 8 locais; se faltarem pontos no Maps, use o modo compatível de 4.'
     :selected.length>4
     ?'O aplicativo Maps pode aceitar as '+selected.length+' paradas. Se alguma sumir, use Abrir por trechos.'
     :'Confira todas as paradas no Maps antes de iniciar.';
@@ -218,7 +221,7 @@
    focusBefore=document.activeElement;tab='custom';
    const requestedCategory=urlParams.get('dest')===id?urlParams.get('categoria'):'';
    category=categories.some(([cat])=>cat===requestedCategory)?requestedCategory:'turismo';
-   selected=[];presetId='';activeLegIndex=0;
+   selected=[];presetId='';activeLegIndex=0;segmentMode='eight';
    q('tripTitle').textContent=destination.nome;
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
@@ -415,7 +418,7 @@
    box.appendChild(route);
    const main=document.createElement('a');main.className='tripBtn tripLegStart';
    main.href=current.url;main.target='_blank';main.rel='noopener noreferrer';
-   main.textContent='🗺️ Abrir etapa '+(activeLegIndex+1)+' no Google Maps ↗';
+   main.textContent='🗺️ Abrir etapa '+(activeLegIndex+1)+' no Maps ('+(current.lastStop-current.firstStop+1)+' paradas) ↗';
    box.appendChild(main);
    const note=document.createElement('p');note.className='tripTiny mt-2';
    note.textContent=activeLegIndex<total-1
@@ -457,7 +460,7 @@
    q('tripOrigin').focus();return null;
   }
   const stops=selected.map(stopById).filter(Boolean);
-  const fallback=routeSegmentsFor(stops,origin,MOBILE_WAYPOINTS+1);
+  const fallback=routeSegmentsFor(stops,origin,segmentMode==='four'?MOBILE_WAYPOINTS+1:TESTED_APP_STOPS);
   if(fallback.error||fallback.unresolved.length){
    q('tripNote').textContent=fallback.error||'Há uma parada sem GPS ou Place ID. Confira os links originais.';
    showGoogleLegs(fallback);return null;
@@ -468,7 +471,7 @@
  function googleUrl(){
   const plan=routeRequest();if(!plan)return null;
   if(plan.stops.length>APP_MAX_STOPS){
-   q('tripNote').textContent='As '+plan.stops.length+' paradas estão salvas. Abra a etapa atual no Maps e, ao concluir, avance para a próxima aqui no site.';
+   q('tripNote').textContent='As '+plan.stops.length+' paradas estão salvas. Navegue por etapas de até '+(segmentMode==='four'?4:8)+' locais; confirme todos os pontos no Maps.';
    showGoogleLegs(plan.fallback);
    return null;
   }
@@ -486,8 +489,13 @@
   return complete.segments[0].url;
  }
  function openGoogleSegments(){
+  segmentMode=segmentMode==='four'?'eight':'four';
+  activeLegIndex=0;saveRoute();
   const plan=routeRequest();if(!plan)return;
-  q('tripNote').textContent='Abra a etapa atual no Maps; depois volte ao site e marque que concluiu para avançar.';
+  q('tripOpenSegments').textContent=segmentMode==='four'?'🏍️ Usar 8 paradas por etapa':'🛡️ Modo compatível: 4 por etapa';
+  q('tripNote').textContent=segmentMode==='four'
+   ?'Modo compatível: cada etapa leva até 4 locais. Confira os pontos no Maps.'
+   :'Modo otimizado: até 8 locais por etapa. Confira se todos aparecem no Maps.';
   showGoogleLegs(plan.fallback);
  }
  function share(){
