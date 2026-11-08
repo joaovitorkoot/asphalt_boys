@@ -1,7 +1,7 @@
 // Consulta sob demanda ao Google Places (New) para paradas publicadas.
 // Chave acessível apenas no servidor via Secret GOOGLE_PLACES_API_KEY.
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
-const mask="id,displayName,formattedAddress,googleMapsUri,rating,userRatingCount,regularOpeningHours,photos";
+const mask="id,displayName,primaryTypeDisplayName,formattedAddress,googleMapsUri,rating,userRatingCount,regularOpeningHours,photos";
 async function googleFetch(url,key,init={}){
   const response=await fetch(url,{...init,headers:{"X-Goog-Api-Key":key,"X-Goog-FieldMask":init.mask||mask,...(init.headers||{})}});
   if(!response.ok)throw Error("Google Places indisponível ("+response.status+")");
@@ -45,7 +45,7 @@ export async function onRequestGet({request,env}){
       }catch{}
     }
     const result={available:true,source:"Google Maps",name:place.displayName?.text||stop.nome,
-      address:place.formattedAddress||stop.endereco||"",rating:typeof place.rating==="number"?place.rating:null,
+      address:place.formattedAddress||stop.endereco||"",category:String(place.primaryTypeDisplayName?.text||"").slice(0,100),rating:typeof place.rating==="number"?place.rating:null,
       count:typeof place.userRatingCount==="number"?place.userRatingCount:null,
       hours:Array.isArray(place.regularOpeningHours?.weekdayDescriptions)?place.regularOpeningHours.weekdayDescriptions:[],
       map:place.googleMapsUri||stop.maps||"",photo,photoAttributions:(place.photos?.[0]?.authorAttributions||[]).map(a=>({name:String(a.displayName||"").slice(0,120),uri:String(a.uri||"").slice(0,500)}))};
