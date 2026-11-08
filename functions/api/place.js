@@ -37,7 +37,9 @@ export async function onRequestGet({request,env}){
     if(!placeId)return json({available:false,message:"Não encontramos esse local no Google."},404);
     const place=await googleFetch("https://places.googleapis.com/v1/places/"+encodeURIComponent(placeId)+"?languageCode=pt-BR",key);
     let photo="";
-    const firstPhoto=place.photos?.[0]?.name||"";
+    const photoIndex=Math.max(0,Math.min(9,parseInt(stop.googlePhotoIndex,10)||0));
+    const chosenPhoto=place.photos?.[photoIndex]||place.photos?.[0];
+    const firstPhoto=chosenPhoto?.name||"";
     if(firstPhoto&&/^places\/[^/]+\/photos\/[^/]+$/.test(firstPhoto)){
       try{
         const media=await fetch("https://places.googleapis.com/v1/"+firstPhoto+"/media?maxWidthPx=900&skipHttpRedirect=true",{headers:{"X-Goog-Api-Key":key}});
@@ -48,7 +50,7 @@ export async function onRequestGet({request,env}){
       address:place.formattedAddress||stop.endereco||"",category:String(place.primaryTypeDisplayName?.text||"").slice(0,100),rating:typeof place.rating==="number"?place.rating:null,
       count:typeof place.userRatingCount==="number"?place.userRatingCount:null,
       hours:Array.isArray(place.regularOpeningHours?.weekdayDescriptions)?place.regularOpeningHours.weekdayDescriptions:[],
-      map:place.googleMapsUri||stop.maps||"",photo,photoAttributions:(place.photos?.[0]?.authorAttributions||[]).map(a=>({name:String(a.displayName||"").slice(0,120),uri:String(a.uri||"").slice(0,500)}))};
+      map:place.googleMapsUri||stop.maps||"",photo,photoAttributions:(chosenPhoto?.authorAttributions||[]).map(a=>({name:String(a.displayName||"").slice(0,120),uri:String(a.uri||"").slice(0,500)}))};
     const output=json(result);
     return output;
   }catch(e){

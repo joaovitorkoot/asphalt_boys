@@ -1,0 +1,56 @@
+name: Testar fotos Google nos cards
+on:
+  push:
+    branches: [feature/google-places-auto-fotos-cards]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar fotos, autenticacao e atribuicoes sem consumir API
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const admin=fs.readFileSync('admin.html','utf8');
+          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          new vm.Script(fs.readFileSync('planejador.js','utf8'));
+          for(const marker of ['data-admin-google-photo','loadAutoGoogleCardPhotos()', 'browseGooglePhotos()', 'data-google-public-stop'])
+            assert(admin.includes(marker)||fs.readFileSync('planejador.js','utf8').includes(marker),marker);
+          const source=fs.readFileSync('functions/api/admin-place-photo.js','utf8');
+          const endpoint=(await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'))).onRequestPost;
+          const secret='valid-test-secret-longer-than-twenty';
+          const env={ADMIN_TOKEN:secret,GOOGLE_PLACES_API_KEY:'mock-google-key'};
+          const request=(token,mode,idx=0)=>new Request('https://asphalt-boys.pages.dev/api/admin-place-photo',{
+            method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+            body:JSON.stringify({placeId:'ChIJ123ABCde',name:'Quiosque Pico Alto',destination:'Guaramiranga',
+              photoIndex:idx,mode})
+          });
+          let calls=[];
+          globalThis.fetch=async(url,opts)=>{
+            calls.push({url,method:opts?.method,mask:opts?.headers?.['X-Goog-FieldMask']});
+            if(url.includes('/v1/places/ChIJ123ABCde?'))return Response.json({
+              id:'ChIJ123ABCde',displayName:{text:'Quiosque Pico Alto'},googleMapsUri:'https://www.google.com/maps/place/Quiosque+Pico+Alto/',
+              photos:[0,1,2].map(i=>({name:'places/ChIJ123ABCde/photos/photo'+i,
+                authorAttributions:[{displayName:'Fotografo '+i,uri:'https://www.google.com/maps/contrib/123'}]}))
+            });
+            if(url.includes('/media?'))return Response.json({photoUri:'https://lh3.googleusercontent.com/example-photo'});
+            if(url.includes('places:searchText'))return Response.json({places:[{id:'ChIJ123ABCde'}]});
+            throw Error('unexpected outbound request '+url);
+          };
+          let r=await endpoint({request:request('wrong','single'),env});assert.equal(r.status,401);
+          r=await endpoint({request:request(secret,'single',1),env});
+          assert.equal(r.status,200);
+          let value=await r.json();
+          assert.equal(value.photos.length,1);assert.equal(value.photos[0].index,1);
+          assert.equal(value.photos[0].attributions[0].name,'Fotografo 1');
+          r=await endpoint({request:request(secret,'gallery'),env});
+          value=await r.json();assert.equal(value.photos.length,3);
+          assert(calls.some(c=>c.url.includes('/v1/places/ChIJ123ABCde?')));
+          assert(calls.some(c=>c.url.includes('/media?')));
+          console.log('PASS: admin auth, Google Places photo details, photo attribution, selection, scripts');
+          NODE
