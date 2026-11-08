@@ -11,6 +11,7 @@
  const validPlaceId=s=>/^[a-zA-Z0-9_-]{5,250}$/.test(String(s||''))?String(s):'';
  const MAX_ROUTE_STOPS=20;
  const MOBILE_WAYPOINTS=3;
+ const APP_MAX_STOPS=9;
  // Abrir o link ORIGINAL de quem cadastrou. Nunca trocar por resultado por nome.
  const mapLink=p=>{
    const original=httpsUrl(p.maps);if(original)return original;
@@ -142,12 +143,21 @@
  function renderChosen(){
   const stops=currentStops();
   q('tripChosen').innerHTML=selected.length?selected.map((id,i)=>{
-    const p=stops.find(s=>s.id===id);return '<div class="tripPicked"><span class="text-orange-400 font-bold">'+(i+1)+'.</span><span class="flex-1 text-sm font-semibold">'+esc(p?.nome||'Parada indisponível')+'</span><button type="button" class="tripNavBtn" data-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="Mover parada para cima">↑</button><button type="button" class="tripNavBtn" data-down="'+i+'" '+(i===selected.length-1?'disabled':'')+' aria-label="Mover parada para baixo">↓</button><button type="button" class="tripNavBtn" data-remove="'+i+'" aria-label="Remover parada">×</button></div>';
+   const p=stops.find(s=>s.id===id);
+   const categoryNames=p?stopCategories(p).map(cat=>categories.find(([key])=>key===cat)?.[1]).filter(Boolean):[];
+   const chips=categoryNames.map(name=>'<span class="tripPickedChip">'+esc(name)+'</span>').join('');
+   return '<div class="tripPicked"><span class="tripPickedIndex">'+(i+1)+'.</span><div class="tripPickedInfo"><div class="tripPickedName">'+esc(p?.nome||'Parada indisponível')+'</div><div class="tripPickedCategories">'+chips+'</div></div><div class="tripPickedActions"><button type="button" class="tripNavBtn" data-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="Mover parada para cima">↑</button><button type="button" class="tripNavBtn" data-down="'+i+'" '+(i===selected.length-1?'disabled':'')+' aria-label="Mover parada para baixo">↓</button><button type="button" class="tripNavBtn" data-remove="'+i+'" aria-label="Remover parada">×</button></div></div>';
   }).join(''):'<p class="tripTiny">Nenhuma parada selecionada. Você pode explorar as categorias ou escolher uma rota pronta.</p>';
   q('tripCount').textContent=selected.length+' parada'+(selected.length===1?'':'s');
   q('tripRouteSummary').textContent=routeSummaryText();
   q('tripOpenMaps').disabled=selected.length>MAX_ROUTE_STOPS;
-  q('tripOpenMaps').textContent=selected.length>4?'🗺️ Ver trechos no Maps':'🗺️ Abrir rota completa no Maps';
+  q('tripOpenMaps').textContent=selected.length>APP_MAX_STOPS?'🗺️ Ver rota por trechos':selected.length>4?'🗺️ Tentar rota completa ('+selected.length+')':'🗺️ Abrir rota no Maps';
+  q('tripOpenSegments').hidden=selected.length<=4||selected.length>APP_MAX_STOPS;
+  q('tripMapsHelp').textContent=selected.length>APP_MAX_STOPS
+   ?'Para não perder nenhuma das '+selected.length+' paradas, abra os trechos na ordem mostrada.'
+   :selected.length>4
+   ?'O aplicativo Maps pode aceitar as '+selected.length+' paradas. Se alguma sumir, use Abrir por trechos.'
+   :'Confira todas as paradas no Maps antes de iniciar.';
   q('tripRouteSegments').hidden=true;
   q('tripRouteSegments').replaceChildren();
  }
@@ -277,8 +287,8 @@
   selected.push(id);presetId='';render();
  }
  function destinationUrl(){return destination.dest||destination.mapa||destination.nome}
- // Google Maps URLs aceitam até três waypoints em navegadores de celular.
- // A última parada selecionada será o destino final. Roteiros com mais de 4 paradas terão trechos em sequência.
+ // Links universais tentam abrir o app com até 9 destinos; Safari pode limitar a 3 intermediários.
+ // A última parada escolhida vira o destino final, sem incluir a cidade novamente.
  function routePoint(stop){
   const id=validPlaceId(stop.googlePlaceId),gps=validCoords(stop.mapCoordinates);
   // O GPS extraído do link compartilhado tem prioridade sobre IDs sugeridos.
@@ -301,7 +311,7 @@
   }
   return url.href;
  }
- function routeSegmentsFor(stops,origin){
+ function routeSegmentsFor(stops,origin,maxPointsPerLink=MOBILE_WAYPOINTS+1){
   if(stops.length>MAX_ROUTE_STOPS)return {segments:[],unresolved:[],error:'Máximo de 20 paradas por roteiro.'};
   const unresolved=stops.filter(p=>!routePoint(p));
   if(unresolved.length)return {segments:[],unresolved};
@@ -312,7 +322,7 @@
   while(offset<points.length){
    // Até 3 paradas intermediárias e 1 ponto final no Google Maps do celular.
    // Endereços e coordenadas podem coexistir no mesmo link.
-   let take=Math.min(MOBILE_WAYPOINTS+1,points.length-offset);
+   let take=Math.min(Math.max(1,Math.min(APP_MAX_STOPS,maxPointsPerLink)),points.length-offset);
    let chunk=points.slice(offset,offset+take);
    let url=oneGoogleSegment(from,chunk);
    while(url.length>1950&&take>1){
@@ -353,23 +363,45 @@
   }
   box.scrollIntoView({behavior:'smooth',block:'nearest'});
  }
- function googleUrl(){
+ function routeRequest(){
   const origin=originMode==='manual'?q('tripOrigin').value.trim():'';
-  if(originMode==='manual'&&!origin){q('tripNote').textContent='Informe uma cidade ou escolha Minha localização atual.';q('tripOrigin').focus();return null}
-  const result=routeSegmentsFor(selected.map(stopById).filter(Boolean),origin);
-  if(result.error||result.unresolved.length){
-   q('tripNote').textContent=result.error||'Falta GPS ou Place ID em uma parada. Não substituí por um local com nome parecido.';
-   showGoogleLegs(result);
-   return null;
+  if(originMode==='manual'&&!origin){
+   q('tripNote').textContent='Informe uma cidade ou escolha Minha localização atual.';
+   q('tripOrigin').focus();return null;
+  }
+  const stops=selected.map(stopById).filter(Boolean);
+  const fallback=routeSegmentsFor(stops,origin,MOBILE_WAYPOINTS+1);
+  if(fallback.error||fallback.unresolved.length){
+   q('tripNote').textContent=fallback.error||'Há uma parada sem GPS ou Place ID. Confira os links originais.';
+   showGoogleLegs(fallback);return null;
   }
   if(originMode==='manual')safeStore('asphalt-boys-ultima-origem',origin);
-  if(result.segments.length>1){
-   q('tripNote').textContent='Roteiro dividido em trechos para funcionar no Google Maps do celular. Abra cada trecho na ordem.';
-   showGoogleLegs(result);
+  return {stops,origin,fallback};
+ }
+ function googleUrl(){
+  const plan=routeRequest();if(!plan)return null;
+  if(plan.stops.length>APP_MAX_STOPS){
+   q('tripNote').textContent='São '+plan.stops.length+' paradas. Abra todos os trechos na ordem, sem pular nenhum.';
+   showGoogleLegs(plan.fallback);
+   return null;
+  }
+  // Tenta um URL único para o aplicativo Maps. O limite do navegador é menor.
+  const complete=routeSegmentsFor(plan.stops,plan.origin,APP_MAX_STOPS);
+  if(complete.error||complete.unresolved.length||complete.segments.length!==1){
+   q('tripNote').textContent='O roteiro ficou longo para um único link. Use os trechos compatíveis abaixo.';
+   showGoogleLegs(plan.fallback);
    return null;
   }
   q('tripRouteSegments').hidden=true;
-  return result.segments[0]?.url||null;
+  q('tripNote').textContent=plan.stops.length>4
+   ?'Confira as '+plan.stops.length+' paradas no Maps. Se alguma sumir, volte e toque em Abrir por trechos.'
+   :'Confira todas as paradas no Google Maps antes de iniciar.';
+  return complete.segments[0].url;
+ }
+ function openGoogleSegments(){
+  const plan=routeRequest();if(!plan)return;
+  q('tripNote').textContent='Abra cada trecho na ordem. O próximo começa onde o anterior terminou.';
+  showGoogleLegs(plan.fallback);
  }
  function share(){
   const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('dest',destination.id);
@@ -469,6 +501,7 @@
   presetId='';render();showTab('mine');
  });
  q('tripOpenMaps').onclick=()=>{const u=googleUrl();if(u)window.open(u,'_blank','noopener,noreferrer')};
+ q('tripOpenSegments').onclick=openGoogleSegments;
  q('tripOpenWaze').onclick=()=>{window.open('https://www.waze.com/ul?q='+encodeURIComponent(destinationUrl())+'&navigate=yes','_blank','noopener,noreferrer');q('tripNote').textContent='O Waze abre somente o destino. Paradas intermediárias devem ser configuradas no aplicativo.'};
  q('tripShare').onclick=share;
  q('tripCopy').onclick=async()=>{const input=q('tripShareLink');try{await navigator.clipboard.writeText(input.value);q('tripNote').textContent='Link copiado!'}catch{input.focus();input.select();q('tripNote').textContent='Selecione o link e copie manualmente.'}};
