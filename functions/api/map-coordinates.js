@@ -34,17 +34,17 @@ function coords(u){
   if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)return '';
   return lat.toFixed(7)+','+lng.toFixed(7);
  }
- const pin=valid(full.match(/!3d(-?\\d+(?:\\.\\d+)?)!4d(-?\\d+(?:\\.\\d+)?)/));
+ const pin=valid(full.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/));
  if(pin)return pin;
  // As coordenadas explícitas de um link (?q=, ?query=...) são o próprio ponto.
  for(const key of ['q','query','ll','daddr','destination']){
   const v=String(u.searchParams.get(key)||'').trim();
-  const match=v.match(/^\\s*\\(?(-?\\d+(?:\\.\\d+)?)\\s*[,;]\\s*(-?\\d+(?:\\.\\d+)?)\\)?\\s*$/);
+  const match=v.match(/^\s*\(?(-?\d+(?:\.\d+)?)\s*[,;]\s*(-?\d+(?:\.\d+)?)\)?\s*$/);
   const point=valid(match);if(point)return point;
  }
- const direct=valid(path.match(/\\/maps\\/(?:search|place)\\/(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)(?:\\/|$)/));
+ const direct=valid(path.match(/\/maps\/(?:search|place)\/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:\/|$)/));
  if(direct)return direct;
- if(/\\/maps\\/@/.test(path))return valid(path.match(/@(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/));
+ if(/\/maps\/@/.test(path))return valid(path.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/));
  return '';
 }
 export async function onRequestPost({request,env}){
