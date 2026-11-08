@@ -792,7 +792,7 @@ function render(resetPicker=true){
  loadAutoGoogleCardPhotos();
 }
 async function call(method,body,admin=true){
- const res=await fetch(API+(method==='GET'&&admin?'?admin=1':''),{method,headers:{...(token?{...(token?{'Authorization':'Bearer '+token}:{})}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),cache:'no-store'});
+ const res=await fetch(API+(method==='GET'&&admin?'?admin=1':''),{method,headers:{...(token?{'Authorization':'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),cache:'no-store'});
  let payload;try{payload=await res.json()}catch{throw Error('A resposta do servidor não é JSON.')};
  if(!res.ok)throw Error(payload.error||'Falha ao salvar no servidor');
  return payload;
