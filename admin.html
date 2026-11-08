@@ -41,14 +41,14 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 <script>
 (function(){
 const KEY='asphalt-boys-admin-drafts-v1', API='./api/content';
-const seed={destinos:[{id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',mapa:'Guaramiranga, CE',status:'rascunho'},{id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e litoral',mapa:'Canoa Quebrada, Aracati, CE',status:'rascunho'}],paradas:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'https://asphalt-boys.pages.dev/imagens/IMG_9038.jpeg',status:'rascunho'}],rotas:[]};
+const seed={destinos:[{id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',mapa:'Guaramiranga, CE',status:'publicado'},{id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e litoral',mapa:'Canoa Quebrada, Aracati, CE',status:'publicado'}],paradas:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'https://asphalt-boys.pages.dev/imagens/IMG_9038.jpeg',status:'rascunho'}],rotas:[]};
 const types=['destinos','paradas','rotas']; const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const safeUrl=s=>{try{let u=new URL(String(s||''));return u.protocol==='https:'?u.href:''}catch{return ''}};
 const normalize=c=>/café|cafe/i.test(c)?'cafe':/almo|restaurante/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
 function copy(d){return JSON.parse(JSON.stringify(d))}
 function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&types.every(t=>Array.isArray(d[t]))?d:copy(seed)}catch{return copy(seed)}}
-let draft=local(),data=copy(draft),remote=false,token='',tab='destinos',editing=null,picked=[],busy=false,selectedDestId='',creatingNewDestination=false;
+let draft=local(),data=copy(draft),remote=false,token='',tab='destinos',editing=null,picked=[],busy=false,photoUploading=false,selectedDestId='',creatingNewDestination=false;
 let placeMatches=[],placeSearchSeq=0,importMatches=[],mapsImportSeq=0,mapsLinkDraft={destinos:'',paradas:'',rotas:''};
 function announce(msg){$('#connection').textContent=msg}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
@@ -141,6 +141,7 @@ async function onPhotoChosen(event){
  if(!note||!field)return;
  if(!remote||!token){note.textContent='Conecte ao banco antes de enviar a imagem. A foto não foi enviada.';return}
  note.textContent='Preparando e enviando sua foto...';
+ photoUploading=true;
  try{
   const blob=await preparePhoto(file);
   const response=await fetch('./api/image-upload',{method:'POST',
@@ -151,6 +152,7 @@ async function onPhotoChosen(event){
   if(preview){preview.src=field.value;preview.hidden=false}
   note.textContent='✓ Foto enviada! Clique em Salvar no banco para usar no card selecionado.';
  }catch(err){note.textContent='Não foi possível enviar: '+String(err.message||err)}
+ finally{photoUploading=false}
 }
 function placeLookupMarkup(){
  const enabled=remote&&!!token;
@@ -376,6 +378,7 @@ async function call(method,body,admin=true){
 }
 async function saveRecord(e){
  e.preventDefault();if(busy)return;
+ if(photoUploading){alert('Aguarde a foto terminar de enviar antes de salvar.');return}
  const v=Object.fromEntries(new FormData(e.target));
  if(tab==='destinos'){
    v.id=creatingNewDestination?slugForDestination(v.nome):selectedDestId;
