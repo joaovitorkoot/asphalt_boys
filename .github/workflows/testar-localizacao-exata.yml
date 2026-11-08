@@ -1,0 +1,92 @@
+name: Garantir links e coordenadas exatas do Maps
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'planejador.js'
+      - 'admin.html'
+      - 'functions/api/map-coordinates.js'
+      - 'functions/api/maps-import.js'
+      - '.github/workflows/testar-localizacao-exata.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar links originais, coordenadas e rotas sem aproximacoes
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const planner=fs.readFileSync('planejador.js','utf8');
+          const admin=fs.readFileSync('admin.html','utf8');
+          new vm.Script(planner);
+          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          assert(admin.includes('id="testExactMapsLink"'));
+          assert(admin.includes("window.open(exact,'_blank','noopener,noreferrer')"));
+          assert(admin.includes("if(result.verified&&result.mapCoordinates)v.mapCoordinates=result.mapCoordinates;"));
+          assert(planner.includes('if(!httpsUrl(p.maps)&&httpsUrl(result.map))'));
+          const helpers=planner.slice(planner.indexOf(' const httpsUrl=s=>'),planner.indexOf(' const mapLink=p=>'))+
+            planner.slice(planner.indexOf(' const validCoords=s=>'),planner.indexOf(' // Abrir o link ORIGINAL'));
+          const mapCode=planner.slice(planner.indexOf(' const mapLink=p=>'),planner.indexOf(' const mapping=id=>'));
+          const mapping=vm.runInNewContext(helpers+'\n'+mapCode+'\nmapLink');
+          const original='https://maps.app.goo.gl/CCQuEH8HfXjQT5gG8';
+          assert.equal(mapping({maps:original,googlePlaceId:'ChIJwrong'}),original,'Must open original shared Google Maps URL');
+          const routeCode=planner.slice(planner.indexOf(' function googleUrl(){'),planner.indexOf(' function share(){'));
+          const state={selected:['p'],stopById:id=>state.stops[id],
+            stops:{p:{nome:'Pico Alto',mapCoordinates:'-4.2080812,-38.9747743',googlePlaceId:'ChIJwrong',endereco:'Pico Alto'}},
+            origin:{value:'Horizonte, CE'},note:{textContent:''}};
+          const ctx={...state,
+            q:id=>id==='tripOrigin'?state.origin:state.note,
+            destinationUrl:()=> 'Guaramiranga, Ceará',
+            safeStore:()=>{},URL};
+          const googleUrl=vm.runInNewContext(helpers+'\n'+routeCode+'\ngoogleUrl',ctx);
+          let url=new URL(googleUrl());
+          assert.equal(url.searchParams.get('waypoints'),'-4.2080812,-38.9747743');
+          assert.equal(url.searchParams.get('waypoint_place_ids'),null,'GPS must override a potentially wrong Place ID');
+          state.stops.p={nome:'Pico Alto',mapCoordinates:'',googlePlaceId:'ChIJcorrect123',endereco:'Pico Alto - Guaramiranga'};
+          url=new URL(googleUrl());
+          assert.equal(url.searchParams.get('waypoint_place_ids'),'ChIJcorrect123');
+          state.selected.push('c');ctx.selected=state.selected;
+          state.stops.c={nome:'Coordenada precisa',mapCoordinates:'-4.2000000,-38.9000000',endereco:'',googlePlaceId:''};
+          assert.equal(googleUrl(),null,'Must never approximate mixed GPS and Place IDs');
+          assert(state.note.textContent.includes('coordenadas exatas'));
+          const module=async path=>import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync(path,'utf8')).toString('base64'));
+          const resolver=(await module('functions/api/map-coordinates.js')).onRequestPost;
+          const importer=(await module('functions/api/maps-import.js')).onRequestPost;
+          const token='local-test-secret-longer-than-twenty-chars';
+          const env={ADMIN_TOKEN:token,GOOGLE_PLACES_API_KEY:'mock-google-key'};
+          const req=(path,url)=>new Request('https://asphalt-boys.pages.dev/api/'+path,{
+            method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+            body:JSON.stringify({url})
+          });
+          const gpsUrl='https://www.google.com/maps/search/?api=1&query=-4.2080812%2C-38.9747743';
+          let r=await resolver({request:req('map-coordinates',gpsUrl),env});
+          assert.equal(r.status,200);
+          assert.equal((await r.json()).mapCoordinates,'-4.2080812,-38.9747743');
+          r=await importer({request:req('maps-import',gpsUrl),env});
+          assert.equal(r.status,200);
+          const imported=await r.json();
+          assert.equal(imported.results[0].maps,gpsUrl);
+          assert.equal(imported.results[0].mapCoordinates,'-4.2080812,-38.9747743');
+          assert.equal(imported.results[0].id,'');
+          const expanded='https://www.google.com/maps/place/Pico+Alto/@-4.2081293,-38.9751541,2111m/data=!3m1!1e3!4m6!3m5!1s0x7bf3fefad1db533:0x7b92506ff55b03d0!8m2!3d-4.2080812!4d-38.9747743';
+          globalThis.fetch=async (url)=>{
+            if(url===original)return new Response(null,{status:302,headers:{location:expanded}});
+            if(String(url).includes('places:searchText'))return Response.json({places:[{id:'ChIJcorrect123',displayName:{text:'Pico Alto'},formattedAddress:'Pernambuquinho, Guaramiranga',location:{latitude:-4.2080812,longitude:-38.9747743}}]});
+            throw Error('Unexpected outbound fetch '+url);
+          };
+          r=await resolver({request:req('map-coordinates',original),env});
+          assert.equal((await r.json()).mapCoordinates,'-4.2080812,-38.9747743');
+          r=await importer({request:req('maps-import',original),env});
+          assert.equal(r.status,200);
+          const fromShort=await r.json();
+          assert.equal(fromShort.results[0].maps,original,'Importer must preserve original short URL');
+          assert.equal(fromShort.results[0].mapCoordinates,'-4.2080812,-38.9747743');
+          console.log('PASS: exact shared Maps URL, GPS link, short-link pin, imported URL and waypoint correctness');
+          NODE
