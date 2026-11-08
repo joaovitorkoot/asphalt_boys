@@ -1,0 +1,109 @@
+name: Validar login com email e sessao
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'admin.html'
+      - 'functions/api/auth.js'
+      - 'functions/api/_middleware.js'
+      - '.github/workflows/testar-login-email.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar JavaScript do login e endpoints
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          import cryptoModule from 'node:crypto';
+          globalThis.crypto=cryptoModule.webcrypto;
+          const html=fs.readFileSync('admin.html','utf8');
+          new vm.Script(html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>')));
+          for(const marker of ['id="adminAuthGate"','id="adminLoginForm"','id="adminSetupForm"',
+            'id="adminLogout"','sessionReady','initializeAdminAuth()','if(!remote||!(token||sessionReady))'])
+             assert(html.includes(marker),'Missing UI: '+marker);
+          assert(!html.includes("'Authorization':'Bearer '+token,'Content-Type'"),'Unconditional legacy header remains');
+          const authSource=fs.readFileSync('functions/api/auth.js','utf8');
+          const auth=await import('data:text/javascript;base64,'+Buffer.from(authSource).toString('base64'));
+          const mwSource=fs.readFileSync('functions/api/_middleware.js','utf8')
+            .replace("import {sessionFor,sameOrigin} from './auth.js';",'')
+            .replace('export async function onRequest','async function onRequest');
+          const middleware=vm.runInNewContext(mwSource+'\nonRequest',{
+            sessionFor:auth.sessionFor,sameOrigin:auth.sameOrigin,Request,Response,Headers,URL
+          });
+          const account={value:null},sessions=new Map(),limits=new Map();
+          const db={prepare(sql){
+            let args=[];
+            return {bind(...a){args=a;return this},async run(){
+              if(sql.startsWith('INSERT OR IGNORE INTO ab_admin_login')){
+                if(account.value)return {meta:{changes:0}};
+                account.value={email:args[0],salt:args[1],password_hash:args[2],iterations:args[3]};
+                return {meta:{changes:1}};
+              }
+              if(sql.startsWith('UPDATE ab_admin_login')){
+                account.value={email:args[0],salt:args[1],password_hash:args[2],iterations:args[3]};
+              }
+              if(sql==='DELETE FROM ab_admin_sessions')sessions.clear();
+              if(sql.startsWith('DELETE FROM ab_admin_sessions WHERE expires_at'))
+                for(const [k,v] of sessions)if(v<args[0])sessions.delete(k);
+              if(sql.startsWith('DELETE FROM ab_admin_sessions WHERE token_hash'))sessions.delete(args[0]);
+              if(sql.startsWith('INSERT INTO ab_admin_sessions'))sessions.set(args[0],args[1]);
+              if(sql.startsWith('INSERT INTO ab_admin_limits'))limits.set(args[0],{attempts:args[1],reset_at:args[2]});
+              if(sql.startsWith('DELETE FROM ab_admin_limits'))limits.delete(args[0]);
+              return {meta:{changes:1}};
+            },async first(){
+              if(sql.includes('FROM ab_admin_login'))return account.value;
+              if(sql.includes('FROM ab_admin_sessions'))return sessions.has(args[0])?{expires_at:sessions.get(args[0])}:null;
+              if(sql.includes('FROM ab_admin_limits'))return limits.get(args[0])||null;
+              throw Error('Unexpected SQL: '+sql);
+            }};
+          }};
+          const origin='https://asphalt-boys.pages.dev';
+          const env={DB:db,ADMIN_TOKEN:'token-de-producao-teste-mais-de-20-caracteres'};
+          const post=(action,fields={},cookie='',requestOrigin=origin)=>{
+            const headers={'Content-Type':'application/json','Origin':requestOrigin,'CF-Connecting-IP':'203.0.113.4'};
+            if(cookie)headers.Cookie=cookie;
+            return new Request(origin+'/api/auth',{method:'POST',headers,body:JSON.stringify({action,...fields})});
+          };
+          const get=cookie=>new Request(origin+'/api/auth',{headers:cookie?{Cookie:cookie}:{}});
+          let r=await auth.onRequestGet({request:get(),env});let body=await r.json();
+          assert.equal(r.status,200);assert.equal(body.configured,false);
+          r=await auth.onRequestPost({request:post('setup',{email:'admin@example.com',password:'some-secure-password-123',adminToken:'wrong'}),env});
+          assert.equal(r.status,401);
+          r=await auth.onRequestPost({request:post('setup',{email:'admin@example.com',password:'some-secure-password-123',adminToken:env.ADMIN_TOKEN}),env});
+          assert.equal(r.status,200);body=await r.json();
+          assert(body.authenticated);assert(!r.headers.get('Set-Cookie').includes('some-secure-password-123'));
+          const firstCookie=r.headers.get('Set-Cookie').split(';')[0];
+          assert(r.headers.get('Set-Cookie').includes('HttpOnly'));
+          assert(r.headers.get('Set-Cookie').includes('SameSite=Strict'));
+          r=await auth.onRequestGet({request:get(firstCookie),env});body=await r.json();
+          assert.equal(body.authenticated,true);assert.equal(body.email,'admin@example.com');
+          r=await auth.onRequestPost({request:post('login',{email:'admin@example.com',password:'incorrect-passphrase'}),env});
+          assert.equal(r.status,401);
+          r=await auth.onRequestPost({request:post('login',{email:'admin@example.com',password:'some-secure-password-123'}),env});
+          assert.equal(r.status,200);
+          const loginCookie=r.headers.get('Set-Cookie').split(';')[0];
+          assert(loginCookie!==firstCookie);
+          const cReq=new Request(origin+'/api/content?admin=1',{headers:{Cookie:loginCookie}});
+          let inspected;
+          const response=await middleware({request:cReq,env,next:async req=>{inspected=req||cReq;return new Response('ok')}});
+          assert.equal(response.status,200);
+          assert.equal(inspected.headers.get('Authorization'),'Bearer '+env.ADMIN_TOKEN);
+          inspected=null;
+          const malicious=new Request(origin+'/api/content',{method:'POST',headers:{Cookie:loginCookie,Origin:'https://attacker.example'},body:'{}'});
+          r=await middleware({request:malicious,env,next:async()=>{throw Error('CSRF not blocked')}});
+          assert.equal(r.status,403);
+          r=await auth.onRequestPost({request:post('logout',{},loginCookie),env});assert.equal(r.status,200);
+          r=await auth.onRequestGet({request:get(loginCookie),env});assert.equal((await r.json()).authenticated,false);
+          r=await auth.onRequestPost({request:post('recover',{email:'newadmin@example.com',password:'another-long-new-password-123',adminToken:env.ADMIN_TOKEN}),env});
+          assert.equal(r.status,200);
+          r=await auth.onRequestGet({request:get(firstCookie),env});assert.equal((await r.json()).authenticated,false);
+          console.log('PASS: setup, password hash, sessions, HttpOnly cookie, wrong password, middleware, CSRF, logout and account recovery');
+          NODE
