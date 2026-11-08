@@ -1,7 +1,7 @@
 // Asphalt Boys · Cloudflare Pages Function
 // D1 binding: DB. Admin secret: ADMIN_TOKEN (Cloudflare Pages secret).
 const TYPES = ['destinos','paradas','rotas'];
-const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,mapa:400,maps:1200,foto:1200,googlePlaceId:250,googlePhotoIndex:2};
+const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,mapa:400,maps:1200,foto:1200,fotoAutor:200,fotoLicenca:80,fotoLicencaUrl:600,fotoFonteUrl:1200,fotoOrigem:80,fotoAdaptada:12,googlePlaceId:250,googlePhotoIndex:2};
 function reply(body,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}})}
 async function safeEqual(a,b){
   if(!a||!b)return false;
@@ -22,6 +22,12 @@ function cleanRecord(kind,r){
   out.id=String(r.id||crypto.randomUUID()).trim().slice(0,120);
   if(!/^[a-zA-Z0-9_-]{3,120}$/.test(out.id))throw Error('ID inválido.');
   if(kind!=='destinos'&&!out.destinoId)throw Error('Selecione um destino.');
+  // Fotos abertas: manter créditos e licença também na resposta pública.
+  for(const field of ['fotoLicencaUrl','fotoFonteUrl']){
+    if(!out[field])continue;
+    try{const u=new URL(out[field]);if(u.protocol!=='https:')throw Error('URL inválida')}
+    catch{throw Error('Fonte ou licença da foto precisa ser um link https válido.')}
+  }
   if(kind==='paradas'){
     out.categoria=String(r.categoria||'turismo').toLowerCase();
     if(!['cafe','almoco','turismo','descanso'].includes(out.categoria))throw Error('Categoria inválida.');

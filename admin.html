@@ -139,17 +139,33 @@ function slugForDestination(name){
  if(destinationsForPicker().some(x=>x.id===slug))slug+='-'+Math.random().toString(36).slice(2,7);
  return slug;
 }
+function photoCreditFields(record={}){
+ const keys=['fotoAutor','fotoLicenca','fotoLicencaUrl','fotoFonteUrl','fotoOrigem','fotoAdaptada'];
+ return keys.map(key=>'<input type="hidden" name="'+key+'" id="f_'+key+'" value="'+esc(record[key]||'')+'">').join('');
+}
 function photoPickerMarkup(){
  const enabled=remote&&!!token,tabName=tab==='destinos'?'destino':'parada';
  return '<div class="rounded-lg border border-zinc-600 p-3 mt-3">'+
   '<p class="font-bold text-sm">📸 Foto do '+tabName+'</p>'+
-  '<p class="tiny mt-1">Selecione uma foto do celular ou computador. Ela será adaptada automaticamente para '+(tab==='destinos'?'16:9 (card de viagem)':'1:1 (card de parada)')+', mantendo a foto inteira e preenchendo as bordas sem cortes.</p>'+
-  '<label class="subbtn inline-flex items-center cursor-pointer mt-3" for="photoFile">📷 Adicionar foto</label>'+
+  '<p class="tiny mt-1">Fotos adaptadas automaticamente para '+(tab==='destinos'?'16:9':'1:1')+' sem cortar a imagem original.</p>'+
+  '<section class="border border-orange-500/35 rounded-lg bg-orange-500/5 p-3 mt-3">'+
+   '<h4 class="font-bold text-sm">🔎 Buscar fotos gratuitas — sem Google Places</h4>'+
+   '<p class="tiny mt-1">Buscamos no Wikimedia Commons e Openverse. Confira se a foto realmente representa o local e veja a licença antes de escolher.</p>'+
+   '<label class="lbl" for="openPhotoQuery">Nome do local ou região</label>'+
+   '<div class="grid sm:grid-cols-[1fr_auto] gap-2"><input class="field" id="openPhotoQuery" type="search" autocomplete="off" maxlength="160" placeholder="Ex.: Pico Alto" value="'+esc($('#f_nome')?.value||'')+'">'+
+   '<button type="button" id="searchOpenPhotos" class="btn" '+(enabled?'':'disabled')+'>Buscar fotos</button></div>'+
+   '<p class="tiny mt-2">Para fotos da região (sem garantir que sejam do estabelecimento), use Buscar por região.</p>'+
+   '<button type="button" id="searchRegionPhotos" class="subbtn mt-2" '+(enabled?'':'disabled')+'>🌄 Buscar por região</button>'+
+   '<p id="openPhotosStatus" role="status" class="tiny mt-3">'+(enabled?'Busque pelo nome e selecione uma imagem licenciada.':'Conecte ao banco antes de buscar fotos.')+'</p>'+
+   '<div id="openPhotosGallery" class="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3"></div>'+
+  '</section>'+
+  '<label class="subbtn inline-flex items-center cursor-pointer mt-3" for="photoFile">📷 Enviar foto do dispositivo</label>'+
   '<input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp,image/avif" class="sr-only" aria-label="Adicionar foto do dispositivo">'+
-  (tab==='paradas'?'<div class="mt-3 border-t border-zinc-600 pt-3"><button type="button" id="browseGooglePhotos" class="subbtn text-sm" '+(enabled?'':'disabled')+'>🌄 Escolher foto do Google Maps</button>'+
-    '<p class="tiny mt-2">Busca exata pelo nome do local e destino. Sem foto própria, a primeira foto disponível do Google aparece automaticamente no card. Caso a API não entregue fotos, use Adicionar foto com autorização.</p>'+
-    '<div id="googlePhotoGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3" aria-label="Fotos do Google Maps"></div><p id="googlePhotoGalleryStatus" class="tiny mt-2" role="status"></p></div>':'')+
-  '<p id="photoUploadStatus" role="status" class="tiny mt-2">'+(enabled?'Escolha sua foto. Depois confira e salve o cadastro.':'Conecte ao banco antes de enviar uma imagem.')+'</p>'+
+  '<p id="photoLicensePreview" class="tiny mt-2"></p>'+
+  (tab==='paradas'?'<details class="mt-3 border-t border-zinc-600 pt-3"><summary class="tiny cursor-pointer">Busca antiga pelo Google Maps (opcional)</summary>'+
+    '<button type="button" id="browseGooglePhotos" class="subbtn text-sm mt-2" '+(enabled?'':'disabled')+'>Escolher foto do Google Maps</button>'+
+    '<div id="googlePhotoGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3"></div><p id="googlePhotoGalleryStatus" class="tiny mt-2" role="status"></p></details>':'')+
+  '<p id="photoUploadStatus" role="status" class="tiny mt-2">'+(enabled?'Selecione e salve a foto no cadastro.':'Conecte ao banco antes de enviar uma imagem.')+'</p>'+
   '<img id="photoPreview" alt="Prévia da foto selecionada" hidden class="rounded-lg w-full max-w-sm mt-3 object-contain bg-zinc-800 '+(tab==='destinos'?'aspect-video':'aspect-square')+'">'+
  '</div>';
 }
@@ -256,7 +272,7 @@ async function browseGooglePhotos(){
     const index=$('#f_googlePhotoIndex'),place=$('#f_googlePlaceId'),own=$('#f_foto'),preview=$('#photoPreview'),uploadNote=$('#photoUploadStatus');
     if(index)index.value=String(p.index);
     if(place)place.value=result.placeId||'';
-    if(own)own.value='';
+    if(own)own.value='';setPhotoCredits(null);
     if(preview){preview.src=url;preview.hidden=false}
     if(uploadNote)uploadNote.textContent='✓ Foto do Google selecionada. Salve para usar essa opção no card (a foto é carregada novamente pelo Google quando exibida).';
     note.textContent='✓ Foto '+(p.index+1)+' selecionada de '+(result.placeName||stop.nome)+'. Agora clique em Salvar no banco.';
@@ -305,32 +321,129 @@ async function preparePhoto(file,kind=tab){
   throw Error('A foto ficou muito grande após o ajuste. Tente uma imagem menor.');
  }finally{URL.revokeObjectURL(source)}
 }
-async function onPhotoChosen(event){
- const file=event.target.files?.[0];if(!file)return;
+function setPhotoCredits(meta){
+ const fields={
+  fotoAutor:meta?.creator||'',fotoLicenca:meta?.license||'',
+  fotoLicencaUrl:meta?.licenseUrl||'',fotoFonteUrl:meta?.pageUrl||'',
+  fotoOrigem:meta?.source==='commons'?'Wikimedia Commons':meta?.source==='openverse'?'Openverse':'',
+  fotoAdaptada:meta?'sim':''
+ };
+ for(const [key,value] of Object.entries(fields)){
+  const input=$('#f_'+key);if(input)input.value=String(value).slice(0,key==='fotoFonteUrl'?1200:600);
+ }
+ const note=$('#photoLicensePreview');
+ if(note){
+  note.textContent='';
+  if(!meta)return;
+  const label=document.createElement('span');
+  label.textContent='Créditos: '+(fields.fotoAutor||'Autor informado na fonte')+' · '+fields.fotoLicenca+' · Imagem adaptada para o card. ';
+  note.appendChild(label);
+  for(const [url,title] of [[fields.fotoFonteUrl,'Ver original'],[fields.fotoLicencaUrl,'Ver licença']]){
+   if(!safeUrl(url))continue;
+   const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener noreferrer';
+   link.className='text-orange-300 underline ml-1';link.textContent=title;note.appendChild(link);
+  }
+ }
+}
+async function uploadCardPhoto(file,meta=null){
  const note=$('#photoUploadStatus'),preview=$('#photoPreview'),field=$('#f_foto');
- if(!note||!field)return;
- if(!remote||!token){note.textContent='Conecte ao banco antes de enviar a imagem. A foto não foi enviada.';return}
- note.textContent='Preparando e enviando sua foto...';
+ if(!note||!field)return false;
+ if(!remote||!token){note.textContent='Conecte ao banco antes de enviar a foto.';return false}
+ if(photoUploading){note.textContent='Aguarde o envio anterior terminar.';return false}
  photoUploading=true;
+ note.textContent='Adaptando a foto e salvando no banco…';
+ const inputAtStart=field,tabAtStart=tab;
  try{
-  const blob=await preparePhoto(file,tab);
+  const blob=await preparePhoto(file,tabAtStart);
   const response=await fetch('./api/image-upload',{method:'POST',
-    headers:{'Authorization':'Bearer '+token,'Content-Type':blob.type},body:blob,cache:'no-store'});
-  const result=await response.json();
-  if(!response.ok)throw Error(result.error||'Não foi possível enviar a imagem.');
-  // Só considera a foto salva depois de confirmar que a URL pública realmente abre.
-  const uploadedUrl=new URL(result.url,location.origin).href;
+   headers:{'Authorization':'Bearer '+token,'Content-Type':blob.type},body:blob,cache:'no-store'});
+  const payload=await response.json();
+  if(!response.ok)throw Error(payload.error||'Não foi possível enviar a imagem.');
+  const uploadedUrl=new URL(payload.url,location.origin).href;
   await new Promise((resolve,reject)=>{
-   const verification=new Image();
-   verification.onload=()=>resolve();
-   verification.onerror=()=>reject(Error('A foto foi enviada, mas não abriu no site público. Tente novamente.'));
-   verification.src=uploadedUrl;
+   const check=new Image();check.onload=resolve;
+   check.onerror=()=>reject(Error('A imagem foi enviada, mas não abriu no site público.'));
+   check.src=uploadedUrl;
   });
-  field.value=uploadedUrl;
+  if(!inputAtStart.isConnected||inputAtStart!==$('#f_foto'))throw Error('Você mudou de cadastro durante o envio. Volte e selecione a foto novamente.');
+  inputAtStart.value=uploadedUrl;
+  setPhotoCredits(meta);
+  const googleIndex=$('#f_googlePhotoIndex');if(googleIndex)googleIndex.value='0';
   if(preview){preview.src=uploadedUrl;preview.hidden=false}
-  note.textContent='✓ Foto adaptada, enviada e confirmada no site! Clique em Salvar no banco para usá-la no card.';
- }catch(err){note.textContent='Não foi possível enviar: '+String(err.message||err)}
+  note.textContent='✓ Foto adaptada e armazenada! '+(meta?'Créditos preservados. ':'')+'Agora clique em Salvar no banco.';
+  return true;
+ }catch(err){if(note.isConnected)note.textContent='Não consegui salvar a foto: '+String(err.message||err);return false}
  finally{photoUploading=false}
+}
+async function onPhotoChosen(event){
+ const file=event.target.files?.[0];
+ if(file)await uploadCardPhoto(file,null);
+}
+async function searchFreePhotos(scope='place'){
+ const button=$('#searchOpenPhotos'),regionButton=$('#searchRegionPhotos'),status=$('#openPhotosStatus'),gallery=$('#openPhotosGallery');
+ if(!button||!regionButton||!status||!gallery)return;
+ if(!remote||!token){status.textContent='Conecte ao banco primeiro.';return}
+ const region=currentDestination()?.nome||'',q=scope==='region'?(region+' Ceará').trim():($('#openPhotoQuery')?.value.trim()||$('#f_nome')?.value.trim()||'');
+ if(q.length<3){status.textContent='Digite um nome de local com pelo menos 3 letras.';return}
+ button.disabled=true;regionButton.disabled=true;gallery.textContent='';
+ status.textContent='Pesquisando fotos abertas no Wikimedia Commons e Openverse…';
+ try{
+  const response=await fetch('./api/photo-search',{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+   body:JSON.stringify({query:q,region:scope==='region'?'':region,scope}),cache:'no-store'});
+  const found=await response.json();
+  if(!response.ok)throw Error(found.error||'Não foi possível buscar fotos.');
+  if(!button.isConnected)return;
+  const items=Array.isArray(found.results)?found.results:[];
+  if(!items.length){status.textContent='Nenhuma foto licenciada nesta busca. Experimente Buscar por região ou digite outro termo.';return}
+  status.textContent=items.length+' fotos encontradas. Confira se representam o lugar. A busca por região pode mostrar fotos ilustrativas.';
+  for(const item of items){
+   if(!safeUrl(item.thumb))continue;
+   const card=document.createElement('article');card.className='border border-zinc-600 rounded-lg p-2 bg-[#22262c]';
+   const img=document.createElement('img');img.src=item.thumb;img.alt='Foto candidata: '+item.title;
+   img.loading='lazy';img.className='w-full aspect-square object-contain rounded-lg bg-zinc-800';
+   card.appendChild(img);
+   const title=document.createElement('p');title.className='text-sm font-semibold mt-2 break-words';
+   title.textContent=item.title||'Foto do acervo';card.appendChild(title);
+   const origin=document.createElement('p');origin.className='tiny mt-1';
+   origin.textContent=(item.source==='commons'?'Wikimedia Commons':'Openverse')+' · '+item.license;
+   card.appendChild(origin);
+   const who=document.createElement('p');who.className='tiny mt-1 break-words';who.textContent='Autor: '+(item.creator||'Ver na fonte');card.appendChild(who);
+   const links=document.createElement('div');links.className='flex flex-wrap gap-2 mt-2';
+   if(safeUrl(item.pageUrl)){
+    const link=document.createElement('a');link.href=item.pageUrl;link.target='_blank';link.rel='noopener noreferrer';
+    link.className='text-orange-300 text-xs underline';link.textContent='Conferir original';links.appendChild(link);
+   }
+   if(safeUrl(item.licenseUrl)){
+    const link=document.createElement('a');link.href=item.licenseUrl;link.target='_blank';link.rel='noopener noreferrer';
+    link.className='text-orange-300 text-xs underline';link.textContent='Licença';links.appendChild(link);
+   }
+   card.appendChild(links);
+   const choose=document.createElement('button');choose.type='button';
+   choose.className='subbtn w-full mt-2 text-sm';choose.textContent='✓ Usar esta foto';
+   choose.addEventListener('click',async()=>{
+    if(photoUploading)return;
+    choose.disabled=true;choose.textContent='Baixando e adaptando…';
+    try{
+     const res=await fetch('./api/photo-source',{method:'POST',headers:{
+      'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({source:item.source,id:item.id}),cache:'no-store'});
+     if(!res.ok){
+      let error;try{error=(await res.json()).error}catch{}
+      throw Error(error||'A fonte não disponibilizou a foto.');
+     }
+     const photo=await res.blob();
+     const stored=await uploadCardPhoto(photo,item);
+     if(stored){status.textContent='✓ Foto selecionada e salva como imagem do card. Revise os créditos e clique em Salvar no banco.';choose.textContent='✓ Selecionada'}
+     else choose.textContent='Tentar novamente';
+    }catch(e){
+     status.textContent='Não consegui importar essa foto: '+String(e.message||e);
+     choose.textContent='Tentar novamente';
+    }finally{choose.disabled=false}
+   });
+   card.appendChild(choose);
+   gallery.appendChild(card);
+  }
+ }catch(e){if(button.isConnected)status.textContent='Falha na busca: '+String(e.message||e)}
+ finally{if(button.isConnected)button.disabled=false;if(regionButton.isConnected)regionButton.disabled=false}
 }
 function placeLookupMarkup(){
  const enabled=remote&&!!token;
@@ -359,8 +472,8 @@ function form(){
  const d=tab==='destinos'?(creatingNewDestination?{}:(data.destinos.find(x=>x.id===selectedDestId)||currentDestination()||{})):(tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===editing):editableRoutes(selectedDestId).find(x=>x.id===editing))||{};
  const f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
  let fields='';
- if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoPickerMarkup();
- if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
+ if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup();
+ if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
  if(tab==='rotas'){const dest=selectedDestId;fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(dest)+'"><p class="tiny text-orange-300">Essa rota será adicionada somente a '+esc(currentDestination()?.nome||dest)+'.</p>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+f('maps','Link do trajeto no Google Maps','url')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
  return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
@@ -397,6 +510,7 @@ function listHtml(){
        '<div class="flex gap-3 items-start">'+icon+'<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2">'+
        '<strong class="break-words">'+esc(x.nome)+'</strong><span class="pill '+(x.status==='publicado'?'published':'')+'">'+esc(badge)+'</span></div>'+
        '<p class="tiny mt-1">'+esc(x.descricao||x.endereco||'')+'</p>'+
+       (x.fotoLicenca?'<p class="tiny mt-1">📸 '+esc(x.fotoAutor||'Autor informado na fonte')+' · '+esc(x.fotoLicenca)+' · Imagem adaptada'+(safeUrl(x.fotoFonteUrl)?' · <a target="_blank" rel="noopener noreferrer" class="text-orange-300 underline" href="'+esc(safeUrl(x.fotoFonteUrl))+'">Ver origem</a>':'')+'</p>':'')+
        (tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas</p>':'')+
        (origin==='local'&&remote?'<p class="text-xs text-amber-300 mt-1">Salvo apenas neste navegador. Abra e salve no banco para sincronizar.</p>':'')+
        (origin==='default'?'<p class="tiny mt-1">Já aparece no site. Você pode personalizar e salvar no banco.</p>':'')+
@@ -587,6 +701,19 @@ function render(resetPicker=true){
  if(tab==='paradas'||tab==='destinos'){
    initPlacesLookup();
    const photoInput=$('#photoFile');if(photoInput)photoInput.onchange=onPhotoChosen;
+   const searchButton=$('#searchOpenPhotos');if(searchButton)searchButton.onclick=()=>searchFreePhotos('place');
+   const regionButton=$('#searchRegionPhotos');if(regionButton)regionButton.onclick=()=>searchFreePhotos('region');
+   const query=$('#openPhotoQuery');if(query){
+    query.value=$('#f_nome')?.value.trim()||'';
+    query.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();searchFreePhotos('place')}};
+   }
+   const existingLicense=$('#f_fotoLicenca')?.value;
+   if(existingLicense)setPhotoCredits({
+    creator:$('#f_fotoAutor')?.value,license:existingLicense,licenseUrl:$('#f_fotoLicencaUrl')?.value,
+    pageUrl:$('#f_fotoFonteUrl')?.value,source:$('#f_fotoOrigem')?.value==='Wikimedia Commons'?'commons':'openverse'
+   });
+   const urlField=$('#f_foto');
+   if(urlField)urlField.oninput=()=>setPhotoCredits(null);
    const googlePhotoButton=$('#browseGooglePhotos');if(googlePhotoButton)googlePhotoButton.onclick=browseGooglePhotos;
    const currentPhoto=safeUrl($('#f_foto')?.value);
    const photoPreview=$('#photoPreview');if(photoPreview&&currentPhoto){photoPreview.src=currentPhoto;photoPreview.hidden=false}

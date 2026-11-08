@@ -36,7 +36,8 @@
    q('tripCategories').innerHTML=categories.map(([id,label])=>'<button type="button" class="tripCat" data-cat="'+id+'" aria-pressed="'+(category===id)+'">'+label+'</button>').join('');
    q('tripAvailable').innerHTML=stops.length?stops.map(p=>{
      const pic=httpsUrl(p.foto),dis=selected.includes(p.id),full=selected.length>=3,loc=String(p.endereco||'').trim();
-     return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categories.find(([id])=>id===normalize(p.categoria))[1])+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p><div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Até 3 paradas':'+ Adicionar')+'</button></div></div></article>';
+     const credits=p.fotoLicenca?'<p class="tripTiny mt-1">📸 '+esc(p.fotoAutor||'Autor na fonte')+' · '+esc(p.fotoLicenca)+(httpsUrl(p.fotoFonteUrl)?' · <a href="'+esc(httpsUrl(p.fotoFonteUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Origem</a>':'')+(httpsUrl(p.fotoLicencaUrl)?' · <a href="'+esc(httpsUrl(p.fotoLicencaUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Licença</a>':'')+' · Foto adaptada</p>':'';
+     return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categories.find(([id])=>id===normalize(p.categoria))[1])+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p>'+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Até 3 paradas':'+ Adicionar')+'</button></div></div></article>';
    }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.</p>';
    loadPublicStopPhotos();
  }
@@ -152,6 +153,20 @@
   if(photo){im.src=photo;im.alt='Foto de '+p.nome}
   const credit=q('tripPhotoCredit');
   credit.hidden=true;credit.textContent='';credit.removeAttribute('href');
+  const legal=q('tripOpenPhotoCredit');
+  if(legal){
+   legal.textContent='';legal.hidden=!photo||!p.fotoLicenca;
+   if(!legal.hidden){
+    const label=document.createElement('span');
+    label.textContent='📸 Foto: '+(p.fotoAutor||'Autor informado na fonte')+' · '+p.fotoLicenca+' · Imagem adaptada para o card. ';
+    legal.appendChild(label);
+    for(const [url,display] of [[p.fotoFonteUrl,'Original'],[p.fotoLicencaUrl,'Licença']]){
+     const link=httpsUrl(url);if(!link)continue;
+     const a=document.createElement('a');a.href=link;a.target='_blank';a.rel='noopener noreferrer';
+     a.className='underline text-orange-300 mr-3';a.textContent=display;legal.appendChild(a);
+    }
+   }
+  }
   q('tripPreviewMap').href=mapLink(p);
   const add=q('tripPreviewAdd');
   add.disabled=selected.includes(id)||selected.length>=3||!p.endereco;
@@ -233,8 +248,8 @@
    }
    for(const p of data.destinos){
     let existing=lugares.find(l=>mapping(l.id)===p.id);
-    if(existing){if(p.nome)existing.nome=p.nome;if(p.descricao)existing.sub=p.descricao;if(httpsUrl(p.foto)){existing.img=p.foto;existing.cover=p.foto}if(p.mapa)existing.dest=p.mapa}
-    else lugares.push({id:p.id,nome:p.nome,sub:p.descricao||'Explore este destino',img:httpsUrl(p.foto)||'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=80',note:'Destino do grupo',dest:p.mapa||p.nome});
+    if(existing){if(p.nome)existing.nome=p.nome;if(p.descricao)existing.sub=p.descricao;if(httpsUrl(p.foto)){existing.img=p.foto;existing.cover=p.foto}if(p.mapa)existing.dest=p.mapa;if(p.fotoLicenca){existing.fotoAutor=p.fotoAutor;existing.fotoLicenca=p.fotoLicenca;existing.fotoLicencaUrl=p.fotoLicencaUrl;existing.fotoFonteUrl=p.fotoFonteUrl}}
+    else lugares.push({id:p.id,nome:p.nome,sub:p.descricao||'Explore este destino',img:httpsUrl(p.foto)||'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=80',note:'Destino do grupo',dest:p.mapa||p.nome,fotoAutor:p.fotoAutor,fotoLicenca:p.fotoLicenca,fotoLicencaUrl:p.fotoLicencaUrl,fotoFonteUrl:p.fotoFonteUrl});
    }
    if(typeof renderAsphaltCards==='function')renderAsphaltCards();
    loaded=true;
