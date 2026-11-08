@@ -18,8 +18,8 @@ async function sameSecret(a,b){
 }
 export async function onRequestPost({request,env}){
   const auth=request.headers.get("Authorization")||"";
-  if(!env.ADMIN_TOKEN||String(env.ADMIN_TOKEN).length<20||
-     !auth.startsWith("Bearer ")||!(await sameSecret(auth.slice(7),env.ADMIN_TOKEN))){
+  if(typeof env.ADMIN_TOKEN!=="string"||env.ADMIN_TOKEN.trim().length<20||
+     !auth.startsWith("Bearer ")||!(await sameSecret(auth.slice(7).trim(),env.ADMIN_TOKEN.trim()))){
     return reply({error:"Conecte-se ao banco usando o token administrativo antes de pesquisar locais."},401);
   }
   if(!env.GOOGLE_PLACES_API_KEY){
