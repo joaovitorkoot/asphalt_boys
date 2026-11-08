@@ -980,11 +980,11 @@ function render(resetPicker=true){
  }
  if(tab==='rotas'){renderPicker();$('#routePicker').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let i;if(b.dataset.up!==undefined){i=+b.dataset.up;if(i>0)[picked[i],picked[i-1]]=[picked[i-1],picked[i]]}if(b.dataset.down!==undefined){i=+b.dataset.down;if(i<picked.length-1)[picked[i],picked[i+1]]=[picked[i+1],picked[i]]}renderPicker()});$('#routePicker').addEventListener('change',e=>{const el=e.target;if(!el.matches('[data-pick]'))return;const p=el.dataset.pick;if(el.checked){if(!picked.includes(p))picked.push(p)}else picked=picked.filter(x=>x!==p);renderPicker()});}
  $('#cancel').onclick=()=>{clearUnfinishedForm();editing=null;if(tab==='destinos'&&creatingNewDestination){creatingNewDestination=false;selectedDestId=''}render()};
- const form=$('#recordForm');
- if(form){
-  form.addEventListener('input',storeUnfinishedForm);
-  form.addEventListener('change',storeUnfinishedForm);
-  form.addEventListener('submit',saveRecord);
+ const editorForm=$('#recordForm');
+ if(editorForm){
+  editorForm.addEventListener('input',storeUnfinishedForm);
+  editorForm.addEventListener('change',storeUnfinishedForm);
+  editorForm.addEventListener('submit',saveRecord);
  }
  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;render();$('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'})});
  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeRecord(b.dataset.delete));
