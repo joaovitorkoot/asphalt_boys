@@ -36,25 +36,33 @@ jobs:
           const mapping=vm.runInNewContext(helpers+'\n'+mapCode+'\nmapLink',{URL});
           const original='https://maps.app.goo.gl/CCQuEH8HfXjQT5gG8';
           assert.equal(mapping({maps:original,googlePlaceId:'ChIJwrong'}),original,'Must open original shared Google Maps URL');
-          const routeCode=planner.slice(planner.indexOf(' function googleUrl(){'),planner.indexOf(' function share(){'));
-          const state={selected:['p'],stopById:id=>state.stops[id],
-            stops:{p:{nome:'Pico Alto',mapCoordinates:'-4.2080812,-38.9747743',googlePlaceId:'ChIJwrong',endereco:'Pico Alto'}},
-            origin:{value:'Horizonte, CE'},note:{textContent:''}};
-          const ctx={...state,
-            q:id=>id==='tripOrigin'?state.origin:state.note,
-            destinationUrl:()=> 'Guaramiranga, Ceará',
-            safeStore:()=>{},URL};
-          const googleUrl=vm.runInNewContext(helpers+'\n'+routeCode+'\ngoogleUrl',ctx);
-          let url=new URL(googleUrl());
+          const routeCode=planner.slice(planner.indexOf(' function routePoint(stop){'),planner.indexOf(' function share(){'));
+          const funcs=vm.runInNewContext(helpers+'\n'+routeCode+'\n({routePoint,routeSegmentsFor})',{
+            URL,destination:{dest:'Guaramiranga, Ceará',nome:'Guaramiranga'}
+          });
+          const gps={id:'p',nome:'Pico Alto',mapCoordinates:'-4.2080812,-38.9747743',
+            googlePlaceId:'ChIJwrong',endereco:'Pico Alto'};
+          assert.equal(funcs.routePoint(gps).type,'gps','Original coordinates override a potentially wrong Place ID');
+          let result=funcs.routeSegmentsFor([gps],'Horizonte, CE');
+          assert.equal(result.segments.length,1);
+          let url=new URL(result.segments[0].url);
           assert.equal(url.searchParams.get('waypoints'),'-4.2080812,-38.9747743');
-          assert.equal(url.searchParams.get('waypoint_place_ids'),null,'GPS must override a potentially wrong Place ID');
-          state.stops.p={nome:'Pico Alto',mapCoordinates:'',googlePlaceId:'ChIJcorrect123',endereco:'Pico Alto - Guaramiranga'};
-          url=new URL(googleUrl());
+          assert.equal(url.searchParams.get('waypoint_place_ids'),null);
+          const place={id:'c',nome:'Restaurante cadastrado',mapCoordinates:'',
+            googlePlaceId:'ChIJcorrect123',endereco:'Guaramiranga, Ceará'};
+          result=funcs.routeSegmentsFor([place],'Horizonte, CE');
+          assert.equal(result.segments.length,1);
+          url=new URL(result.segments[0].url);
           assert.equal(url.searchParams.get('waypoint_place_ids'),'ChIJcorrect123');
-          state.selected.push('c');ctx.selected=state.selected;
-          state.stops.c={nome:'Coordenada precisa',mapCoordinates:'-4.2000000,-38.9000000',endereco:'',googlePlaceId:''};
-          assert.equal(googleUrl(),null,'Must never approximate mixed GPS and Place IDs');
-          assert(state.note.textContent.includes('coordenadas exatas'));
+          // Antes, combinar GPS e Place ID bloqueava toda a navegação.
+          result=funcs.routeSegmentsFor([gps,place],'Horizonte, CE');
+          assert.equal(result.unresolved.length,0);
+          assert.equal(result.segments.length,2,'Mixed GPS and Places must create precise connected legs');
+          const first=new URL(result.segments[0].url),second=new URL(result.segments[1].url);
+          assert.equal(first.searchParams.get('destination_place_id'),'ChIJcorrect123');
+          assert.equal(second.searchParams.get('origin_place_id'),'ChIJcorrect123');
+          assert.equal(second.searchParams.get('destination'),'Guaramiranga, Ceará');
+          assert.equal(first.searchParams.get('destination'),second.searchParams.get('origin'));
           const module=async path=>import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync(path,'utf8')).toString('base64'));
           const resolver=(await module('functions/api/map-coordinates.js')).onRequestPost;
           const importer=(await module('functions/api/maps-import.js')).onRequestPost;
