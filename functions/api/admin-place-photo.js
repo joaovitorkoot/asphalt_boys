@@ -36,6 +36,28 @@ function safePhoto(value){
 function safeAuthorUri(value){
  try{const u=new URL(value);return u.protocol==="https:"?u.href.slice(0,500):""}catch{return ""}
 }
+function normalName(s){
+ return clean(s,150).normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+}
+// Exige correspondência exata do nome para não mostrar foto de outro estabelecimento.
+// Requer clique explícito no painel para consultas adicionais.
+async function searchExactPlace(key,name,destination){
+ const query=[name,destination].filter(Boolean).join(", ").slice(0,300);
+ const result=await placeRequest("https://places.googleapis.com/v1/places:searchText",key,
+  "places.id,places.displayName,places.formattedAddress,places.photos,places.googleMapsUri",
+  {textQuery:query,pageSize:8,languageCode:"pt-BR",regionCode:"BR"});
+ const wanted=normalName(name);
+ const found=(result.places||[]).filter(p=>validId(p.id)).map(p=>({
+  place:p,name:clean(p.displayName?.text,120),address:clean(p.formattedAddress,400),
+  photoCount:Array.isArray(p.photos)?p.photos.length:0
+ }));
+ const exact=found.filter(x=>normalName(x.name)===wanted);
+ exact.sort((a,b)=>b.photoCount-a.photoCount);
+ return {match:exact[0]||null,candidates:found.slice(0,5).map(x=>({
+   name:x.name,address:x.address,photoCount:x.photoCount
+ }))};
+}
 export async function onRequestPost({request,env}){
  if(!(await isAdmin(request,env)))return reply({error:"Conecte ao banco para visualizar fotos do Google."},401);
  if(!env.GOOGLE_PLACES_API_KEY)return reply({error:"A API Google Places não está configurada."},503);
@@ -48,20 +70,34 @@ export async function onRequestPost({request,env}){
  if(!validId(placeId)&&name.length<3)return reply({error:"Informe um nome de local ou Place ID válido."},422);
  const key=String(env.GOOGLE_PLACES_API_KEY);
  try{
+  const searchExact=input?.forceExact===true||mode==="gallery";
   let id=validId(placeId)?placeId:"";
-  if(!id){
-   // Encontra o local por nome e cidade, quando o cadastro antigo não tem Place ID.
-   const query=[name,address||destination].filter(Boolean).join(", ").slice(0,350);
+  let place=null,candidates=[];
+  if(searchExact&&name.length>=3){
+   const search=await searchExactPlace(key,name,destination||address);
+   candidates=search.candidates;
+   if(search.match){
+    id=search.match.place.id;
+    place=search.match.place;
+   }else{
+    return reply({available:false,placeId:"",placeName:name,candidates,
+     message:"A busca por \""+name+"\" não encontrou uma ficha com esse nome exato. Verifique o nome no Google Maps ou use sua foto autorizada."});
+   }
+  }
+  if(!id&&!place){
    const found=await placeRequest("https://places.googleapis.com/v1/places:searchText",key,
-    "places.id", {textQuery:query,pageSize:1,languageCode:"pt-BR",regionCode:"BR"});
+    "places.id,places.displayName", {textQuery:[name,address||destination].filter(Boolean).join(", ").slice(0,350),pageSize:1,languageCode:"pt-BR",regionCode:"BR"});
    id=found.places?.[0]?.id||"";
   }
   if(!validId(id))return reply({available:false,message:"Não encontrei esse local no Google Maps."},200);
-  const place=await placeRequest("https://places.googleapis.com/v1/places/"+encodeURIComponent(id)+"?languageCode=pt-BR",
+  // Quando a Text Search já entregou fotos, não faça outra consulta paga de detalhes.
+  if(!place)place=await placeRequest("https://places.googleapis.com/v1/places/"+encodeURIComponent(id)+"?languageCode=pt-BR",
    key,"id,displayName,googleMapsUri,photos");
   const photos=Array.isArray(place.photos)?place.photos:[];
-  if(!photos.length)return reply({available:false,placeId:id,placeName:clean(place.displayName?.text,120),
-   message:"Este local não possui fotos disponíveis na API oficial do Google."});
+  if(!photos.length){
+   return reply({available:false,placeId:id,placeName:clean(place.displayName?.text,120),candidates,
+    message:"Encontrei \""+(clean(place.displayName?.text,120)||name)+"\", mas a API oficial do Google não disponibilizou fotos. A galeria do Google Maps pode mostrar imagens que não são entregues pela API; nesse caso, use o envio manual com autorização."});
+  }
   const selected=mode==="gallery"?photos.slice(0,5).map((p,i)=>({p,i})):photos[photoIndex]?[{p:photos[photoIndex],i:photoIndex}]:[{p:photos[0],i:0}];
   const result=[];
   for(const {p,i} of selected){
@@ -76,7 +112,7 @@ export async function onRequestPost({request,env}){
     name:clean(x.displayName,120),url:safeAuthorUri(x.uri)
    }))});
   }
-  return reply({available:Boolean(result.length),placeId:id,placeName:clean(place.displayName?.text,120),
+  return reply({available:Boolean(result.length),placeId:id,placeName:clean(place.displayName?.text,120),candidates,
    mapsUrl:safeAuthorUri(place.googleMapsUri),photos:result,total:photos.length,
    message:result.length?"":"Nenhuma foto disponível no momento."});
  }catch(e){
