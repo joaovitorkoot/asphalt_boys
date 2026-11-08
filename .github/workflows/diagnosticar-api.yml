@@ -50,6 +50,8 @@ jobs:
               'destinoId':stop.get('destinoId',''),
               'categoria':stop.get('categoria',''),
               'linkMapsSalvo':bool(stop.get('maps')),
+              'linkMaps':str(stop.get('maps',''))[:250],
+              'endereco':str(stop.get('endereco',''))[:120],
               'coordenadasSalvas':bool(stop.get('mapCoordinates')),
               'fotoPropriaSalva':bool(stop.get('foto')),
               'googlePlaceIdSalvo':bool(stop.get('googlePlaceId'))
