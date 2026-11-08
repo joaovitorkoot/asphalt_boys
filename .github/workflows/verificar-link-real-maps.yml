@@ -1,0 +1,29 @@
+name: Verificar link real Maps
+on:
+  push:
+    branches: [fix/maps-shortlink-real-import]
+    paths:
+      - '.github/workflows/verificar-link-real-maps.yml'
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Consultar Google Maps sem usar API nem chaves
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error
+          link='https://maps.app.goo.gl/e7a2kmSrCwEt5pbk6'
+          for label,useragent in [('bot','AsphaltBoysPlacesImport/1.0'),('browser','Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36')]:
+            try:
+              req=urllib.request.Request(link,headers={'User-Agent':useragent},method='GET')
+              with urllib.request.urlopen(req,timeout=15) as r:
+                print(label,'HTTP',r.status,'FINAL_URL',r.url[:600],'TYPE',r.headers.get('content-type'))
+                content=r.read(5000).decode('utf8','replace')
+                import re
+                print(label,'PAGE_HAS_URL_REDIRECT',bool(re.search(r'window.location|location.replace|http-equiv=.refresh',content,re.I)))
+            except Exception as ex:print(label,'ERROR',type(ex).__name__,str(ex)[:200])
+          PY
