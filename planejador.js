@@ -51,7 +51,7 @@
  }
  // O D1 é a fonte de verdade. Não há paradas fixas no código que possam reaparecer após exclusão.
  let reviewRequestEpoch=0;
- let originMode='gps';
+ let originMode='gps',activeLegIndex=0;
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
@@ -63,13 +63,14 @@
  function saveRoute(){
   if(!destination)return;
   safeStore(draftKey(destination.id),JSON.stringify({v:1,stops:selected.slice(0,MAX_ROUTE_STOPS),originMode,
-   origin:q('tripOrigin').value.trim().slice(0,150),presetId,tab,category}));
+   origin:q('tripOrigin').value.trim().slice(0,150),presetId,tab,category,legIndex:activeLegIndex}));
  }
  function restoreRoute(){
   if(!destination)return false;
   let saved;try{saved=JSON.parse(safeRead(draftKey(destination.id))||'null')}catch{return false}
   if(!saved||saved.v!==1||!Array.isArray(saved.stops))return false;
   selected=[...new Set(saved.stops.filter(id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{3,120}$/.test(id)&&stopById(id)))].slice(0,MAX_ROUTE_STOPS);
+  activeLegIndex=Number.isInteger(saved.legIndex)&&saved.legIndex>=0&&saved.legIndex<MAX_ROUTE_STOPS?saved.legIndex:0;
   presetId=typeof saved.presetId==='string'&&currentRoutes().some(r=>r.id===saved.presetId)?saved.presetId:'';
   category=categories.some(([id])=>id===saved.category)?saved.category:category;
   q('tripOrigin').value=typeof saved.origin==='string'?saved.origin.slice(0,150):'';
@@ -196,13 +197,13 @@
   q('tripCount').textContent=selected.length+' parada'+(selected.length===1?'':'s');
   q('tripRouteSummary').textContent=routeSummaryText();
   q('tripOpenMaps').disabled=selected.length>MAX_ROUTE_STOPS;
-  q('tripOpenMaps').textContent=selected.length>APP_MAX_STOPS?'🗺️ Ver rota por trechos':selected.length>4?'🗺️ Tentar rota completa ('+selected.length+')':'🗺️ Abrir rota no Maps';
+  q('tripOpenMaps').textContent=selected.length>APP_MAX_STOPS?'🧭 Navegar '+selected.length+' paradas por etapas':selected.length>4?'🗺️ Tentar rota completa ('+selected.length+')':'🗺️ Abrir rota no Maps';
   q('tripOpenSegments').hidden=selected.length<=4||selected.length>APP_MAX_STOPS;
   const suspicious=selected.map(stopById).filter(p=>suspectStop(p));
    q('tripMapsHelp').textContent=suspicious.length
     ?'⚠️ Confira a localização de '+suspicious.map(p=>p.nome).join(', ')+' antes de navegar. O cadastro pode criar um grande desvio.'
     :selected.length>APP_MAX_STOPS
-    ?'Para não perder nenhuma das '+selected.length+' paradas, abra os trechos na ordem mostrada.'
+    ?'Seu roteiro de '+selected.length+' paradas está salvo aqui. O Maps recebe uma etapa por vez; avance quando terminar a anterior.'
     :selected.length>4
     ?'O aplicativo Maps pode aceitar as '+selected.length+' paradas. Se alguma sumir, use Abrir por trechos.'
     :'Confira todas as paradas no Maps antes de iniciar.';
@@ -217,7 +218,7 @@
    focusBefore=document.activeElement;tab='custom';
    const requestedCategory=urlParams.get('dest')===id?urlParams.get('categoria'):'';
    category=categories.some(([cat])=>cat===requestedCategory)?requestedCategory:'turismo';
-   selected=[];presetId='';
+   selected=[];presetId='';activeLegIndex=0;
    q('tripTitle').textContent=destination.nome;
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
@@ -334,7 +335,7 @@
  function previewBack(){q('tripStopPreview').hidden=true;q('tripMain').hidden=false;q('tripModalHero').hidden=false;render();panel.scrollTop=0}
  function addStop(id){
   if(!stopById(id)?.endereco||selected.length>=MAX_ROUTE_STOPS||selected.includes(id))return;
-  selected.push(id);presetId='';render();
+  selected.push(id);presetId='';activeLegIndex=0;render();
  }
  function destinationUrl(){return destination.dest||destination.mapa||destination.nome}
  // Links universais tentam abrir o app com até 9 destinos; Safari pode limitar a 3 intermediários.
@@ -386,32 +387,68 @@
   }
   return {segments,unresolved:[]};
  }
- function showGoogleLegs(result){
+ function showGoogleLegs(result,scroll=true){
   const box=q('tripRouteSegments');box.replaceChildren();box.hidden=false;
   const heading=document.createElement('p');heading.className='tripTiny font-bold mb-2';
   heading.textContent=result.error||(
-    result.unresolved?.length?
-    'Alguns locais ainda precisam de localização exata. Confira seus links originais:':
-    result.segments.length+' trechos na ordem do seu roteiro:');
+   result.unresolved?.length
+    ?'Alguns locais ainda precisam de localização exata. Confira seus links originais:'
+    :'Suas '+selected.length+' paradas serão navegadas em '+result.segments.length+' etapas.');
   box.appendChild(heading);
   if(result.unresolved?.length){
    for(const stop of result.unresolved){
-    const a=document.createElement('a');
-    a.className='tripNavBtn inline-flex items-center justify-center text-sm m-1';
-    a.href=mapLink(stop);a.target='_blank';a.rel='noopener noreferrer';
-    a.textContent='📍 '+stop.nome+' — abrir ponto original ↗';
-    box.appendChild(a);
+    const link=document.createElement('a');
+    link.className='tripNavBtn inline-flex items-center justify-center text-sm m-1';
+    link.href=mapLink(stop);link.target='_blank';link.rel='noopener noreferrer';
+    link.textContent='📍 '+stop.nome+' — conferir ponto original ↗';
+    box.appendChild(link);
    }
-  }else{
-   result.segments.forEach((segment,index)=>{
-    const a=document.createElement('a');
-    a.className='tripNavBtn flex justify-between gap-2 items-center text-sm mt-2';
-    a.href=segment.url;a.target='_blank';a.rel='noopener noreferrer';
-    a.textContent='🗺️ Trecho '+(index+1)+'/'+result.segments.length+': '+segment.from+' → '+segment.to+' ↗';
-    box.appendChild(a);
+  }else if(result.segments.length){
+   const total=result.segments.length;
+   activeLegIndex=Math.min(Math.max(0,activeLegIndex),total-1);
+   const current=result.segments[activeLegIndex];
+   const status=document.createElement('p');status.className='tripLegStatus';
+   status.textContent='ETAPA '+(activeLegIndex+1)+' DE '+total+' · Paradas '+current.firstStop+'–'+current.lastStop+' de '+selected.length;
+   box.appendChild(status);
+   const route=document.createElement('p');route.className='tripLegDescription';
+   route.textContent=current.from+' → '+current.to;
+   box.appendChild(route);
+   const main=document.createElement('a');main.className='tripBtn tripLegStart';
+   main.href=current.url;main.target='_blank';main.rel='noopener noreferrer';
+   main.textContent='🗺️ Abrir etapa '+(activeLegIndex+1)+' no Google Maps ↗';
+   box.appendChild(main);
+   const note=document.createElement('p');note.className='tripTiny mt-2';
+   note.textContent=activeLegIndex<total-1
+    ?'Depois de chegar ao fim desta etapa, volte ao Asphalt Boys e escolha Próxima etapa. As paradas restantes continuam salvas.'
+    :'Esta é a última etapa. Confira as paradas no Google Maps antes de começar.';
+   box.appendChild(note);
+   const controls=document.createElement('div');controls.className='tripLegControls';
+   if(activeLegIndex>0){
+    const prev=document.createElement('button');prev.type='button';prev.className='tripNavBtn';
+    prev.textContent='← Etapa anterior';
+    prev.onclick=()=>{activeLegIndex--;saveRoute();showGoogleLegs(result,false)};
+    controls.appendChild(prev);
+   }
+   if(activeLegIndex<total-1){
+    const next=document.createElement('button');next.type='button';next.className='tripNavBtn tripLegNext';
+    next.textContent='Já concluí → Próxima etapa '+(activeLegIndex+2)+'/'+total;
+    next.onclick=()=>{activeLegIndex++;saveRoute();showGoogleLegs(result,false)};
+    controls.appendChild(next);
+   }
+   box.appendChild(controls);
+   const all=document.createElement('details');all.className='tripLegAll mt-3';
+   const summary=document.createElement('summary');summary.textContent='Ver todas as '+total+' etapas';
+   all.appendChild(summary);
+   result.segments.forEach((segment,i)=>{
+    const link=document.createElement('a');link.className='tripNavBtn tripLegListLink';
+    link.href=segment.url;link.target='_blank';link.rel='noopener noreferrer';
+    link.textContent='Etapa '+(i+1)+'/'+total+' · Paradas '+segment.firstStop+'–'+segment.lastStop+' · '+segment.to+' ↗';
+    all.appendChild(link);
    });
+   box.appendChild(all);
+   saveRoute();
   }
-  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(scroll)box.scrollIntoView({behavior:'smooth',block:'nearest'});
  }
  function routeRequest(){
   const origin=originMode==='manual'?q('tripOrigin').value.trim():'';
@@ -431,7 +468,7 @@
  function googleUrl(){
   const plan=routeRequest();if(!plan)return null;
   if(plan.stops.length>APP_MAX_STOPS){
-   q('tripNote').textContent='São '+plan.stops.length+' paradas. Abra todos os trechos na ordem, sem pular nenhum.';
+   q('tripNote').textContent='As '+plan.stops.length+' paradas estão salvas. Abra a etapa atual no Maps e, ao concluir, avance para a próxima aqui no site.';
    showGoogleLegs(plan.fallback);
    return null;
   }
@@ -450,7 +487,7 @@
  }
  function openGoogleSegments(){
   const plan=routeRequest();if(!plan)return;
-  q('tripNote').textContent='Abra cada trecho na ordem. O próximo começa onde o anterior terminou.';
+  q('tripNote').textContent='Abra a etapa atual no Maps; depois volte ao site e marque que concluiu para avançar.';
   showGoogleLegs(plan.fallback);
  }
  function share(){
@@ -534,21 +571,21 @@
  q('tripPreviewAdd').onclick=()=>{addStop(previewId);previewBack();showTab('mine')};
  q('tripModal').addEventListener('click',e=>{if(e.target===modal)close()});
  document.addEventListener('keydown',e=>{if(modal.hidden)return;if(e.key==='Escape'){if(!q('tripStopPreview').hidden)previewBack();else close()}if(e.key==='Tab'){const visible=[...panel.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(x=>x.offsetParent!==null);if(!visible.length)return;const f=visible[0],l=visible[visible.length-1];if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}}});
- q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);saveRoute();if(originMode==='manual')q('tripOrigin').focus()});
- q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=routeSummaryText();saveRoute()});
+ q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);activeLegIndex=0;saveRoute();if(originMode==='manual')q('tripOrigin').focus()});
+ q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=routeSummaryText();activeLegIndex=0;saveRoute()});
  q('tripTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
  q('tripCategories').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b){category=b.dataset.cat;renderAvailable()}});
  q('tripAvailable').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preview)preview(b.dataset.preview);else if(b.dataset.addStop)addStop(b.dataset.addStop)});
  q('tripPresets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.viewRoute){const li=document.getElementById('tripRoute-'+b.dataset.viewRoute);if(li)li.hidden=!li.hidden}
   if(b.dataset.useRoute){const r=currentRoutes().find(x=>x.id===b.dataset.useRoute);if(!r)return;
-   selected=[...new Set((r.paradas||[]).filter(id=>stopById(id)?.endereco))].slice(0,MAX_ROUTE_STOPS);presetId=r.id;render();showTab('mine')}
+   selected=[...new Set((r.paradas||[]).filter(id=>stopById(id)?.endereco))].slice(0,MAX_ROUTE_STOPS);presetId=r.id;activeLegIndex=0;render();showTab('mine')}
  });
  q('tripChosen').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let i;
   if(b.dataset.up!==undefined){i=+b.dataset.up;if(i>0)[selected[i-1],selected[i]]=[selected[i],selected[i-1]]}
   else if(b.dataset.down!==undefined){i=+b.dataset.down;if(i<selected.length-1)[selected[i],selected[i+1]]=[selected[i+1],selected[i]]}
   else if(b.dataset.remove!==undefined)selected.splice(+b.dataset.remove,1);
-  presetId='';render();showTab('mine');
+  presetId='';activeLegIndex=0;render();showTab('mine');
  });
  q('tripOpenMaps').onclick=()=>{const u=googleUrl();if(u)window.open(u,'_blank','noopener,noreferrer')};
  q('tripOpenSegments').onclick=openGoogleSegments;
