@@ -151,7 +151,7 @@ function photoPickerMarkup(){
   '<label class="subbtn inline-flex items-center cursor-pointer mt-3" for="photoFile">📷 Adicionar foto</label>'+
   '<input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp,image/avif" class="sr-only" aria-label="Adicionar foto do dispositivo">'+
   (tab==='paradas'?'<div class="mt-3 border-t border-zinc-600 pt-3"><button type="button" id="browseGooglePhotos" class="subbtn text-sm" '+(enabled?'':'disabled')+'>🌄 Escolher foto do Google Maps</button>'+
-    '<p class="tiny mt-2">Sem foto própria, a primeira foto disponível do Google aparece automaticamente no card. Você pode escolher outra e salvar apenas sua posição.</p>'+
+    '<p class="tiny mt-2">Busca exata pelo nome do local e destino. Sem foto própria, a primeira foto disponível do Google aparece automaticamente no card. Caso a API não entregue fotos, use Adicionar foto com autorização.</p>'+
     '<div id="googlePhotoGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3" aria-label="Fotos do Google Maps"></div><p id="googlePhotoGalleryStatus" class="tiny mt-2" role="status"></p></div>':'')+
   '<p id="photoUploadStatus" role="status" class="tiny mt-2">'+(enabled?'Escolha sua foto. Depois confira e salve o cadastro.':'Conecte ao banco antes de enviar uma imagem.')+'</p>'+
   '<img id="photoPreview" alt="Prévia da foto selecionada" hidden class="rounded-lg w-full max-w-xs h-36 mt-3 object-cover">'+
@@ -186,7 +186,7 @@ function adminStopPhotoRequest(stop,mode='single'){
   'Authorization':'Bearer '+token,'Content-Type':'application/json'
  },body:JSON.stringify({
   placeId:stop.googlePlaceId||'',name:stop.nome||'',address:stop.endereco||'',
-  destination:dest?.nome||'',photoIndex:Math.max(0,Math.min(9,Number(stop.googlePhotoIndex)||0)),mode
+  destination:dest?.nome||'',photoIndex:Math.max(0,Math.min(9,Number(stop.googlePhotoIndex)||0)),mode,forceExact:mode==='gallery'
  }),cache:'no-store'}).then(async response=>{
   const payload=await response.json();
   if(!response.ok)throw Error(payload.error||'Não consegui carregar fotos do Google.');
@@ -237,7 +237,18 @@ async function browseGooglePhotos(){
  try{
   const result=await adminStopPhotoRequest(stop,'gallery');
   if(!button.isConnected)return;
-  if(!result.available||!result.photos?.length){note.textContent=result.message||'Esse local não tem fotos na API oficial.';return}
+  if(!result.available||!result.photos?.length){
+   note.textContent=result.message||'Esse local não tem fotos na API oficial.';
+   if(Array.isArray(result.candidates)&&result.candidates.length){
+    const info=document.createElement('p');
+    info.className='tiny mt-2';
+    const exactName=stop.nome.trim().replace(/,$/,'').toLowerCase();
+    const names=result.candidates.slice(0,4).map(x=>x.name+(x.photoCount?' ('+x.photoCount+' fotos disponíveis na busca)':' (sem foto na API)'));
+    info.textContent='Resultados encontrados pelo Google: '+names.join('; ')+'.';
+    gallery.appendChild(info);
+   }
+   return;
+  }
   note.textContent='Fotos de '+(result.placeName||stop.nome)+'. Toque na foto desejada e depois em Salvar no banco.';
   for(const p of result.photos){
    const url=safeUrl(p.url);if(!url)continue;
