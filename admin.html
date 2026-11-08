@@ -914,12 +914,9 @@ function render(resetPicker=true){
    b.setAttribute('aria-pressed',String(active));
    b.classList.toggle('text-orange-300',active);
    b.classList.toggle('bg-orange-500/15',active);
-   b.onclick=()=>{tab='paradas';selectedStopCategory=b.dataset.stopQuick;editing=null;render();$('#stopCategoryBar')?.scrollIntoView({behavior:'smooth',block:'start'});};
+   b.onclick=()=>switchStopCategory(b.dataset.stopQuick);
  });
- document.querySelectorAll('[data-stop-category]').forEach(b=>b.onclick=()=>{
-   selectedStopCategory=b.dataset.stopCategory;editing=null;render();
-   $('#stopCategoryBar')?.scrollIntoView({behavior:'smooth',block:'start'});
- });
+ document.querySelectorAll('[data-stop-category]').forEach(b=>b.onclick=()=>switchStopCategory(b.dataset.stopCategory));
  const mapsField=$('#f_maps');
  if(tab==='paradas'&&mapsField){
   mapsField.addEventListener('input',()=>{
