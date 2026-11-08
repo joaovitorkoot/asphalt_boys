@@ -35,7 +35,7 @@ jobs:
             photoSourceFile:null,photoSourceMeta:null,photoSourceForm:null,photoAppliedMode:'',
             photoSourceKey:'',categorySuggestionSeq:0,categoryUserEdited:false,editableRoutes:()=>[],unfinishedFormKey:()=> 'test',
             form:()=>'<form id="recordForm"></form>',
-            restoreUnfinishedForm:()=>false,$:selector=>fields[selector]||{}
+            restoreUnfinishedForm:()=>false,renderPublicationQueue:()=>{},$:selector=>fields[selector]||{}
           };
           vm.runInNewContext(renderStart+'\nrender()',renderContext);
           assert.equal(fields['#editor'].innerHTML,'<form id="recordForm"></form>');
