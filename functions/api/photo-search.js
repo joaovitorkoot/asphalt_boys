@@ -36,8 +36,8 @@ async function wikimedia(query){
  const json=await fetchJson('https://commons.wikimedia.org/w/api.php?'+qs);
  const matches=[];
  for(const page of json.query?.pages||[]){
-  const info=page.imageinfo?.[0],metadata=info?.extmetadata||{},lic=licenseLabel(metadata.LicenseShortName?.value);
-  if(!info||!allowedLicense(lic)||!/^image\/(?:jpeg|png|webp)$/i.test(info.mime||''))continue;
+  const info=page.imageinfo?.[0],metadata=info?.extmetadata||{},rawLicense=metadata.LicenseShortName?.value||'',lic=licenseLabel(rawLicense);
+  if(!info||!allowedLicense(rawLicense)||!/^image\/(?:jpeg|png|webp)$/i.test(info.mime||''))continue;
   const thumb=safeUrl(info.thumburl||info.url,['upload.wikimedia.org']);
   const pageUrl=safeUrl(info.descriptionurl,['commons.wikimedia.org']);
   if(!thumb||!pageUrl)continue;
