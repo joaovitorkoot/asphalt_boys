@@ -1,0 +1,66 @@
+name: Testar busca exata Quiosque Pico Alto
+on:
+  push:
+    branches: [fix/google-photos-exact-quiosque-pico-alto]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar nome exato, fotos e ausencia de fotos
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const src=fs.readFileSync('functions/api/admin-place-photo.js','utf8');
+          const handler=(await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'))).onRequestPost;
+          const admin=fs.readFileSync('admin.html','utf8');
+          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          assert(admin.includes("forceExact:mode==='gallery'"));
+          const token='mock-admin-secret-at-least-20-characters';
+          const env={ADMIN_TOKEN:token,GOOGLE_PLACES_API_KEY:'fake-api-key'};
+          function request(mode='gallery'){
+            return new Request('https://asphalt-boys.pages.dev/api/admin-place-photo',{
+              method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:JSON.stringify({name:'Quiosque Pico Alto,',destination:'Guaramiranga',
+                placeId:'ChIJ_stale_wrong_place',mode,forceExact:mode==='gallery'})
+            });
+          }
+          let photosAvailable=true,calls=[];
+          globalThis.fetch=async(url,opts)=>{
+            calls.push(url);
+            if(url.includes('places:searchText')){
+              const body=JSON.parse(opts.body);
+              assert.equal(body.textQuery,'Quiosque Pico Alto,, Guaramiranga');
+              return Response.json({places:[
+                {id:'ChIJ_other_place',displayName:{text:'Pico Alto'},photos:[{name:'places/ChIJ_other_place/photos/other'}]},
+                {id:'ChIJ_exact_place',displayName:{text:'Quiosque Pico Alto'},
+                 formattedAddress:'Pico Alto, Guaramiranga, Ceará',
+                 photos:photosAvailable?[{name:'places/ChIJ_exact_place/photos/photo_1',
+                  authorAttributions:[{displayName:'Manoel Neto',uri:'https://www.google.com/maps/contrib/123'}]}]:[]}
+              ]});
+            }
+            if(url.includes('/media?'))return Response.json({photoUri:'https://lh3.googleusercontent.com/actual-photo'});
+            throw Error('Unexpected outbound request '+url);
+          };
+          let r=await handler({request:request(),env});assert.equal(r.status,200);
+          let p=await r.json();
+          assert.equal(p.available,true);
+          assert.equal(p.placeName,'Quiosque Pico Alto');
+          assert.equal(p.placeId,'ChIJ_exact_place');
+          assert.equal(p.photos[0].attributions[0].name,'Manoel Neto');
+          assert(!calls.some(x=>x.includes('ChIJ_stale_wrong_place')));
+          photosAvailable=false;calls=[];
+          r=await handler({request:request(),env});assert.equal(r.status,200);
+          p=await r.json();
+          assert.equal(p.available,false);
+          assert.equal(p.placeName,'Quiosque Pico Alto');
+          assert.match(p.message,/API oficial/);
+          assert.equal(calls.some(x=>x.includes('/media?')),false);
+          assert.equal(p.candidates.length,2);
+          console.log('PASS: busca exata Quiosque Pico Alto, não usa ID antigo, fotos opcionais e autoria');
+          NODE
