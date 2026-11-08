@@ -97,6 +97,7 @@ export async function onRequestPost({request,env}){
  try{body=await request.json()}catch{return reply({error:'Dados inválidos.'},400)}
  const action=String(body?.action||'');
  if(!['setup','login','logout','recover'].includes(action))return reply({error:'Ação inválida.'},400);
+ let stage='initialize';
  try{
   await initDB(env.DB);
   if(action==='logout'){
@@ -112,8 +113,10 @@ export async function onRequestPost({request,env}){
    const account=await adminAccount(env.DB);
    if(action==='setup'&&account)return reply({error:'O login já foi configurado. Entre ou use a recuperação.'},409);
    if(action==='recover'&&!account)return reply({error:'Configure o primeiro acesso.'},409);
+   stage='password_hash';
    const salt=crypto.getRandomValues(new Uint8Array(16));
    const hashed=toB64(await pbkdf2(password,salt,ITERATIONS,env));
+   stage='account_save';
    if(action==='setup'){
     const outcome=await env.DB.prepare('INSERT OR IGNORE INTO ab_admin_login(id,email,salt,password_hash,iterations) VALUES(1,?,?,?,?)').bind(email,toB64(salt),hashed,ITERATIONS).run();
     if(Number(outcome.meta?.changes||0)!==1)return reply({error:'Conta já configurada.'},409);
@@ -121,6 +124,7 @@ export async function onRequestPost({request,env}){
     await env.DB.prepare('UPDATE ab_admin_login SET email=?,salt=?,password_hash=?,iterations=? WHERE id=1').bind(email,toB64(salt),hashed,ITERATIONS).run();
     await env.DB.prepare('DELETE FROM ab_admin_sessions').run();
    }
+   stage='session_create';
    return reply({ok:true,authenticated:true,email},200,await issueSession(env.DB));
   }
   // Mensagem genérica: não revelar qual e-mail está configurado.
@@ -132,12 +136,18 @@ export async function onRequestPost({request,env}){
   if(!account||account.email!==email){
    await failedLogin(env.DB,rate);return invalid();
   }
+  stage='password_verify';
   const derived=await pbkdf2(password,fromB64(account.salt),Number(account.iterations),env);
   const stored=fromB64(account.password_hash);
   if(!sameBytes(derived,stored)){
    await failedLogin(env.DB,rate);return invalid();
   }
   await env.DB.prepare('DELETE FROM ab_admin_limits WHERE client_key=?').bind(rate.clientKey).run();
+  stage='session_create';
   return reply({ok:true,authenticated:true,email},200,await issueSession(env.DB));
- }catch{return reply({error:'Não foi possível completar o login agora.'},503)}
+ }catch(error){
+  // Identificação segura da etapa: sem registrar ou retornar senhas e tokens.
+  console.error('Asphalt Boys auth error',action,stage,String(error?.name||'Error'));
+  return reply({error:'Não foi possível completar o login. Etapa: '+stage+'.',code:'AUTH_'+stage.toUpperCase()},503);
+ }
 }
