@@ -1000,6 +1000,56 @@ function switchStopCategory(next){
 }
 
 // Central única dos cadastros ainda fora do site, independente da aba ativa.
+// A mesma parada pode pertencer a várias categorias, mas nunca precisa de dois cadastros.
+function isSameStopLocation(a,b){
+ if(!a||!b||a.id===b.id||a.destinoId!==b.destinoId)return false;
+ const aPlace=String(a.googlePlaceId||'').trim(),bPlace=String(b.googlePlaceId||'').trim();
+ if(aPlace&&bPlace&&aPlace===bPlace)return true;
+ const aMap=safeUrl(a.maps),bMap=safeUrl(b.maps);
+ if(aMap&&bMap&&aMap===bMap)return true;
+ const aName=normalizedPlaceName(a.nome),bName=normalizedPlaceName(b.nome);
+ const aAddress=normalizedPlaceName(a.endereco),bAddress=normalizedPlaceName(b.endereco);
+ return aName.length>3&&aAddress.length>4&&aName===bName&&aAddress===bAddress;
+}
+function allSavedStops(){
+ const all=[...data.paradas],known=new Set(all.map(p=>p.id));
+ for(const record of draft.paradas)if(!known.has(record.id)){all.push(record);known.add(record.id)}
+ return all;
+}
+function originalForDuplicate(record){
+ const all=allSavedStops().filter(p=>p?.id);
+ // Preferir o registro já publicado; se ambos são rascunhos, manter o primeiro.
+ const ordered=[...all.filter(p=>p.status==='publicado'),...all.filter(p=>p.status!=='publicado')];
+ const matched=ordered.filter(p=>p.id===record.id||isSameStopLocation(p,record));
+ return matched.length>1&&matched[0].id!==record.id?matched[0]:null;
+}
+async function discardDuplicateStop(id){
+ if(busy||photoUploading)return;
+ const duplicate=publicationQueueItems().find(x=>x.kind==='paradas'&&x.record.id===id);
+ if(!duplicate||duplicate.record.status==='publicado')return;
+ const original=originalForDuplicate(duplicate.record);
+ if(!original){alert('Nenhuma cópia idêntica identificada. Nada foi removido.');return}
+ const used=[...data.rotas,...draft.rotas].filter(r=>Array.isArray(r.paradas)&&r.paradas.includes(id));
+ if(used.length){alert('Esta cópia está vinculada a uma rota. Remova-a da rota antes de excluir.');return}
+ if(!confirm('Remover apenas a cópia repetida de "'+duplicate.record.nome+'"?\n\nO cadastro original e sua foto serão mantidos. A exclusão não pode ser desfeita.'))return;
+ busy=true;
+ const message=$('#publicationQueueMessage');
+ if(message)message.textContent='Removendo cópia repetida...';
+ try{
+  if(remote&&duplicate.source==='database')await call('DELETE',{kind:'paradas',id});
+  data.paradas=data.paradas.filter(p=>p.id!==id);
+  draft.paradas=draft.paradas.filter(p=>p.id!==id);
+  saveLocal();
+  if(tab==='paradas'&&editing===id){clearUnfinishedForm();editing=null}
+  render();
+  const current=$('#publicationQueueMessage');
+  if(current)current.textContent='✓ Cópia removida. O cadastro original "'+original.nome+'" foi mantido.';
+  announce('✓ Cópia repetida removida; cadastro original preservado.');
+ }catch(error){
+  alert('Não foi possível remover a cópia: '+String(error.message||error));
+  if(message?.isConnected)message.textContent='Falha ao remover: '+String(error.message||error);
+ }finally{busy=false}
+}
 function publicationQueueItems(){
  const result=[];
  for(const kind of types){
@@ -1044,7 +1094,8 @@ function renderPublicationQueue(){
     const info=kind==='paradas'?categoryLabelsForStop(record):kind==='rotas'?
        ((Array.isArray(record.paradas)?record.paradas.length:0)+' parada(s) na rota'):'Card de viagem';
     const local=source==='local';
-    const status=local?'📱 Apenas neste aparelho':'📝 Salvo no banco · não publicado';
+    const duplicate=kind==='paradas'?originalForDuplicate(record):null;
+    const status=duplicate?'⚠️ Cópia repetida — não publique':local?'📱 Apenas neste aparelho':'📝 Salvo no banco · não publicado';
     const disabled=!remote?' disabled aria-disabled="true"':'';
     const title=local?'Publicar envia este rascunho do aparelho para o banco':'Publicar a versão salva no banco';
     return '<article class="border border-zinc-700 bg-[#21252c] p-3 rounded-xl mb-2 last:mb-0">'+
@@ -1058,11 +1109,13 @@ function renderPublicationQueue(){
       '<div class="flex flex-wrap gap-2 mt-3">'+
        '<button type="button" class="btn text-sm" data-queue-publish="'+esc(record.id)+'" data-queue-kind="'+kind+'" title="'+esc(title)+'"'+disabled+'>🚀 Publicar no site</button>'+
        '<button type="button" class="subbtn text-sm" data-queue-edit="'+esc(record.id)+'" data-queue-kind="'+kind+'">✏️ Conferir/editar</button>'+
+       (duplicate?'<button type="button" class="subbtn text-sm !border-red-500/60 !text-red-300" data-queue-remove-duplicate="'+esc(record.id)+'">🗑️ Remover cópia</button>':'')+
       '</div></article>';
    }).join('')+
   '</section>').join('');
  container.querySelectorAll('[data-queue-publish]').forEach(button=>button.onclick=()=>publishQueuedRecord(button.dataset.queueKind,button.dataset.queuePublish,button));
  container.querySelectorAll('[data-queue-edit]').forEach(button=>button.onclick=()=>openQueuedRecord(button.dataset.queueKind,button.dataset.queueEdit));
+ container.querySelectorAll('[data-queue-remove-duplicate]').forEach(button=>button.onclick=()=>discardDuplicateStop(button.dataset.queueRemoveDuplicate));
 }
 function openQueuedRecord(kind,id){
  const pending=publicationQueueItems().find(x=>x.kind===kind&&x.record.id===id);
@@ -1083,6 +1136,9 @@ async function publishQueuedRecord(kind,id,button){
  const item=publicationQueueItems().find(x=>x.kind===kind&&x.record.id===id);
  if(!item)return;
  const record=item.record;
+ if(kind==='paradas'&&originalForDuplicate(record)){
+  alert('Esta parada já possui outro cadastro. Use Remover cópia e mantenha a original.');return
+ }
  const name=String(record.nome||'').trim();
  const destination=kind==='destinos'?name:
    (destinationsForPicker().find(d=>d.id===record.destinoId)?.nome||record.destinoId||'');
@@ -1386,6 +1442,13 @@ async function saveRecord(e){
    v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
  }
  const old=data[tab].find(x=>x.id===v.id);
+ if(tab==='paradas'&&!editing){
+  const already=allSavedStops().find(p=>isSameStopLocation(p,v));
+  if(already){
+   alert('Este local já está cadastrado como "'+already.nome+'". Para mudar categoria ou foto, use Editar. Não criei uma segunda cópia.');
+   return;
+  }
+ }
  if(tab==='rotas'){
   v.paradas=[...picked];
   if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}
