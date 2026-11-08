@@ -56,7 +56,7 @@ jobs:
           globalThis.fetch=async (address)=>{
            calls.push(String(address));
            const u=String(address);
-           if(u.includes('commons.wikimedia.org/w/api.php'))return Response.json({query:{pages:[filePage,otherPage]}});
+           if(u.includes('commons.wikimedia.org/w/api.php')){const title=new URL(u).searchParams.get('titles');return Response.json({query:{pages:title?[title==='File:No use.JPG'?otherPage:filePage]:[filePage,otherPage]}})};
            if(u.includes('api.openverse.org/v1/images/?'))return Response.json({results:[
             {id:'08921d6e-d44d-415e-97b9-a559d564d34c',title:'Pico Alto Guaramiranga',
               thumbnail:'https://api.openverse.org/v1/images/08921d6e-d44d-415e-97b9-a559d564d34c/thumb/',
