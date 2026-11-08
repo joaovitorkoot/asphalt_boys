@@ -714,6 +714,12 @@ function render(resetPicker=true){
    selectedStopCategory=b.dataset.stopCategory;editing=null;render();
    $('#stopCategoryBar')?.scrollIntoView({behavior:'smooth',block:'start'});
  });
+ const mapsField=$('#f_maps');
+ if(tab==='paradas'&&mapsField)mapsField.addEventListener('input',()=>{
+  const coords=$('#f_mapCoordinates'),placeId=$('#f_googlePlaceId');
+  if(coords)coords.value='';
+  if(placeId)placeId.value='';
+ });
  const newRecord=$('#newRecordButton');
  if(newRecord)newRecord.onclick=()=>{editing=null;picked=[];render();$('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'});};
  if(tab==='backup'){backupListeners();return;}
@@ -871,6 +877,19 @@ async function saveRecord(e){
    v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
  }
  const old=data[tab].find(x=>x.id===v.id);
+ // Se a pessoa colou o link manualmente, pegar o ponto via redirecionamento
+ // oficial do Google, sem nova consulta por nome que pode encontrar outra cidade.
+ if(tab==='paradas'&&remote&&v.maps&&!v.mapCoordinates){
+  try{
+   const response=await fetch('./api/map-coordinates',{method:'POST',headers:{
+    'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({url:v.maps}),cache:'no-store'});
+   if(response.ok){
+    const result=await response.json();
+    if(result.verified&&result.mapCoordinates)v.mapCoordinates=result.mapCoordinates;
+   }
+  }catch{}
+ }
  if(tab==='rotas'){
   v.paradas=[...picked];
   if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}
