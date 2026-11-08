@@ -32,11 +32,23 @@
  const categoryLabels=p=>stopCategories(p).map(id=>categories.find(([c])=>c===id)[1]).join(' · ');
  // O D1 é a fonte de verdade. Não há paradas fixas no código que possam reaparecer após exclusão.
  let reviewRequestEpoch=0;
+ let originMode='gps';
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
  function safeStore(k,v){try{localStorage.setItem(k,v)}catch{}}
  function safeRead(k){try{return localStorage.getItem(k)}catch{return null}}
+ function originLabel(){return originMode==='gps'?'Minha localização atual':(q('tripOrigin').value.trim()||'Cidade a definir')}
+ function setOriginMode(mode){
+  originMode=mode==='manual'?'manual':'gps';
+  q('tripUseGps').setAttribute('aria-pressed',String(originMode==='gps'));
+  q('tripUseManual').setAttribute('aria-pressed',String(originMode==='manual'));
+  q('tripManualOrigin').hidden=originMode!=='manual';
+  q('tripOriginHint').textContent=originMode==='gps'
+   ?'O Google Maps usará a localização do aparelho ao abrir a navegação. O site não precisa acessar seu GPS.'
+   :'Digite uma cidade ou endereço para começar a rota de outro lugar.';
+  if(destination)q('tripRouteSummary').textContent=originLabel()+' → '+selected.length+' parada(s) → '+destination.nome;
+ }
  function mergeData(a){if(!a||!['destinos','paradas','rotas'].every(k=>Array.isArray(a[k])))return false;data=a;return true}
  function currentStops(){
    if(!destination)return[];
@@ -129,7 +141,7 @@
     const p=stops.find(s=>s.id===id);return '<div class="tripPicked"><span class="text-orange-400 font-bold">'+(i+1)+'.</span><span class="flex-1 text-sm font-semibold">'+esc(p?.nome||'Parada indisponível')+'</span><button type="button" class="tripNavBtn" data-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="Mover parada para cima">↑</button><button type="button" class="tripNavBtn" data-down="'+i+'" '+(i===selected.length-1?'disabled':'')+' aria-label="Mover parada para baixo">↓</button><button type="button" class="tripNavBtn" data-remove="'+i+'" aria-label="Remover parada">×</button></div>';
   }).join(''):'<p class="tripTiny">Nenhuma parada selecionada. Você pode explorar as categorias ou escolher uma rota pronta.</p>';
   q('tripCount').textContent=selected.length+' parada'+(selected.length===1?'':'s');
-  q('tripRouteSummary').textContent='Sua cidade → '+selected.length+' parada(s) → '+destination.nome;
+  q('tripRouteSummary').textContent=originLabel()+' → '+selected.length+' parada(s) → '+destination.nome;
   q('tripOpenMaps').disabled=selected.length>MAX_ROUTE_STOPS;
   q('tripOpenMaps').textContent=selected.length>3?'🗺️ Ver trechos no Maps':'Google Maps ↗';
   q('tripRouteSegments').hidden=true;
@@ -146,7 +158,8 @@
    q('tripTitle').textContent=destination.nome;
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
-   q('tripOrigin').value=(share&&share.origin)||safeRead('asphalt-boys-ultima-origem')||'Horizonte, CE';
+   q('tripOrigin').value=(share&&share.origin)||safeRead('asphalt-boys-ultima-origem')||'';
+  setOriginMode(share&&share.origin?'manual':'gps');
    if(share&&share.route){const r=currentRoutes().find(x=>x.id===share.route);if(r){selected=(r.paradas||[]).filter(id=>stopById(id)).slice(0,MAX_ROUTE_STOPS);presetId=r.id;tab='mine'}}
    else if(share&&share.stops){selected=[...new Set(share.stops.split(',').filter(id=>/^[a-z0-9_-]{3,120}$/i.test(id)&&stopById(id)))].slice(0,MAX_ROUTE_STOPS);if(selected.length)tab='mine'}
    modal.hidden=false;q('tripStopPreview').hidden=true;q('tripMain').hidden=false;q('tripModalHero').hidden=false;document.body.style.overflow='hidden';render();panel.scrollTop=0;panel.focus();return true;
@@ -272,7 +285,7 @@
  function oneGoogleSegment(origin,targets){
   const last=targets[targets.length-1],intermediate=targets.slice(0,-1);
   const url=new URL('https://www.google.com/maps/dir/?api=1');
-  url.searchParams.set('origin',origin.value);
+  if(origin.value)url.searchParams.set('origin',origin.value);
   if(origin.type==='place')url.searchParams.set('origin_place_id',origin.id);
   url.searchParams.set('destination',last.value);
   if(last.type==='place')url.searchParams.set('destination_place_id',last.id);
@@ -291,16 +304,18 @@
   const points=stops.map(routePoint);
   points.push({type:'query',value:destinationUrl(),name:destination.nome});
   const segments=[];
-  let from={type:'query',value:origin,name:origin};
+  let from=origin?{type:'query',value:origin,name:origin}:{type:'current',value:'',name:'Minha localização atual'};
   let offset=0;
   while(offset<points.length){
    let take=1;
    // Waypoints internos precisam ser todos GPS ou todos Place IDs.
    // A origem e o destino de cada trecho podem ter tipos diferentes.
    while(take<Math.min(MOBILE_WAYPOINTS+1,points.length-offset)){
-    const internals=points.slice(offset,offset+take);
+    const nextTake=take+1;
+    // O destino final pode ser uma cidade; apenas os pontos intermediários precisam compartilhar formato.
+    const internals=points.slice(offset,offset+nextTake-1);
     if(internals.some(p=>p.type==='query'||p.type!==internals[0].type))break;
-    take++;
+    take=nextTake;
    }
    let chunk=points.slice(offset,offset+take);
    let url=oneGoogleSegment(from,chunk);
@@ -343,15 +358,15 @@
   box.scrollIntoView({behavior:'smooth',block:'nearest'});
  }
  function googleUrl(){
-  const origin=q('tripOrigin').value.trim();
-  if(!origin){q('tripNote').textContent='Informe sua cidade de origem.';q('tripOrigin').focus();return null}
+  const origin=originMode==='manual'?q('tripOrigin').value.trim():'';
+  if(originMode==='manual'&&!origin){q('tripNote').textContent='Informe uma cidade ou escolha Minha localização atual.';q('tripOrigin').focus();return null}
   const result=routeSegmentsFor(selected.map(stopById).filter(Boolean),origin);
   if(result.error||result.unresolved.length){
    q('tripNote').textContent=result.error||'Falta GPS ou Place ID em uma parada. Não substituí por um local com nome parecido.';
    showGoogleLegs(result);
    return null;
   }
-  safeStore('asphalt-boys-ultima-origem',origin);
+  if(originMode==='manual')safeStore('asphalt-boys-ultima-origem',origin);
   if(result.segments.length>1){
    q('tripNote').textContent='Roteiro dividido em trechos para funcionar no Google Maps do celular. Abra cada trecho na ordem.';
    showGoogleLegs(result);
@@ -364,12 +379,12 @@
   const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('dest',destination.id);
   if(presetId)u.searchParams.set('rota',presetId);
   else if(selected.length)u.searchParams.set('stops',selected.join(','));
-  const origin=q('tripOrigin').value.trim();if(origin)u.searchParams.set('origem',origin.slice(0,100));
+  const origin=originMode==='manual'?q('tripOrigin').value.trim():'';if(origin)u.searchParams.set('origem',origin.slice(0,100));
   if(localPreview)u.searchParams.set('preview','local');
   const url=u.href;q('tripShareLink').value=url;q('tripShareBox').hidden=false;
-  const msg='🏍️ Roteiro Asphalt Boys — '+destination.nome+'\nOrigem: '+(origin||'a definir')+'\nParadas: '+(selected.map(id=>stopById(id)?.nome||id).join(' → ')||'rota direta')+'\n'+url;
+  const msg='🏍️ Roteiro Asphalt Boys — '+destination.nome+'\nOrigem: '+(origin||'localização de cada participante')+'\nParadas: '+(selected.map(id=>stopById(id)?.nome||id).join(' → ')||'rota direta')+'\n'+url;
   q('tripShareWhats').href='https://api.whatsapp.com/send?text='+encodeURIComponent(msg);
-  q('tripNote').textContent=localPreview?'Link de teste: rascunhos locais só aparecem neste navegador. Para compartilhar com outros, publique a rota no banco.':'Envie o link para seu motogrupo. Cada pessoa pode ajustar a cidade de origem.';
+  q('tripNote').textContent=localPreview?'Link de teste: rascunhos locais só aparecem neste navegador. Para compartilhar com outros, publique a rota no banco.':'Envie o link para o motogrupo. Cada pessoa poderá usar a própria localização.';
  }
  async function fetchPublic(){
   try{
@@ -441,6 +456,8 @@
  q('tripPreviewAdd').onclick=()=>{addStop(previewId);previewBack();showTab('mine')};
  q('tripModal').addEventListener('click',e=>{if(e.target===modal)close()});
  document.addEventListener('keydown',e=>{if(modal.hidden)return;if(e.key==='Escape'){if(!q('tripStopPreview').hidden)previewBack();else close()}if(e.key==='Tab'){const visible=[...panel.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(x=>x.offsetParent!==null);if(!visible.length)return;const f=visible[0],l=visible[visible.length-1];if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}}});
+ q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);if(originMode==='manual')q('tripOrigin').focus()});
+ q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=originLabel()+' → '+selected.length+' parada(s) → '+destination.nome});
  q('tripTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
  q('tripCategories').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b){category=b.dataset.cat;renderAvailable()}});
  q('tripAvailable').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preview)preview(b.dataset.preview);else if(b.dataset.addStop)addStop(b.dataset.addStop)});
