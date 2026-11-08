@@ -48,13 +48,46 @@ const safeUrl=s=>{try{let u=new URL(String(s||''));return u.protocol==='https:'?
 const normalize=c=>/café|cafe/i.test(c)?'cafe':/almo|restaurante/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
 function copy(d){return JSON.parse(JSON.stringify(d))}
 function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&types.every(t=>Array.isArray(d[t]))?d:copy(seed)}catch{return copy(seed)}}
-let draft=local(),data=copy(draft),remote=false,token='',tab='destinos',editing=null,picked=[],busy=false,photoUploading=false,selectedDestId='',creatingNewDestination=false;
+let draft=local(),data=copy(draft),remote=false,token='',tab='destinos',editing=null,picked=[],busy=false,photoUploading=false,selectedDestId='',creatingNewDestination=false,selectedStopCategory='turismo';
 let placeMatches=[],placeSearchSeq=0,importMatches=[],mapsImportSeq=0,mapsLinkDraft={destinos:'',paradas:'',rotas:''};
 function announce(msg){$('#connection').textContent=msg}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
 function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
-function listForDest(dest){return data.paradas.filter(p=>p.destinoId===dest)}
-function categoryLabel(c){return ({cafe:'☕ Café da manhã',almoco:'🍽️ Almoço',turismo:'📸 Ponto turístico',descanso:'🏍️ Descanso'})[normalize(c)]}
+function listForDest(dest){return routeStops(dest)}
+const stopCategories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
+const publicSeedStops=[{
+  id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',
+  descricao:'Vista panorâmica do Maciço de Baturité.',
+  endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',
+  foto:'https://asphalt-boys.pages.dev/imagens/IMG_9038.jpeg',status:'publicado'
+}];
+function categoryLabel(c){return stopCategories.find(([id])=>id===normalize(c))?.[1]||'📸 Pontos turísticos'}
+function storedStops(destId){return data.paradas.filter(p=>p.destinoId===destId)}
+function builtInStop(id){return publicSeedStops.find(p=>p.id===id)}
+function editableStops(destId){
+  // Banco online tem prioridade. A parada padrão é exibida mesmo antes do primeiro cadastro no D1.
+  const map=new Map(publicSeedStops.filter(p=>p.destinoId===destId).map(p=>[p.id,{...p,_origin:'default'}]));
+  if(remote)for(const p of draft.paradas.filter(x=>x.destinoId===destId)){
+    if(!map.has(p.id))map.set(p.id,{...p,_origin:'local'});
+  }
+  for(const p of storedStops(destId))map.set(p.id,{...p,_origin:'database'});
+  return [...map.values()];
+}
+function routeStops(destId){
+  const map=new Map(publicSeedStops.filter(p=>p.destinoId===destId).map(p=>[p.id,p]));
+  for(const p of storedStops(destId))map.set(p.id,p);
+  return [...map.values()];
+}
+function stopCategoryTabs(){
+  if(tab!=='paradas')return '';
+  return '<section class="rounded-xl border border-zinc-600 bg-[#1d2027] p-4 mb-4" aria-label="Categorias de paradas">'+
+   '<h3 class="text-lg font-black">2. Escolha a categoria da parada</h3>'+
+   '<p class="tiny mt-1 mb-3">As mesmas categorias disponíveis para o visitante na página de viagens.</p>'+
+   '<div class="grid grid-cols-2 lg:grid-cols-4 gap-2">'+stopCategories.map(([id,label])=>
+     '<button type="button" data-stop-category="'+id+'" aria-pressed="'+(selectedStopCategory===id)+'" class="subbtn text-left text-sm transition '+(selectedStopCategory===id?'!border-orange-400 !bg-orange-500/15 !text-orange-300':'')+'">'+esc(label)+'</button>').join('')+'</div>'+
+   '</section>';
+}
+
 function makeField(name,label,v,type='text',required=false){let common=' name="'+name+'" id="f_'+name+'" '+(required?'required':'');return '<label class="lbl" for="f_'+name+'">'+label+'</label>'+(type==='textarea'?'<textarea class="field" rows="3"'+common+'>'+esc(v||'')+'</textarea>':'<input class="field" type="'+type+'"'+common+' value="'+esc(v||'')+'">')}
 function opt(items,v){return '<option value="">Selecione...</option>'+items.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===v?'selected':'')+'>'+esc(x.nome)+'</option>').join('')}
 function drop(name,label,options,value){return '<label class="lbl" for="f_'+name+'">'+label+'</label><select class="field" id="f_'+name+'" name="'+name+'">'+options.map(([k,v])=>'<option value="'+esc(k)+'" '+(k===value?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select>'}
@@ -178,19 +211,19 @@ function placeLookupMarkup(){
 function form(){
  if(tab==='backup')return '<p class="muted mb-4">Guarde uma cópia dos seus cadastros. A importação substitui somente os rascunhos locais, nunca altera o banco público.</p><div class="flex flex-wrap gap-2"><button type="button" class="btn" id="export">Exportar JSON</button><label class="subbtn cursor-pointer">Importar JSON<input id="import" type="file" accept=".json,application/json" class="hidden"></label></div>';
  if(!selectedDestId&&!creatingNewDestination)return destinationPicker();
- const d=tab==='destinos'?(creatingNewDestination?{}:(data.destinos.find(x=>x.id===selectedDestId)||currentDestination()||{})):(data[tab].find(x=>x.id===editing&&x.destinoId===selectedDestId)||{});
+ const d=tab==='destinos'?(creatingNewDestination?{}:(data.destinos.find(x=>x.id===selectedDestId)||currentDestination()||{})):(tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===editing):data[tab].find(x=>x.id===editing&&x.destinoId===selectedDestId))||{};
  const f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
  let fields='';
  if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoPickerMarkup();
- if(tab==='paradas')fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
+ if(tab==='paradas')fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
  if(tab==='rotas'){const dest=selectedDestId;fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(dest)+'"><p class="tiny text-orange-300">Essa rota será adicionada somente a '+esc(currentDestination()?.nome||dest)+'.</p>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+f('maps','Link do trajeto no Google Maps','url')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
- return destinationPicker()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
+ return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
 }
 function renderPicker(){
  const el=$('#routePicker');if(!el)return;
  const dest=$('#f_destinoId').value;
- el.innerHTML=listForDest(dest).map(p=>'<div class="pick"><input aria-label="Selecionar '+esc(p.nome)+'" type="checkbox" data-pick="'+esc(p.id)+'" '+(picked.includes(p.id)?'checked':'')+'><span class="text-sm flex-1">'+esc(p.nome)+' <span class="tiny">('+esc(categoryLabel(p.categoria))+')</span></span></div>').join('')+'<div class="mt-3">'+picked.map((id,i)=>{const p=data.paradas.find(x=>x.id===id);return p?'<div class="flex gap-2 items-center border-b border-zinc-700 py-2 text-sm"><span class="flex-1">'+(i+1)+'. '+esc(p.nome)+'</span><button type="button" class="subbtn" data-up="'+i+'" '+(i===0?'disabled':'')+'>↑</button><button type="button" class="subbtn" data-down="'+i+'" '+(i===picked.length-1?'disabled':'')+'>↓</button></div>':''}).join('')+'</div>';
+ el.innerHTML=listForDest(dest).map(p=>'<div class="pick"><input aria-label="Selecionar '+esc(p.nome)+'" type="checkbox" data-pick="'+esc(p.id)+'" '+(picked.includes(p.id)?'checked':'')+'><span class="text-sm flex-1">'+esc(p.nome)+' <span class="tiny">('+esc(categoryLabel(p.categoria))+')</span></span></div>').join('')+'<div class="mt-3">'+picked.map((id,i)=>{const p=routeStops(dest).find(x=>x.id===id);return p?'<div class="flex gap-2 items-center border-b border-zinc-700 py-2 text-sm"><span class="flex-1">'+(i+1)+'. '+esc(p.nome)+'</span><button type="button" class="subbtn" data-up="'+i+'" '+(i===0?'disabled':'')+'>↑</button><button type="button" class="subbtn" data-down="'+i+'" '+(i===picked.length-1?'disabled':'')+'>↓</button></div>':''}).join('')+'</div>';
 }
 function listHtml(){
  if(tab==='backup')return '';
