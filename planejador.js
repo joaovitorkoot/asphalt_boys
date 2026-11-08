@@ -51,7 +51,7 @@
  }
  // O D1 é a fonte de verdade. Não há paradas fixas no código que possam reaparecer após exclusão.
  let reviewRequestEpoch=0;
- let originMode='gps',activeLegIndex=0,stageSize=9;
+ let originMode='gps',activeLegIndex=0;
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
@@ -63,15 +63,13 @@
  function saveRoute(){
   if(!destination)return;
   safeStore(draftKey(destination.id),JSON.stringify({v:1,stops:selected.slice(0,MAX_ROUTE_STOPS),originMode,
-   origin:q('tripOrigin').value.trim().slice(0,150),presetId,tab,category,legIndex:activeLegIndex,stageSize}));
+   origin:q('tripOrigin').value.trim().slice(0,150),presetId,tab,category,legIndex:activeLegIndex}));
  }
  function restoreRoute(){
   if(!destination)return false;
   let saved;try{saved=JSON.parse(safeRead(draftKey(destination.id))||'null')}catch{return false}
   if(!saved||saved.v!==1||!Array.isArray(saved.stops))return false;
   selected=[...new Set(saved.stops.filter(id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{3,120}$/.test(id)&&stopById(id)))].slice(0,MAX_ROUTE_STOPS);
-  const savedSize=Number(saved.stageSize);
-  stageSize=Number.isInteger(savedSize)&&savedSize>=1&&savedSize<=APP_MAX_STOPS?savedSize:(saved.segmentMode==='four'?4:9);
   activeLegIndex=Number.isInteger(saved.legIndex)&&saved.legIndex>=0&&saved.legIndex<MAX_ROUTE_STOPS?saved.legIndex:0;
   presetId=typeof saved.presetId==='string'&&currentRoutes().some(r=>r.id===saved.presetId)?saved.presetId:'';
   category=categories.some(([id])=>id===saved.category)?saved.category:category;
@@ -199,16 +197,15 @@
   q('tripCount').textContent=selected.length+' parada'+(selected.length===1?'':'s');
   q('tripRouteSummary').textContent=routeSummaryText();
   q('tripOpenMaps').disabled=selected.length>MAX_ROUTE_STOPS;
-  q('tripStageSize').value=String(stageSize);
-  q('tripOpenMaps').textContent=selected.length>stageSize?'🧭 Navegar '+selected.length+' paradas por etapas':'🗺️ Abrir rota no Maps'+(selected.length?' ('+selected.length+')':'');
+  q('tripOpenMaps').textContent=selected.length>APP_MAX_STOPS
+   ?'🧭 Ver '+Math.ceil(selected.length/APP_MAX_STOPS)+' etapas da viagem'
+   :'🗺️ Abrir rota no Maps'+(selected.length?' ('+selected.length+' paradas)':'');
   const suspicious=selected.map(stopById).filter(p=>suspectStop(p));
    q('tripMapsHelp').textContent=suspicious.length
-   ?'⚠️ Confira a localização de '+suspicious.map(p=>p.nome).join(', ')+' antes de navegar. O cadastro pode criar um grande desvio.'
-   :selected.length>stageSize
-   ?'Seu roteiro tem '+selected.length+' paradas. Dividiremos em etapas de até '+stageSize+' e guardaremos seu progresso.'
-   :selected.length>4
-   ?'Tentaremos abrir todas as '+selected.length+' paradas no Maps. Caso alguma não apareça, escolha um número menor por etapa.'
-   :'Confira todas as paradas no Google Maps antes de iniciar.';
+   ?'⚠️ Confira a localização de '+suspicious.map(p=>p.nome).join(', ')+' antes de navegar. O cadastro pode causar um desvio.'
+   :selected.length>APP_MAX_STOPS
+   ?'As '+selected.length+' paradas serão organizadas automaticamente em '+Math.ceil(selected.length/APP_MAX_STOPS)+' etapas, na ordem escolhida.'
+   :'O Google Maps receberá até '+APP_MAX_STOPS+' paradas, respeitando a ordem do roteiro.';
   q('tripRouteSegments').hidden=true;
   q('tripRouteSegments').replaceChildren();
   saveRoute();
@@ -220,7 +217,7 @@
    focusBefore=document.activeElement;tab='custom';
    const requestedCategory=urlParams.get('dest')===id?urlParams.get('categoria'):'';
    category=categories.some(([cat])=>cat===requestedCategory)?requestedCategory:'turismo';
-   selected=[];presetId='';activeLegIndex=0;stageSize=9;
+   selected=[];presetId='';activeLegIndex=0;
    q('tripTitle').textContent=destination.nome;
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
@@ -477,7 +474,7 @@
    q('tripOrigin').focus();return null;
   }
   const stops=selected.map(stopById).filter(Boolean);
-  const fallback=routeSegmentsFor(stops,origin,stageSize);
+  const fallback=routeSegmentsFor(stops,origin,APP_MAX_STOPS);
   if(fallback.error||fallback.unresolved.length){
    q('tripNote').textContent=fallback.error||'Há uma parada sem identificação exata ou com GPS distante. Confira o link original antes de navegar.';
    showGoogleLegs(fallback);return null;
@@ -487,13 +484,13 @@
  }
  function googleUrl(){
   const plan=routeRequest();if(!plan)return null;
-  if(plan.stops.length>stageSize){
-   q('tripNote').textContent='As '+plan.stops.length+' paradas estão salvas. Navegue por etapas de até '+stageSize+' paradas e confira todos os pontos no Maps.';
+  if(plan.stops.length>APP_MAX_STOPS){
+   q('tripNote').textContent='Roteiro organizado automaticamente em '+plan.fallback.segments.length+' etapas. Abra uma etapa por vez e avance ao concluir.';
    showGoogleLegs(plan.fallback);
    return null;
   }
   // Tenta um URL único para o aplicativo Maps. O limite do navegador é menor.
-  const complete=routeSegmentsFor(plan.stops,plan.origin,stageSize);
+  const complete=routeSegmentsFor(plan.stops,plan.origin,APP_MAX_STOPS);
   if(complete.error||complete.unresolved.length||complete.segments.length!==1){
    q('tripNote').textContent='O roteiro ficou longo para um único link. Use os trechos compatíveis abaixo.';
    showGoogleLegs(plan.fallback);
@@ -504,12 +501,6 @@
    ?'Confira as '+plan.stops.length+' paradas no Maps. Se alguma sumir, volte e toque em Abrir por trechos.'
    :'Confira todas as paradas no Google Maps antes de iniciar.';
   return complete.segments[0].url;
- }
- function updateStageSize(value){
-  const n=Number(value);
-  if(!Number.isInteger(n)||n<1||n>APP_MAX_STOPS)return;
-  stageSize=n;activeLegIndex=0;renderChosen();
-  q('tripNote').textContent='Até '+n+' parada'+(n===1?'':'s')+' por etapa. Se o Maps não mostrar todos os locais, escolha uma quantidade menor.';
  }
  function share(){
   const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('dest',destination.id);
@@ -609,7 +600,6 @@
   presetId='';activeLegIndex=0;render();showTab('mine');
  });
  q('tripOpenMaps').onclick=()=>{const u=googleUrl();if(u)window.open(u,'_blank','noopener,noreferrer')};
- q('tripStageSize').addEventListener('change',e=>updateStageSize(e.target.value));
  q('tripOpenWaze').onclick=()=>{window.open('https://www.waze.com/ul?q='+encodeURIComponent(destinationUrl())+'&navigate=yes','_blank','noopener,noreferrer');q('tripNote').textContent='O Waze abre somente o destino. Paradas intermediárias devem ser configuradas no aplicativo.'};
  q('tripShare').onclick=share;
  q('tripCopy').onclick=async()=>{const input=q('tripShareLink');try{await navigator.clipboard.writeText(input.value);q('tripNote').textContent='Link copiado!'}catch{input.focus();input.select();q('tripNote').textContent='Selecione o link e copie manualmente.'}};
