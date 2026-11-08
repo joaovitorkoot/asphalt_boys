@@ -1,0 +1,123 @@
+name: Testar buscador sem Google Places
+on:
+  push:
+    branches: [feature/buscador-fotos-abertas]
+    paths:
+      - 'functions/api/photo-search.js'
+      - 'functions/api/photo-source.js'
+      - 'functions/api/content.js'
+      - 'admin.html'
+      - 'planejador.js'
+      - 'index.html'
+      - '.github/workflows/testar-buscador-livre.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mocked API and licensed gallery tests
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const admin=fs.readFileSync('admin.html','utf8'),publicJs=fs.readFileSync('planejador.js','utf8');
+          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          new vm.Script(publicJs);
+          const html=fs.readFileSync('index.html','utf8');
+          assert(html.includes('tripOpenPhotoCredit'));
+          assert(admin.includes('searchFreePhotos'));
+          assert(admin.includes('uploadCardPhoto'));
+          assert(admin.includes('fotoCredit')||admin.includes('photoCreditFields'));
+          const load=async path=>await import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync(path)).toString('base64'));
+          const search=(await load('functions/api/photo-search.js')).onRequestPost;
+          const source=(await load('functions/api/photo-source.js')).onRequestPost;
+          const password='test-secret-more-than-twenty-chars';
+          const env={ADMIN_TOKEN:password};
+          const url='https://asphalt-boys.pages.dev/api/';
+          const req=(endpoint,body,token=password)=>new Request(url+endpoint,{method:'POST',headers:{
+            Authorization:'Bearer '+token,'Content-Type':'application/json'
+          },body:JSON.stringify(body)});
+          const img=new Uint8Array(220);img[0]=255;img[1]=216;img[218]=255;img[219]=217;
+          const filePage={title:'File:Guaramiranga Pico Alto.JPG',imageinfo:[{
+            mime:'image/jpeg',thumburl:'https://upload.wikimedia.org/wikipedia/commons/thumb/example/guaramiranga.jpg',
+            descriptionurl:'https://commons.wikimedia.org/wiki/File:Guaramiranga_Pico_Alto.JPG',
+            extmetadata:{LicenseShortName:{value:'Public domain'},Artist:{value:'<b>Photographer Test</b>'},LicenseUrl:{value:''}}
+          }]};
+          const otherPage={title:'File:No use.JPG',imageinfo:[{
+            mime:'image/jpeg',thumburl:'https://upload.wikimedia.org/wikipedia/commons/thumb/other.jpeg',
+            descriptionurl:'https://commons.wikimedia.org/wiki/File:No_use.JPG',
+            extmetadata:{LicenseShortName:{value:'All rights reserved'}}
+          }]};
+          let calls=[];
+          globalThis.fetch=async (address)=>{
+           calls.push(String(address));
+           const u=String(address);
+           if(u.includes('commons.wikimedia.org/w/api.php'))return Response.json({query:{pages:[filePage,otherPage]}});
+           if(u.includes('api.openverse.org/v1/images/?'))return Response.json({results:[
+            {id:'08921d6e-d44d-415e-97b9-a559d564d34c',title:'Pico Alto Guaramiranga',
+              thumbnail:'https://api.openverse.org/v1/images/08921d6e-d44d-415e-97b9-a559d564d34c/thumb/',
+              license:'by',license_version:'4.0',creator:'Open photographer',foreign_landing_url:'https://www.flickr.com/photos/example'}
+           ]});
+           if(u.includes('api.openverse.org/v1/images/08921d6e-')&&u.endsWith('/'))return Response.json({
+             id:'08921d6e-d44d-415e-97b9-a559d564d34c',license:'by',
+             thumbnail:'https://api.openverse.org/v1/images/08921d6e-d44d-415e-97b9-a559d564d34c/thumb/'});
+           if(u.includes('upload.wikimedia.org')||u.includes('/thumb/'))return new Response(img,{status:200,headers:{'Content-Type':'image/jpeg'}});
+           throw Error('Unknown HTTP request '+address);
+          };
+          let res=await search({request:req('photo-search',{query:'Pico Alto',region:'Guaramiranga'}),env});
+          assert.equal(res.status,200);
+          let response=await res.json();
+          assert.equal(response.results.length,2);
+          assert(response.results.some(p=>p.source==='commons'&&p.license==='Domínio público'));
+          assert(response.results.some(p=>p.source==='openverse'&&p.license.includes('CC BY')));
+          res=await search({request:req('photo-search',{query:'Pico Alto'},'wrong'),env});
+          assert.equal(res.status,401);
+          res=await source({request:req('photo-source',{source:'commons',id:'File:Guaramiranga Pico Alto.JPG'}),env});
+          assert.equal(res.status,200);assert.equal((await res.arrayBuffer()).byteLength,220);
+          res=await source({request:req('photo-source',{source:'openverse',id:'08921d6e-d44d-415e-97b9-a559d564d34c'}),env});
+          assert.equal(res.status,200);
+          res=await source({request:req('photo-source',{source:'commons',id:'File:No use.JPG'}),env});
+          assert.equal(res.status,422);
+          res=await source({request:req('photo-source',{source:'commons',id:'File:Guaramiranga Pico Alto.JPG'},'wrong'),env});
+          assert.equal(res.status,401);
+          console.log('PASS: sources licensed, rejected restricted images, photo transfer, admin auth and script syntax');
+          NODE
+      - name: Live verification on open image sources without secrets
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const load=async p=>await import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync(p)).toString('base64'));
+          const search=(await load('functions/api/photo-search.js')).onRequestPost;
+          const transfer=(await load('functions/api/photo-source.js')).onRequestPost;
+          const token='strong-live-test-placeholder-123456';
+          const env={ADMIN_TOKEN:token};
+          const req=(endpoint,body)=>new Request('https://asphalt-boys.pages.dev/api/'+endpoint,{
+           method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+           body:JSON.stringify(body)});
+          const result=await search({request:req('photo-search',{query:'Pico Alto',region:'Guaramiranga'}),env});
+          assert.equal(result.status,200);
+          const payload=await result.json();
+          console.log('LIVE search results:',payload.results.length,'commons',payload.sources.commons.count,'openverse',payload.sources.openverse.count);
+          assert(payload.results.length>=1,'No real photos found');
+          const commons=payload.results.find(x=>x.source==='commons');
+          if(commons){
+            console.log('LIVE Commons image',commons.title,'license',commons.license);
+            const source=await transfer({request:req('photo-source',{source:'commons',id:commons.id}),env});
+            console.log('LIVE Commons transfer HTTP',source.status,'type',source.headers.get('Content-Type'));
+            if(source.status!==200)console.log('Transfer error',await source.text());
+            assert.equal(source.status,200);
+            assert((await source.arrayBuffer()).byteLength>100);
+          }
+          const ov=payload.results.find(x=>x.source==='openverse');
+          if(ov){
+            const source=await transfer({request:req('photo-source',{source:'openverse',id:ov.id}),env});
+            console.log('LIVE Openverse transfer HTTP',source.status,'type',source.headers.get('Content-Type'));
+            if(source.status!==200)console.log('Transfer error',await source.text());
+          }
+          console.log('PASS: real Pico Alto search and Commons image transfer');
+          NODE
