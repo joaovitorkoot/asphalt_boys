@@ -12,7 +12,7 @@
  const categories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
  const normalize=c=>/café|cafe/i.test(c)?'cafe':/restaurante|almo/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
  const initial={guaramiranga:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto',categoria:'turismo',descricao:'Vista panorâmica do Maciço de Baturité.',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil',foto:'https://asphalt-boys.pages.dev/imagens/IMG_9038.jpeg',fonteFoto:'',linkFoto:''}]};
- let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null;
+ let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
  function safeStore(k,v){try{localStorage.setItem(k,v)}catch{}}
@@ -38,9 +38,62 @@
    q('tripCategories').innerHTML=categories.map(([id,label])=>'<button type="button" class="tripCat" data-cat="'+id+'" aria-pressed="'+(category===id)+'">'+label+'</button>').join('');
    q('tripAvailable').innerHTML=stops.length?stops.map(p=>{
      const pic=httpsUrl(p.foto),dis=selected.includes(p.id),full=selected.length>=3,loc=String(p.endereco||'').trim();
-     return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripFallback">📍</div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categories.find(([id])=>id===normalize(p.categoria))[1])+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p><div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Até 3 paradas':'+ Adicionar')+'</button></div></div></article>';
+     return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categories.find(([id])=>id===normalize(p.categoria))[1])+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p><div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Até 3 paradas':'+ Adicionar')+'</button></div></div></article>';
    }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há paradas cadastradas nesta categoria. O administrador poderá adicioná-las pelo painel.</p>';
+   loadPublicStopPhotos();
  }
+ async function loadPublicStopPhoto(node){
+   if(!node.isConnected)return;
+   const id=node.dataset.googlePublicStop;
+   if(!id||!stopById(id))return;
+   try{
+     const response=await fetch('/api/place?stop='+encodeURIComponent(id),{cache:'no-store'});
+     if(!response.ok)return;
+     const result=await response.json();
+     if(!node.isConnected||!result.available||!httpsUrl(result.photo))return;
+     const placeholder=node.querySelector('.tripFallback');
+     if(placeholder){
+       const img=document.createElement('img');img.src=httpsUrl(result.photo);
+       img.loading='lazy';img.alt='Foto do Google Maps: '+String(result.name||stopById(id)?.nome||'Local').slice(0,120);
+       placeholder.replaceWith(img);
+     }
+     const credit=node.querySelector('[data-google-public-credit]');
+     if(credit){
+       credit.textContent='';
+       const attributions=Array.isArray(result.photoAttributions)?result.photoAttributions.filter(x=>x&&x.name):[];
+       const label='Foto: '+(attributions.length?attributions.map(a=>a.name).join(', '):'Google Maps');
+       const el=document.createElement('a');el.textContent=label;el.className='underline';
+       el.href=httpsUrl(attributions[0]?.uri)||httpsUrl(result.map)||'https://maps.google.com/';
+       el.rel='noopener noreferrer';el.target='_blank';credit.appendChild(el);
+     }
+   }catch{}
+ }
+ function loadPublicStopPhotos(){
+   if(stopPhotoObserver){stopPhotoObserver.disconnect();stopPhotoObserver=null}
+   // Fotos do Google carregadas apenas sob demanda para paradas publicadas.
+   if(localPreview)return;
+   const nodes=[...q('tripAvailable').querySelectorAll('[data-google-public-stop]')].slice(0,8);
+   if(!nodes.length)return;
+   const queue=[];let active=0;
+   const pump=()=>{
+     while(queue.length&&active<2){
+       const node=queue.shift();
+       active++;
+       loadPublicStopPhoto(node).finally(()=>{active--;pump()});
+     }
+   };
+   if('IntersectionObserver' in window){
+     const observer=new IntersectionObserver(entries=>{
+       for(const entry of entries)if(entry.isIntersecting){
+         observer.unobserve(entry.target);queue.push(entry.target);
+       }
+       pump();
+     },{root:panel,rootMargin:'120px'});
+     stopPhotoObserver=observer;
+     for(const node of nodes)observer.observe(node);
+   }else{queue.push(...nodes.slice(0,3));pump()}
+ }
+
  function renderPresets(){
   const routes=currentRoutes();
   q('tripPresets').innerHTML=routes.length?routes.map(r=>{
