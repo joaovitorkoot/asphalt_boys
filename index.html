@@ -116,6 +116,20 @@ renderAsphaltCards();
  .tripPlaceDetails{gap:14px}
  .tripPlaceMapBtn,.tripPlaceAddBtn{min-height:53px}
 }
+
+/* Resumo Gemini: consulta só quando o visitante abre a seção. */
+#tripReviewDetails[hidden],#tripReviewResult[hidden],#tripReviewFallback[hidden],#tripReviewFlag[hidden]{display:none!important}
+.tripPlaceReviews{margin-top:14px;padding:13px 15px;border:1px solid #3a414b;border-radius:13px;background:#21252c}
+.tripPlaceReviews summary{cursor:pointer;color:#ffb17b;font-size:14px;font-weight:800}
+.tripReviewContent{padding-top:14px;line-height:1.6;font-size:13px;color:#cbd0d8}
+.tripReviewContent h4{font-size:14px;font-weight:800;color:#fff;margin-bottom:8px}
+.tripReviewText{white-space:pre-wrap;overflow-wrap:anywhere;color:#e4e6eb}
+.tripReviewDisclosure{margin-top:9px;color:#acb2bd;font-size:12px}
+.tripReviewLinks{display:flex;flex-wrap:wrap;gap:8px 15px;margin-top:12px;font-size:12px}
+.tripReviewLinks a{color:#ffb37d;text-decoration:underline;text-underline-offset:3px}
+.tripReviewStatus{color:#b8bdc6;font-size:12px}
+.tripGMPAttribution{font-family:Roboto,Arial,sans-serif;font-size:12px;font-weight:400;font-style:normal;letter-spacing:normal;white-space:nowrap;color:#fff}
+.tripReviewProvider{margin-top:14px;padding-top:10px;border-top:1px solid #3a414b}
 #tripPanel::-webkit-scrollbar{width:5px}#tripPanel::-webkit-scrollbar-thumb{background:#4e5661;border-radius:9px}
 @media(max-width:580px){#tripCategories{grid-template-columns:repeat(2,minmax(0,1fr))}.tripTab{font-size:11px;padding:8px 3px}.tripStop{grid-template-columns:62px minmax(0,1fr)}.tripStop img,.tripFallback{width:62px;height:76px}#tripPanel{border-radius:14px}}
 </style>
@@ -190,6 +204,24 @@ renderAsphaltCards();
       <details id="tripHoursDetails" class="tripPlaceHours" hidden>
         <summary>Ver horários de funcionamento</summary>
         <p id="tripPreviewHours"></p>
+      </details>
+      <details id="tripReviewDetails" class="tripPlaceReviews" hidden>
+        <summary>✨ O que dizem os visitantes</summary>
+        <div class="tripReviewContent">
+          <p id="tripReviewStatus" class="tripReviewStatus" role="status">Abra para consultar as avaliações do Google.</p>
+          <div id="tripReviewResult" hidden>
+            <h4>Resumo das avaliações</h4>
+            <p id="tripReviewText" class="tripReviewText"></p>
+            <p id="tripReviewDisclosure" class="tripReviewDisclosure"></p>
+            <div class="tripReviewLinks">
+              <a id="tripReviewSee" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps">Ver avaliações</a>
+              <a href="https://support.google.com/local-listings/answer/9851099" target="_blank" rel="noopener noreferrer">Sobre este resumo</a>
+              <a id="tripReviewFlag" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps" hidden>Denunciar resumo</a>
+            </div>
+            <p class="tripReviewProvider"><span class="tripGMPAttribution" translate="no">Google Maps</span></p>
+          </div>
+          <a id="tripReviewFallback" class="tripReviewLinks" target="_blank" rel="noopener noreferrer" hidden>Ver avaliações no Google Maps ↗</a>
+        </div>
       </details>
       <p id="tripGoogleInfo" class="tripPlaceGoogleInfo" role="status"></p>
       <div class="tripPlaceActions">
