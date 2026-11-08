@@ -64,7 +64,13 @@ async function openverse(query){
   const otherPage=(()=>{try{let u=new URL(item.foreign_landing_url);return u.protocol==='https:'?u.href.slice(0,1100):''}catch{return ''}})();
   matches.push({source:'openverse',id:item.id,title:clean(item.title,160),thumb,
    pageUrl:pageUrl||otherPage,license:lic0==='pdm'?'Domínio público':lic0==='cc0'?'CC0':('CC BY'+(lic0==='by-sa'?'-SA':'')+' '+clean(item.license_version||'4.0',10)),
-   licenseUrl:(()=>{try{const u=new URL(item.license_url||'');return u.protocol==='https:'&&u.hostname.endsWith('creativecommons.org')?u.href:''}catch{return ''}})(),
+   licenseUrl:(()=>{
+    try{const u=new URL(item.license_url||'');if(u.protocol==='https:'&&(u.hostname==='creativecommons.org'||u.hostname==='www.creativecommons.org'))return u.href}catch{}
+    const ver=/^\d(?:\.\d)?$/.test(String(item.license_version||''))?item.license_version:'4.0';
+    return lic0==='pdm'?'https://creativecommons.org/publicdomain/mark/1.0/':
+      lic0==='cc0'?'https://creativecommons.org/publicdomain/zero/1.0/':
+      'https://creativecommons.org/licenses/'+lic0+'/'+ver+'/';
+   })(),
    creator:clean(item.creator||'Autor informado na fonte',180)});
  }
  return matches.slice(0,10);
