@@ -64,9 +64,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 <nav class="box p-3 h-fit grid sm:grid-cols-4 lg:grid-cols-1 gap-2" aria-label="Seções administrativas">
 <button type="button" class="tab" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button type="button" class="tab" data-tab="paradas" aria-selected="false">📍 Paradas</button><div id="adminStopQuickLinks" hidden class="sm:col-span-4 lg:col-span-1 grid grid-cols-2 lg:grid-cols-1 gap-1 pl-2 border-l-2 border-orange-500/40"><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe">☕ Café da manhã</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="almoco">🍽️ Almoço</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe_tarde">🥐 Café da tarde</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="jantar">🌙 Jantar</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="turismo">📸 Pontos turísticos</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="descanso">🏍️ Descanso</button></div><button type="button" class="tab" data-tab="rotas" aria-selected="false">🛣️ Rotas prontas</button><button type="button" class="tab" data-tab="backup" aria-selected="false">💾 Backup</button>
 </nav>
-<section class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><div id="listing" class="mt-6"></div></section>
-</div>
-<section id="publicationQueue" class="box p-4 sm:p-6 mt-6 scroll-mt-5" aria-label="Pendências de publicação">
+<section class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><section id="publicationQueue" class="rounded-xl border border-orange-500/35 bg-[#181c22] p-4 mt-5 scroll-mt-5" aria-label="Pendências de publicação">
  <div class="flex flex-wrap justify-between items-start gap-3 mb-4"><div>
   <p class="text-orange-400 text-xs font-black tracking-widest">CENTRAL DE PUBLICAÇÃO</p>
   <h2 class="text-2xl font-black mt-1">📋 Falta publicar</h2>
@@ -75,7 +73,8 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
  <p id="publicationQueueMessage" class="tiny mb-3" role="status"></p>
  <div id="publicationQueueList" class="space-y-4"></div>
  <p class="tiny mt-4">Nenhum item é publicado automaticamente. O botão <strong>Publicar no site</strong> confirma e envia somente o cadastro já salvo.</p>
-</section>
+</section><div id="listing" class="mt-6"></div></section>
+</div>
 </div>
 </main>
 <script>
@@ -621,12 +620,6 @@ async function searchFreePhotos(scope='place'){
 function placeLookupMarkup(){
  const enabled=remote&&(!!token||sessionReady);
  const label=tab==='rotas'?'Cole um link de trajeto ou rota do Google Maps.':'Cole o link de um destino ou lugar no Google Maps.';
- const placeSearch=tab==='rotas'?'':('<div class="border-t border-zinc-700 mt-4 pt-3">'+
- '<label class="lbl" for="googlePlaceQuery">Ou pesquise pelo nome do local</label>'+
- '<div class="grid sm:grid-cols-[1fr_auto] gap-2"><input class="field" id="googlePlaceQuery" type="search" maxlength="120" autocomplete="off" placeholder="'+(tab==='destinos'?'Ex.: Guaramiranga, Ceará':'Ex.: Pico Alto, Guaramiranga')+'" '+(enabled?'':'disabled')+'>'+
- '<button id="googlePlaceSearchBtn" class="subbtn" type="button" '+(enabled?'':'disabled')+'>Pesquisar</button></div>'+
- '<p id="googlePlaceLookupStatus" class="tiny mt-3" role="status">'+(enabled?'Escolha o local correto nos resultados.':'Conecte ao banco para pesquisar.')+'</p>'+
- '<div id="googlePlaceResults" class="space-y-2 mt-3"></div></div>');
  return '<section id="googlePlaceLookup" class="rounded-xl border border-orange-500/35 bg-orange-500/5 p-4 mb-4">'+
  '<h3 class="font-black text-base">📍 Preencher pelo Google Maps</h3>'+
  '<p class="tiny mt-1">'+label+' Os dados encontrados ficam editáveis antes de salvar.</p>'+
@@ -635,8 +628,7 @@ function placeLookupMarkup(){
  '<button id="mapsImportButton" class="btn" type="button">Preencher pelo link</button></div>'+
  '<p id="mapsImportStatus" class="tiny mt-3" role="status">'+(enabled?'Cole o link e toque em Preencher pelo link.':'Pode colar o link agora. Depois conecte ao banco acima para importar.')+'</p>'+
  '<div id="mapsImportResults" class="space-y-2 mt-3"></div>'+
- placeSearch+
- '<p class="tiny mt-3">A importação não salva nem publica automaticamente. Você poderá revisar e editar todos os campos.</p>'+
+ '<p class="tiny mt-3">A importação não salva nem publica automaticamente. Revise os campos; após salvar, o link da importação ficará vazio para o próximo cadastro.</p>'+
  '</section>';
 }
 function form(){
@@ -1215,7 +1207,6 @@ function render(resetPicker=true){
  if(!selectedDestId&&!creatingNewDestination)return;
  initMapsImport();
  if(tab==='paradas'||tab==='destinos'){
-   initPlacesLookup();
    const photoInput=$('#photoFile');if(photoInput)photoInput.onchange=onPhotoChosen;
    document.querySelectorAll('input[name="fotoEnquadramento"]').forEach(option=>{
     option.onchange=async()=>{
@@ -1421,8 +1412,22 @@ async function saveRecord(e){
  if(tab==='destinos'){selectedDestId=v.id;creatingNewDestination=false;}
  if(tab==='paradas')selectedStopCategory=normalize(v.categoria);
  if(!remote){draft=copy(data);saveLocal();announce('Rascunho salvo apenas neste navegador; não foi publicado para outros visitantes.')}
+ // Limpar somente o campo usado para importar; o link da parada permanece salvo no registro.
+ mapsLinkDraft[tab]='';
+ const importInput=$('#mapsImportUrl');
+ if(importInput)importInput.value='';
+ const oldResults=$('#mapsImportResults');
+ if(oldResults)oldResults.replaceChildren();
  clearUnfinishedForm();
  editing=null;render();
+ if(v.status!=='publicado'){
+  const buttons=[...document.querySelectorAll('[data-queue-publish]')];
+  const pendingButton=buttons.find(button=>button.dataset.queuePublish===v.id&&button.dataset.queueKind===tab);
+  const card=pendingButton?.closest('article');
+  if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+  const note=$('#publicationQueueMessage');
+  if(note)note.textContent='✓ "'+v.nome+'" salvo '+(remote?'no banco':'neste aparelho')+' e incluído na lista para publicação. Publique quando quiser.';
+ }
  if(remote){
   const note=$('#publicSyncStatus');
   if(note)note.textContent='Verificando o cadastro no site público...';
