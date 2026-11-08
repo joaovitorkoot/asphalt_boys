@@ -510,6 +510,7 @@ function listHtml(){
        '<div class="flex gap-3 items-start">'+icon+'<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2">'+
        '<strong class="break-words">'+esc(x.nome)+'</strong><span class="pill '+(x.status==='publicado'?'published':'')+'">'+esc(badge)+'</span></div>'+
        '<p class="tiny mt-1">'+esc(x.descricao||x.endereco||'')+'</p>'+
+       (x.fotoLicenca?'<p class="tiny mt-1">📸 '+esc(x.fotoAutor||'Autor informado na fonte')+' · '+esc(x.fotoLicenca)+' · Imagem adaptada'+(safeUrl(x.fotoFonteUrl)?' · <a target="_blank" rel="noopener noreferrer" class="text-orange-300 underline" href="'+esc(safeUrl(x.fotoFonteUrl))+'">Ver origem</a>':'')+'</p>':'')+
        (tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas</p>':'')+
        (origin==='local'&&remote?'<p class="text-xs text-amber-300 mt-1">Salvo apenas neste navegador. Abra e salve no banco para sincronizar.</p>':'')+
        (origin==='default'?'<p class="tiny mt-1">Já aparece no site. Você pode personalizar e salvar no banco.</p>':'')+
