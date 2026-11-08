@@ -39,6 +39,10 @@
  function safeStore(k,v){try{localStorage.setItem(k,v)}catch{}}
  function safeRead(k){try{return localStorage.getItem(k)}catch{return null}}
  function originLabel(){return originMode==='gps'?'Minha localização atual':(q('tripOrigin').value.trim()||'Cidade a definir')}
+ function routeSummaryText(){
+  const ending=selected.length?stopById(selected[selected.length-1])?.nome:destination?.nome;
+  return originLabel()+' → '+selected.length+' parada(s) → '+(ending||'Destino');
+ }
  function setOriginMode(mode){
   originMode=mode==='manual'?'manual':'gps';
   q('tripUseGps').setAttribute('aria-pressed',String(originMode==='gps'));
@@ -47,7 +51,7 @@
   q('tripOriginHint').textContent=originMode==='gps'
    ?'O Google Maps usará a localização do aparelho ao abrir a navegação. O site não precisa acessar seu GPS.'
    :'Digite uma cidade ou endereço para começar a rota de outro lugar.';
-  if(destination)q('tripRouteSummary').textContent=originLabel()+' → '+selected.length+' parada(s) → '+destination.nome;
+  if(destination)q('tripRouteSummary').textContent=routeSummaryText();
  }
  function mergeData(a){if(!a||!['destinos','paradas','rotas'].every(k=>Array.isArray(a[k])))return false;data=a;return true}
  function currentStops(){
@@ -141,9 +145,9 @@
     const p=stops.find(s=>s.id===id);return '<div class="tripPicked"><span class="text-orange-400 font-bold">'+(i+1)+'.</span><span class="flex-1 text-sm font-semibold">'+esc(p?.nome||'Parada indisponível')+'</span><button type="button" class="tripNavBtn" data-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="Mover parada para cima">↑</button><button type="button" class="tripNavBtn" data-down="'+i+'" '+(i===selected.length-1?'disabled':'')+' aria-label="Mover parada para baixo">↓</button><button type="button" class="tripNavBtn" data-remove="'+i+'" aria-label="Remover parada">×</button></div>';
   }).join(''):'<p class="tripTiny">Nenhuma parada selecionada. Você pode explorar as categorias ou escolher uma rota pronta.</p>';
   q('tripCount').textContent=selected.length+' parada'+(selected.length===1?'':'s');
-  q('tripRouteSummary').textContent=originLabel()+' → '+selected.length+' parada(s) → '+destination.nome;
+  q('tripRouteSummary').textContent=routeSummaryText();
   q('tripOpenMaps').disabled=selected.length>MAX_ROUTE_STOPS;
-  q('tripOpenMaps').textContent=selected.length>3?'🗺️ Ver trechos no Maps':'Google Maps ↗';
+  q('tripOpenMaps').textContent=selected.length>4?'🗺️ Ver trechos no Maps':'🗺️ Abrir rota completa no Maps';
   q('tripRouteSegments').hidden=true;
   q('tripRouteSegments').replaceChildren();
  }
@@ -274,7 +278,7 @@
  }
  function destinationUrl(){return destination.dest||destination.mapa||destination.nome}
  // Google Maps URLs aceitam até três waypoints em navegadores de celular.
- // Encadear trechos com o mesmo destino e origem, sempre na ordem original.
+ // A última parada selecionada será o destino final. Roteiros com mais de 4 paradas terão trechos em sequência.
  function routePoint(stop){
   const id=validPlaceId(stop.googlePlaceId),gps=validCoords(stop.mapCoordinates);
   // O GPS extraído do link compartilhado tem prioridade sobre IDs sugeridos.
@@ -301,22 +305,14 @@
   if(stops.length>MAX_ROUTE_STOPS)return {segments:[],unresolved:[],error:'Máximo de 20 paradas por roteiro.'};
   const unresolved=stops.filter(p=>!routePoint(p));
   if(unresolved.length)return {segments:[],unresolved};
-  const points=stops.map(routePoint);
-  points.push({type:'query',value:destinationUrl(),name:destination.nome});
+  const points=stops.length?stops.map(routePoint):[{type:'query',value:destinationUrl(),name:destination.nome}];
   const segments=[];
   let from=origin?{type:'query',value:origin,name:origin}:{type:'current',value:'',name:'Minha localização atual'};
   let offset=0;
   while(offset<points.length){
-   let take=1;
-   // Waypoints internos precisam ser todos GPS ou todos Place IDs.
-   // A origem e o destino de cada trecho podem ter tipos diferentes.
-   while(take<Math.min(MOBILE_WAYPOINTS+1,points.length-offset)){
-    const nextTake=take+1;
-    // O destino final pode ser uma cidade; apenas os pontos intermediários precisam compartilhar formato.
-    const internals=points.slice(offset,offset+nextTake-1);
-    if(internals.some(p=>p.type==='query'||p.type!==internals[0].type))break;
-    take=nextTake;
-   }
+   // Até 3 paradas intermediárias e 1 ponto final no Google Maps do celular.
+   // Endereços e coordenadas podem coexistir no mesmo link.
+   let take=Math.min(MOBILE_WAYPOINTS+1,points.length-offset);
    let chunk=points.slice(offset,offset+take);
    let url=oneGoogleSegment(from,chunk);
    while(url.length>1950&&take>1){
@@ -457,7 +453,7 @@
  q('tripModal').addEventListener('click',e=>{if(e.target===modal)close()});
  document.addEventListener('keydown',e=>{if(modal.hidden)return;if(e.key==='Escape'){if(!q('tripStopPreview').hidden)previewBack();else close()}if(e.key==='Tab'){const visible=[...panel.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(x=>x.offsetParent!==null);if(!visible.length)return;const f=visible[0],l=visible[visible.length-1];if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}}});
  q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);if(originMode==='manual')q('tripOrigin').focus()});
- q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=originLabel()+' → '+selected.length+' parada(s) → '+destination.nome});
+ q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=routeSummaryText()});
  q('tripTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
  q('tripCategories').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b){category=b.dataset.cat;renderAvailable()}});
  q('tripAvailable').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preview)preview(b.dataset.preview);else if(b.dataset.addStop)addStop(b.dataset.addStop)});
