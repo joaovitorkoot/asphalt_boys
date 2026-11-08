@@ -27,3 +27,41 @@ jobs:
                 print(label,'PAGE_HAS_URL_REDIRECT',bool(re.search(r'window.location|location.replace|http-equiv=.refresh',content,re.I)))
             except Exception as ex:print(label,'ERROR',type(ex).__name__,str(ex)[:200])
           PY
+      - name: Testar redirecionamento real do Google Maps e importador com API simulada
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const target='https://maps.app.goo.gl/e7a2kmSrCwEt5pbk6';
+          const res=await fetch(target,{redirect:'manual',headers:{'User-Agent':'Mozilla/5.0 (compatible; AsphaltBoysPlacesImport/1.0)'}});
+          const location=res.headers.get('location')||'';
+          console.log('Short link status:',res.status,'redirect domain:',location?new URL(location).hostname:'none');
+          assert(res.status>=300&&res.status<400&&location,'Short link should redirect');
+          const source=readFileSync('functions/api/maps-import.js','utf8');
+          const handler=(await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'))).onRequestPost;
+          const actualFetch=globalThis.fetch;
+          let calls=[];
+          globalThis.fetch=async (url,init)=>{
+            calls.push({host:new URL(url).hostname,method:init?.method});
+            if(url===target)return new Response(null,{status:res.status,headers:{location}});
+            if(url.startsWith('https://places.googleapis.com/v1/places:searchText'))return Response.json({places:[{
+              id:'ChIJtestID_ABC',displayName:{text:'VERGEL ALIMENTOS - DOCES E CONSERVAS'},
+              formattedAddress:'Caxias do Sul, RS',googleMapsUri:location
+            }]});
+            throw new Error('Unexpected network request');
+          };
+          try{
+            const token='test-token-long-enough-for-security';
+            const request=new Request('https://asphalt-boys.pages.dev/api/maps-import',{
+              method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({url:target})
+            });
+            const response=await handler({request,env:{ADMIN_TOKEN:token,GOOGLE_PLACES_API_KEY:'mock-key'}});
+            const payload=await response.json();
+            console.log('Importer response:',response.status,payload.type,'results:',payload.results?.length||0,'error:',payload.error||'none');
+            assert.equal(response.status,200);
+            assert.equal(payload.type,'place');
+            assert(payload.results?.length);
+            assert(calls.some(x=>x.host==='places.googleapis.com'));
+          }finally{globalThis.fetch=actualFetch}
+          NODE
