@@ -19,8 +19,8 @@
    return u.href;
  };
  const mapping=id=>id==='canoa'?'canoa-quebrada':id;
- const categories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
- const normalize=c=>/café|cafe/i.test(c)?'cafe':/restaurante|almo/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
+ const categories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['cafe_tarde','🥐 Café da tarde'],['jantar','🌙 Jantar'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
+ const normalize=c=>/cafe_tarde|caf[eé] da tarde/i.test(c)?'cafe_tarde':/jantar|janta/i.test(c)?'jantar':/café|cafe/i.test(c)?'cafe':/restaurante|almo/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
  // Uma parada pode aparecer em várias categorias, sempre com o mesmo ID e foto.
  const stopCategories=p=>{
    const raw=Array.isArray(p?.categorias)&&p.categorias.length?p.categorias:[p?.categoria||'turismo'];
