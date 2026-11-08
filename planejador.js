@@ -181,9 +181,9 @@
       q('tripPreviewHours').textContent=result.hours.filter(x=>typeof x==='string').slice(0,7).join('\n');
       hoursDetails.hidden=false;
     }
-    // Para o Pico Alto, mantemos a foto cadastrada pelo grupo; para as demais paradas,
-    // consultamos a foto fornecida pelo Google apenas enquanto o cartão está aberto.
-    if(httpsUrl(result.photo)&&p.id!=='pico-alto-parada'){
+    // A foto própria (upload ou URL) sempre tem prioridade sobre fotos do Google.
+    // Só consultamos e exibimos a imagem do Google quando não há foto própria.
+    if(httpsUrl(result.photo)&&!photo){
       im.src=httpsUrl(result.photo);im.alt='Foto do local fornecida pelo Google Maps';im.hidden=false;
       q('tripPreviewPlaceholder').hidden=true;
       im.onerror=()=>{if(photo){im.onerror=null;im.src=photo;im.alt='Foto de '+p.nome}else{im.hidden=true;q('tripPreviewPlaceholder').hidden=false}credit.hidden=true};

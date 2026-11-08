@@ -30,7 +30,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 <section class="box p-4 sm:p-5 mb-6" aria-label="Conexão administrativa">
 <div class="flex flex-wrap items-center justify-between gap-3"><div><strong class="text-base">Status da publicação</strong><p id="connection" class="tiny mt-1" role="status">Verificando conexão com o servidor...</p></div><span id="mode" class="pill">Rascunhos locais</span></div>
 <div class="grid sm:grid-cols-[1fr_auto] gap-3 items-end mt-3"><div><label class="lbl" for="secret">Token de administrador (somente após configurar na Cloudflare)</label><input class="field" id="secret" type="password" autocomplete="off" placeholder="Digite o valor do ADMIN_TOKEN (não o nome da variável)"><div class="flex items-center justify-between gap-2 mt-2"><span class="tiny">Use a senha configurada na produção da Cloudflare (mínimo 20 caracteres).</span><button id="showAdminPassword" type="button" class="text-orange-300 text-xs font-bold underline whitespace-nowrap">Mostrar senha</button></div></div><button id="connect" type="button" class="subbtn">Conectar ao banco</button></div>
-<div id="syncArea" class="mt-3" hidden><button type="button" id="sync" class="subbtn">Enviar meus rascunhos locais para o banco</button><p class="tiny mt-1">Enviar não publica automaticamente: cadastros continuam com o status definido em cada formulário.</p></div>
+<div id="syncArea" class="mt-3" hidden><div class="flex flex-wrap gap-2"><button type="button" id="sync" class="subbtn">Enviar meus rascunhos locais para o banco</button><button type="button" id="checkPublicSync" class="subbtn">🔎 Verificar site público</button></div><p class="tiny mt-1">Enviar não publica automaticamente: cadastros continuam com o status definido em cada formulário.</p><p id="publicSyncStatus" role="status" class="tiny mt-2"></p></div>
 </section>
 <div class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-5">
 <nav class="box p-3 h-fit grid sm:grid-cols-4 lg:grid-cols-1 gap-2" aria-label="Seções administrativas">
@@ -147,14 +147,14 @@ function photoPickerMarkup(){
  const enabled=remote&&!!token,tabName=tab==='destinos'?'destino':'parada';
  return '<div class="rounded-lg border border-zinc-600 p-3 mt-3">'+
   '<p class="font-bold text-sm">📸 Foto do '+tabName+'</p>'+
-  '<p class="tiny mt-1">Você também pode selecionar uma foto da galeria do celular ou computador, sem precisar de URL. A imagem será reduzida automaticamente.</p>'+
+  '<p class="tiny mt-1">Selecione uma foto do celular ou computador. Ela será adaptada automaticamente para '+(tab==='destinos'?'16:9 (card de viagem)':'1:1 (card de parada)')+', mantendo a foto inteira e preenchendo as bordas sem cortes.</p>'+
   '<label class="subbtn inline-flex items-center cursor-pointer mt-3" for="photoFile">📷 Adicionar foto</label>'+
   '<input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp,image/avif" class="sr-only" aria-label="Adicionar foto do dispositivo">'+
   (tab==='paradas'?'<div class="mt-3 border-t border-zinc-600 pt-3"><button type="button" id="browseGooglePhotos" class="subbtn text-sm" '+(enabled?'':'disabled')+'>🌄 Escolher foto do Google Maps</button>'+
     '<p class="tiny mt-2">Busca exata pelo nome do local e destino. Sem foto própria, a primeira foto disponível do Google aparece automaticamente no card. Caso a API não entregue fotos, use Adicionar foto com autorização.</p>'+
     '<div id="googlePhotoGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3" aria-label="Fotos do Google Maps"></div><p id="googlePhotoGalleryStatus" class="tiny mt-2" role="status"></p></div>':'')+
   '<p id="photoUploadStatus" role="status" class="tiny mt-2">'+(enabled?'Escolha sua foto. Depois confira e salve o cadastro.':'Conecte ao banco antes de enviar uma imagem.')+'</p>'+
-  '<img id="photoPreview" alt="Prévia da foto selecionada" hidden class="rounded-lg w-full max-w-xs h-36 mt-3 object-cover">'+
+  '<img id="photoPreview" alt="Prévia da foto selecionada" hidden class="rounded-lg w-full max-w-sm mt-3 object-contain bg-zinc-800 '+(tab==='destinos'?'aspect-video':'aspect-square')+'">'+
  '</div>';
 }
 function googlePhotoAttribution(place,photo){
@@ -211,7 +211,7 @@ function loadAutoGoogleCardPhotos(){
     if(!url)return;
     const frame=node.querySelector('[data-google-photo-frame]'),credit=node.querySelector('[data-google-photo-credit]');
     if(frame){frame.textContent='';const img=document.createElement('img');img.src=url;
-     img.className='w-20 h-16 object-cover rounded-md';img.alt='Foto do Google Maps: '+(result.placeName||record.nome);
+     img.className='w-20 h-16 object-contain bg-zinc-800 rounded-md';img.alt='Foto do Google Maps: '+(result.placeName||record.nome);
      img.loading='lazy';frame.appendChild(img)}
     showGooglePhotoCredit(credit,result,photo,true);
    }).catch(()=>{}).finally(()=>{active--;pump()});
@@ -253,7 +253,7 @@ async function browseGooglePhotos(){
   for(const p of result.photos){
    const url=safeUrl(p.url);if(!url)continue;
    const tile=document.createElement('button');tile.type='button';tile.className='text-left border border-zinc-600 rounded-lg p-2 hover:border-orange-400';
-   const img=document.createElement('img');img.src=url;img.alt='Selecionar foto '+(p.index+1)+' do Google Maps';img.loading='lazy';img.className='w-full h-28 object-cover rounded-md';
+   const img=document.createElement('img');img.src=url;img.alt='Selecionar foto '+(p.index+1)+' do Google Maps';img.loading='lazy';img.className='w-full h-28 object-contain bg-zinc-800 rounded-md';
    tile.appendChild(img);
    const credit=document.createElement('span');credit.className='tiny block mt-1';showGooglePhotoCredit(credit,result,p,true);tile.appendChild(credit);
    tile.addEventListener('click',()=>{
@@ -272,30 +272,42 @@ async function browseGooglePhotos(){
  }catch(err){if(button.isConnected)note.textContent='Não consegui consultar as fotos: '+String(err.message||err)}
  finally{if(button.isConnected)button.disabled=false}
 }
-async function preparePhoto(file){
+// Monta imagem com a proporção do card, mantendo toda a foto visível.
+// 16:9 para destino; 1:1 para paradas, com fundo suave nas sobras.
+async function preparePhoto(file,kind=tab){
  if(!file||!file.type.startsWith('image/'))throw Error('Selecione uma imagem da galeria.');
  if(file.size>20000000)throw Error('Escolha uma imagem menor que 20 MB.');
- const src=URL.createObjectURL(file);
+ const source=URL.createObjectURL(file);
  try{
-  const img=new Image();
-  img.decoding='async';
-  await new Promise((ok,fail)=>{img.onload=ok;img.onerror=()=>fail(Error('Não foi possível abrir a imagem.'));img.src=src});
-  let canvas=document.createElement('canvas');
-  for(const width of [1200,1000,800,640,520]){
-    const scale=Math.min(1,width/Math.max(img.naturalWidth,img.naturalHeight));
-    canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));
-    canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
-    const ctx=canvas.getContext('2d');
-    if(!ctx)throw Error('Seu navegador não conseguiu preparar a imagem.');
-    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(img,0,0,canvas.width,canvas.height);
-    for(const quality of [0.8,0.67,0.5]){
-      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
-      if(blob&&blob.type==='image/webp'&&blob.size>=100&&blob.size<=200000)return blob;
-    }
+  const img=new Image();img.decoding='async';
+  await new Promise((ok,fail)=>{img.onload=ok;img.onerror=()=>fail(Error('Não foi possível abrir a imagem.'));img.src=source});
+  if(!img.naturalWidth||!img.naturalHeight)throw Error('A foto não tem dimensões válidas.');
+  const ratio=kind==='destinos'?16/9:1;
+  for(const longSide of [1100,960,800,640,520]){
+   const cw=kind==='destinos'?longSide:Math.min(900,longSide);
+   const ch=Math.round(cw/ratio);
+   const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;
+   const ctx=canvas.getContext('2d',{alpha:false});
+   if(!ctx)throw Error('O navegador não conseguiu preparar a imagem.');
+   ctx.fillStyle='#222833';ctx.fillRect(0,0,cw,ch);
+   // Fundo desfocado ajustado ao quadro sem criar barras brancas.
+   const cover=Math.max(cw/img.naturalWidth,ch/img.naturalHeight);
+   const bw=img.naturalWidth*cover,bh=img.naturalHeight*cover;
+   ctx.save();ctx.filter='blur('+Math.max(12,Math.round(cw/32))+'px) brightness(0.6)';
+   ctx.drawImage(img,(cw-bw)/2,(ch-bh)/2,bw,bh);
+   ctx.restore();
+   // Imagem original integral, centralizada sem cortes.
+   const padding=Math.max(5,Math.round(cw*0.018));
+   const scale=Math.min((cw-padding*2)/img.naturalWidth,(ch-padding*2)/img.naturalHeight);
+   const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
+   ctx.drawImage(img,(cw-w)/2,(ch-h)/2,w,h);
+   for(const quality of [0.85,0.72,0.58,0.43]){
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
+    if(blob&&blob.type==='image/webp'&&blob.size>=100&&blob.size<=200000)return blob;
+   }
   }
-  throw Error('Não consegui reduzir essa imagem. Tente uma foto menos pesada.');
- }finally{URL.revokeObjectURL(src)}
+  throw Error('A foto ficou muito grande após o ajuste. Tente uma imagem menor.');
+ }finally{URL.revokeObjectURL(source)}
 }
 async function onPhotoChosen(event){
  const file=event.target.files?.[0];if(!file)return;
@@ -305,14 +317,22 @@ async function onPhotoChosen(event){
  note.textContent='Preparando e enviando sua foto...';
  photoUploading=true;
  try{
-  const blob=await preparePhoto(file);
+  const blob=await preparePhoto(file,tab);
   const response=await fetch('./api/image-upload',{method:'POST',
     headers:{'Authorization':'Bearer '+token,'Content-Type':blob.type},body:blob,cache:'no-store'});
   const result=await response.json();
   if(!response.ok)throw Error(result.error||'Não foi possível enviar a imagem.');
-  field.value=new URL(result.url,location.origin).href;
-  if(preview){preview.src=field.value;preview.hidden=false}
-  note.textContent='✓ Foto enviada! Clique em Salvar no banco para usar no card selecionado.';
+  // Só considera a foto salva depois de confirmar que a URL pública realmente abre.
+  const uploadedUrl=new URL(result.url,location.origin).href;
+  await new Promise((resolve,reject)=>{
+   const verification=new Image();
+   verification.onload=()=>resolve();
+   verification.onerror=()=>reject(Error('A foto foi enviada, mas não abriu no site público. Tente novamente.'));
+   verification.src=uploadedUrl;
+  });
+  field.value=uploadedUrl;
+  if(preview){preview.src=uploadedUrl;preview.hidden=false}
+  note.textContent='✓ Foto adaptada, enviada e confirmada no site! Clique em Salvar no banco para usá-la no card.';
  }catch(err){note.textContent='Não foi possível enviar: '+String(err.message||err)}
  finally{photoUploading=false}
 }
@@ -586,6 +606,51 @@ async function call(method,body,admin=true){
  if(!res.ok)throw Error(payload.error||'Falha ao salvar no servidor');
  return payload;
 }
+async function checkPublishedContent(){
+ const [adminData,publicData]=await Promise.all([call('GET'),call('GET',undefined,false)]);
+ if(!types.every(t=>Array.isArray(adminData[t])&&Array.isArray(publicData[t])))throw Error('Resposta incompleta de um dos bancos.');
+ const problems=[],counts={};
+ for(const kind of types){
+  const expected=adminData[kind].filter(p=>p.status==='publicado');
+  const current=publicData[kind];counts[kind]=current.length;
+  const byId=new Map(current.map(p=>[p.id,p]));
+  for(const item of expected){
+   const received=byId.get(item.id);
+   if(!received){problems.push(kind+': '+item.nome+' não aparece no site');continue}
+   if(received.nome!==item.nome||String(received.foto||'')!==String(item.foto||'')||
+      (kind!=='destinos'&&received.destinoId!==item.destinoId)||
+      (kind==='paradas'&&received.categoria!==item.categoria))
+     problems.push(kind+': dados diferentes para '+item.nome);
+  }
+  for(const item of current)if(!expected.some(p=>p.id===item.id))problems.push(kind+': cadastro publicado inesperado');
+ }
+ const savedImages=publicData.destinos.concat(publicData.paradas)
+  .map(x=>x.foto||'').filter(u=>{
+   try{const url=new URL(u,location.origin);return url.origin===location.origin&&url.pathname==='/api/image'&&url.searchParams.has('id')}
+   catch{return false}
+  }).slice(0,8);
+ for(const url of savedImages){
+  try{const response=await fetch(url,{cache:'no-store'});
+   if(!response.ok||!(response.headers.get('Content-Type')||'').startsWith('image/'))
+    problems.push('Uma foto enviada não está abrindo no site público');
+  }catch{problems.push('Falha ao carregar uma foto enviada')}
+ }
+ return {counts,problems,verifiedImages:savedImages.length};
+}
+function syncSummary(check){
+ const c=check.counts;
+ if(check.problems.length)return '⚠️ Banco e site responderam, mas encontrei: '+check.problems.slice(0,4).join('; ')+'.';
+ return '✅ Painel e site público sincronizados: '+c.destinos+' destino(s), '+c.paradas+' parada(s), '+c.rotas+' rota(s) publicada(s).'+
+  (check.verifiedImages?' Fotos verificadas: '+check.verifiedImages+'.':'');
+}
+$('#checkPublicSync').onclick=async()=>{
+ const note=$('#publicSyncStatus'),btn=$('#checkPublicSync');
+ if(!remote||!token){note.textContent='Conecte ao banco para verificar.';return}
+ btn.disabled=true;note.textContent='Conferindo registros e fotos no site público...';
+ try{note.textContent=syncSummary(await checkPublishedContent())}
+ catch(e){note.textContent='⚠️ Não consegui confirmar a integração: '+String(e.message||e)}
+ finally{btn.disabled=false}
+};
 async function saveRecord(e){
  e.preventDefault();if(busy)return;
  if(photoUploading){alert('Aguarde a foto terminar de enviar antes de salvar.');return}
@@ -598,7 +663,12 @@ async function saveRecord(e){
    v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
  }
  const old=data[tab].find(x=>x.id===v.id);
- if(tab==='rotas'){v.paradas=[...picked];if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}}
+ if(tab==='rotas'){
+  v.paradas=[...picked];
+  if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}
+  const unpub=v.paradas.filter(id=>id!=='pico-alto-parada'&&!data.paradas.some(p=>p.id===id&&p.destinoId===v.destinoId&&p.status==='publicado'));
+  if(v.status==='publicado'&&unpub.length){alert('Publique primeiro as '+unpub.length+' parada(s) desta rota, para elas aparecerem no site.');return}
+ }
  if(v.maps&&!safeUrl(v.maps)){alert('Digite um link https do Google Maps.');return}
  if(v.foto&&!safeUrl(v.foto)){alert('A URL da foto precisa começar com https.');return}
  if(remote){busy=true;try{const x=await call('POST',{kind:tab,record:v});v.status=x.record.status;Object.assign(v,x.record);announce('Salvo no banco com sucesso.');}catch(e){alert('Não foi publicado: '+e.message);busy=false;return}busy=false}
@@ -607,6 +677,17 @@ async function saveRecord(e){
  if(tab==='paradas')selectedStopCategory=normalize(v.categoria);
  if(!remote){draft=copy(data);saveLocal();announce('Rascunho salvo apenas neste navegador; não foi publicado para outros visitantes.')}
  editing=null;render();
+ if(remote){
+  const note=$('#publicSyncStatus');
+  if(note)note.textContent='Verificando o cadastro no site público...';
+  try{
+   const result=await checkPublishedContent(),message=syncSummary(result);
+   if(note)note.textContent=message;
+   announce((v.status==='publicado'?'Cadastro publicado. ':'Rascunho salvo no banco, ainda não público. ')+message);
+  }catch(e){
+   announce('Cadastro salvo no banco, mas não consegui confirmar no site público: '+String(e.message||e));
+  }
+ }
 }
 async function removeRecord(id){
  if(tab==='paradas'&&builtInStop(id)){alert('Este local é padrão do site. Você pode editá-lo, mas não excluí-lo pelo painel.');return}
