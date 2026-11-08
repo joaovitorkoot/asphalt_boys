@@ -108,7 +108,7 @@ function currentDestination(){
 function destinationPicker(){
  const cards=destinationsForPicker().map(d=>{
    const active=!creatingNewDestination&&selectedDestId===d.id;
-   const cnt=data.paradas.filter(p=>p.destinoId===d.id).length;
+   const cnt=editableStops(d.id).length;
    const n=data.rotas.filter(r=>r.destinoId===d.id).length;
    const img=safeUrl(d.foto);
    return '<button type="button" data-select-dest="'+esc(d.id)+'" aria-pressed="'+active+'" class="text-left rounded-xl border p-3 transition '+(active?'border-orange-400 bg-orange-500/15':'border-zinc-600 hover:border-orange-400 bg-[#22262c]')+'">'+
@@ -226,10 +226,39 @@ function renderPicker(){
  el.innerHTML=listForDest(dest).map(p=>'<div class="pick"><input aria-label="Selecionar '+esc(p.nome)+'" type="checkbox" data-pick="'+esc(p.id)+'" '+(picked.includes(p.id)?'checked':'')+'><span class="text-sm flex-1">'+esc(p.nome)+' <span class="tiny">('+esc(categoryLabel(p.categoria))+')</span></span></div>').join('')+'<div class="mt-3">'+picked.map((id,i)=>{const p=routeStops(dest).find(x=>x.id===id);return p?'<div class="flex gap-2 items-center border-b border-zinc-700 py-2 text-sm"><span class="flex-1">'+(i+1)+'. '+esc(p.nome)+'</span><button type="button" class="subbtn" data-up="'+i+'" '+(i===0?'disabled':'')+'>↑</button><button type="button" class="subbtn" data-down="'+i+'" '+(i===picked.length-1?'disabled':'')+'>↓</button></div>':''}).join('')+'</div>';
 }
 function listHtml(){
- if(tab==='backup')return '';
- const items=tab==='destinos'?data.destinos.filter(x=>x.id===selectedDestId):data[tab].filter(x=>x.destinoId===selectedDestId);
- if(!selectedDestId||creatingNewDestination)return '';
- return '<h3 class="font-bold text-lg mb-3">Cadastrados neste card ('+items.length+')</h3>'+(items.length?items.map(x=>'<article class="card mb-3"><div class="flex flex-wrap items-start gap-3 justify-between"><div class="min-w-0 flex-1"><div class="flex flex-wrap gap-2 items-center"><strong>'+esc(x.nome)+'</strong><span class="pill '+(x.status==='publicado'?'published':'')+'">'+(x.status==='publicado'?'Publicado':'Rascunho')+'</span></div><p class="muted text-sm mt-1">'+esc(x.descricao||((tab==='paradas')?categoryLabel(x.categoria):''))+'</p>'+(x.destinoId?'<p class="tiny mt-1">Destino: '+esc(data.destinos.find(d=>d.id===x.destinoId)?.nome||x.destinoId)+'</p>':'')+(tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas · '+(x.paradas||[]).map(id=>esc(data.paradas.find(p=>p.id===id)?.nome||id)).join(' → ')+'</p>':'')+(tab==='rotas'?'<a class="text-orange-300 text-xs underline mt-2 block" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote?'':'&preview=local')+'">Abrir prévia da rota ↗</a>':'')+(safeUrl(x.maps)?'<a class="text-orange-300 text-xs underline mt-2 block" target="_blank" rel="noopener noreferrer" href="'+esc(safeUrl(x.maps))+'">Ver no Google Maps ↗</a>':'')+'</div><div class="flex gap-2"><button type="button" class="subbtn text-xs" data-edit="'+esc(x.id)+'">Editar</button><button type="button" class="subbtn text-xs text-red-300" data-delete="'+esc(x.id)+'">Excluir</button></div></div></article>').join(''):'<p class="muted text-sm">'+(tab==='destinos'?'Este card existe no site, mas ainda não foi personalizado no banco. Edite os campos acima e salve para atualizar apenas este card.':'Nenhum cadastro neste card de viagem.')+'</p>');
+ if(tab==='backup'||!selectedDestId||creatingNewDestination)return '';
+ let items;
+ if(tab==='destinos')items=data.destinos.filter(x=>x.id===selectedDestId);
+ else if(tab==='paradas')items=editableStops(selectedDestId).filter(x=>normalize(x.categoria)===selectedStopCategory);
+ else items=data.rotas.filter(x=>x.destinoId===selectedDestId);
+ const category=tab==='paradas'?categoryLabel(selectedStopCategory):'';
+ const heading=tab==='paradas'?category+' · '+items.length+' local(is)':tab==='rotas'?'Rotas cadastradas · '+items.length:'Dados do card · '+items.length;
+ return '<section class="mb-5 rounded-xl border border-zinc-700 p-4 bg-[#14171c]" id="existingRecords">'+
+   '<div class="flex flex-wrap gap-2 justify-between items-center mb-3"><div><h3 class="font-black text-lg">'+esc(heading)+'</h3>'+
+   '<p class="tiny mt-1">'+(tab==='paradas'?'Abra um local já existente para editar seus dados, foto, categoria ou link.':'Abra um cadastro existente para editar sem criar outro.')+'</p></div>'+
+   (tab==='paradas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova parada</button>':tab==='rotas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova rota</button>':'')+
+   '</div>'+
+   (items.length?items.map(x=>{
+     const system=tab==='paradas'&&Boolean(builtInStop(x.id));
+     const origin=tab==='paradas'?x._origin:'database';
+     const photo=safeUrl(x.foto);
+     const badge=origin==='default'?'Padrão do site':origin==='local'?'Rascunho local':x.status==='publicado'?'Publicado':'Rascunho';
+     const icon=photo?'<img src="'+esc(photo)+'" class="w-20 h-16 object-cover rounded-md flex-none" alt="" loading="lazy">':'<div class="w-14 h-14 rounded-md bg-zinc-800 flex items-center justify-center flex-none text-2xl">'+(tab==='paradas'?'📍':'🏍️')+'</div>';
+     return '<article class="rounded-xl border border-zinc-700 p-3 mb-2 bg-[#21252c]">'+
+       '<div class="flex gap-3 items-start">'+icon+'<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2">'+
+       '<strong class="break-words">'+esc(x.nome)+'</strong><span class="pill '+(x.status==='publicado'?'published':'')+'">'+esc(badge)+'</span></div>'+
+       '<p class="tiny mt-1">'+esc(x.descricao||x.endereco||'')+'</p>'+
+       (tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas</p>':'')+
+       (origin==='local'&&remote?'<p class="text-xs text-amber-300 mt-1">Salvo apenas neste navegador. Abra e salve no banco para sincronizar.</p>':'')+
+       (origin==='default'?'<p class="tiny mt-1">Já aparece no site. Você pode personalizar e salvar no banco.</p>':'')+
+       (safeUrl(x.maps)?'<a class="text-xs text-orange-300 underline mt-2 block" target="_blank" rel="noopener noreferrer" href="'+esc(safeUrl(x.maps))+'">Google Maps</a>':'')+
+       '</div></div><div class="flex flex-wrap gap-2 mt-3">'+
+       '<button type="button" class="subbtn text-sm" data-edit="'+esc(x.id)+'">✏️ Editar</button>'+
+       (system?'':'<button type="button" class="subbtn text-sm text-red-300" data-delete="'+esc(x.id)+'">Excluir</button>')+
+       (tab==='rotas'?'<a class="subbtn text-sm" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote?'':'&preview=local')+'">Ver rota</a>':'')+
+       '</div></article>';
+   }).join(''):'<p class="muted text-sm">'+(tab==='paradas'?'Nenhum local nesta categoria para '+esc(currentDestination()?.nome||selectedDestId)+'. Toque em + Nova parada.':tab==='destinos'?'Este card já existe no site; edite as informações no formulário abaixo.':'Nenhuma rota cadastrada neste destino.')+'</p>')+
+   '</section>';
 }
 
 function normalizedPlaceName(value){
