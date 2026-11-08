@@ -12,7 +12,7 @@
 <button type="button" data-pick="canoa" class="rounded-xl bg-[#242932] hover:bg-[#343a45] border border-zinc-600 font-bold p-4 text-left">🏖️ Planejar Canoa Quebrada <span class="block text-xs font-medium mt-1 text-zinc-400">Escolha origem e paradas disponíveis</span></button>
 </div><p class="text-zinc-500 text-xs mt-4">A navegação final será feita pelo Google Maps. Confira os trechos antes de sair, especialmente em grupo.</p>
 </div></section>
-<section class="max-w-7xl mx-auto px-5 py-12"><div class="grid md:grid-cols-3 gap-4"><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">🧭</div><h3 class="font-extrabold text-lg">Origem personalizada</h3><p class="text-zinc-400 text-sm mt-2">Sua aventura começa na cidade que você escolher.</p></div><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">🛣️</div><h3 class="font-extrabold text-lg">Caminhos diferentes</h3><p class="text-zinc-400 text-sm mt-2">Compare trajetos sugeridos e abra a navegação no seu app.</p></div><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">📍</div><h3 class="font-extrabold text-lg">Paradas especiais</h3><p class="text-zinc-400 text-sm mt-2">Encontre mirantes e atrações para aproveitar melhor o passeio.</p></div></div></section>
+<section class="max-w-7xl mx-auto px-5 py-12"><div class="grid md:grid-cols-3 gap-4"><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">🧭</div><h3 class="font-extrabold text-lg">Origem personalizada</h3><p class="text-zinc-400 text-sm mt-2">Comece pela sua localização atual ou escolha outra cidade.</p></div><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">🛣️</div><h3 class="font-extrabold text-lg">Caminhos diferentes</h3><p class="text-zinc-400 text-sm mt-2">Compare trajetos sugeridos e abra a navegação no seu app.</p></div><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">📍</div><h3 class="font-extrabold text-lg">Paradas especiais</h3><p class="text-zinc-400 text-sm mt-2">Encontre mirantes e atrações para aproveitar melhor o passeio.</p></div></div></section>
 <section id="avaliacoes" class="max-w-7xl mx-auto px-5 py-14"><div class="border-t border-white/10 pt-12 flex flex-col md:flex-row md:items-center justify-between gap-7"><div><p class="text-orange-400 font-black text-xs tracking-widest uppercase">Sua experiência importa</p><h2 class="text-3xl font-black mt-2">Como foi a viagem?</h2><p class="text-zinc-400 mt-3 max-w-xl">Dê sua nota para o destino. Nesta prévia, a avaliação fica salva somente neste navegador; a versão pública compartilhada virá depois.</p></div><div class="soft p-6 rounded-2xl min-w-[270px]"><label for="avaliarDestino" class="text-sm font-bold block mb-3">Destino avaliado</label><select id="avaliarDestino" class="field rounded-lg p-3 w-full"></select><div class="flex gap-2 mt-4" id="estrelas" aria-label="Avaliação de uma a cinco estrelas"></div><p id="nota" aria-live="polite" class="text-xs text-zinc-400 mt-3">Selecione uma nota.</p></div></div></section>
 <section id="sobre" class="bg-[#13161b] border-t border-white/10 mt-8"><div class="max-w-7xl mx-auto px-5 py-14 flex flex-col md:flex-row justify-between gap-8"><div><div class="text-2xl font-black italic">ASPHALT <span class="text-orange-500">BOYS</span></div><p class="text-zinc-400 max-w-lg mt-4">Um grupo de amigos apaixonados por motos, aventura, liberdade e pelas histórias que surgem em cada estrada.</p><p class="text-sm italic text-zinc-300 mt-5">“Lembre: a 1ª é pra baixo. O resto é pra cima...”</p></div><div class="text-sm text-zinc-400 md:text-right"><p class="font-bold text-white mb-3">Explore</p><a class="block mb-2 hover:text-white" href="#destinos">Destinos</a><a class="block mb-2 hover:text-white" href="#planejador">Planejador</a><p class="mt-8">Horizonte · Ceará</p></div></div><div class="max-w-7xl mx-auto px-5 py-5 border-t border-white/10 text-xs text-zinc-500">© <span id="ano"></span> Asphalt Boys · Feito para quem vive a estrada.</div></section></main>
 <script>
@@ -40,7 +40,7 @@ abEl('ano').textContent=new Date().getFullYear();
 renderAsphaltCards();
 </script>
 <style>
-#tripModal[hidden],#tripMain[hidden],#tripStopPreview[hidden],#tripCustomSection[hidden],#tripPresetSection[hidden],#tripMineSection[hidden],#tripShareBox[hidden],#tripPhotoCredit[hidden],#tripGoogleRating[hidden],#tripGoogleSource[hidden],#tripHoursDetails[hidden],#tripModalHero[hidden],#tripPreviewPhoto[hidden],#tripPreviewPlaceholder[hidden],.tripPresetStops[hidden]{display:none!important}
+#tripModal[hidden],#tripMain[hidden],#tripStopPreview[hidden],#tripCustomSection[hidden],#tripPresetSection[hidden],#tripMineSection[hidden],#tripShareBox[hidden],#tripPhotoCredit[hidden],#tripGoogleRating[hidden],#tripGoogleSource[hidden],#tripHoursDetails[hidden],#tripModalHero[hidden],#tripManualOrigin[hidden],#tripPreviewPhoto[hidden],#tripPreviewPlaceholder[hidden],.tripPresetStops[hidden]{display:none!important}
 #tripModal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:10px;background:rgba(0,0,0,.84);backdrop-filter:blur(9px)}
 #tripPanel{width:min(820px,100%);max-height:calc(100dvh - 20px);overflow-y:auto;overscroll-behavior:contain;border:1px solid #444a53;border-radius:20px;background:#15191f;box-shadow:0 24px 80px #000b}
 #tripPanel:focus{outline:none}
@@ -51,6 +51,9 @@ renderAsphaltCards();
 .tripNavBtn{min-height:36px;padding:6px 10px;border:1px solid #5f656f;border-radius:9px;background:#20252d;color:#e9eaec;cursor:pointer}
 .tripNavBtn:disabled{opacity:.4;cursor:not-allowed}
 .tripTiny{font-size:12px;color:#b2b8c1;line-height:1.5}
+.tripOriginChoice{min-height:70px;padding:12px;text-align:left;border:1px solid #464c56;border-radius:12px;background:#20242c;color:#dedfe3;font-size:14px;font-weight:800;cursor:pointer}
+.tripOriginChoice[aria-pressed="true"]{background:#f973161b;border-color:#fb923c;color:#ffba7a}
+.tripOriginChoice .tripTiny{font-weight:400;margin-top:5px}
 #tripTabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
 .tripTab{min-height:49px;padding:8px 7px;border:1px solid #464c56;border-radius:11px;text-align:center;font-size:13px;font-weight:700;color:#dedfe3;background:#20242c}
 .tripTab[aria-selected=true]{border-color:#fb923c;background:#f9731626;color:#ffba7a}
@@ -138,7 +141,15 @@ renderAsphaltCards();
 <div id="tripModalHero" class="relative"><img id="tripCover" class="w-full h-40 sm:h-52 object-cover" alt=""><div class="absolute inset-0 bg-gradient-to-t from-[#15191f] to-transparent"></div><button id="tripClose" type="button" class="absolute top-3 right-3 w-11 h-11 rounded-full bg-black/80 border border-white/20 text-2xl" aria-label="Fechar planejador">×</button><div class="absolute bottom-3 left-5 right-5"><p class="text-orange-400 text-xs font-black tracking-widest">ASPHALT BOYS · PLANEJADOR</p><h2 id="tripTitle" class="text-3xl font-black mt-1">Destino</h2></div></div>
 <div id="tripMain" class="px-4 sm:px-7 py-5 space-y-5">
 <p id="tripDesc" class="text-zinc-400 text-sm"></p>
-<div><label for="tripOrigin" class="font-bold text-sm block mb-2">📍 Sua cidade de origem</label><input id="tripOrigin" class="tripField" autocomplete="address-level2" placeholder="Ex.: Fortaleza, CE" value="Horizonte, CE"></div>
+<div class="space-y-3">
+ <p class="font-bold text-sm">📍 Ponto de partida</p>
+ <div id="tripOriginChoices" class="grid grid-cols-1 sm:grid-cols-2 gap-2" role="group" aria-label="Escolha de ponto de partida">
+   <button type="button" id="tripUseGps" data-origin-mode="gps" class="tripOriginChoice" aria-pressed="true">📍 Minha localização atual<span class="tripTiny block">Usar o GPS no Google Maps</span></button>
+   <button type="button" id="tripUseManual" data-origin-mode="manual" class="tripOriginChoice" aria-pressed="false">🏙️ Escolher outra cidade<span class="tripTiny block">Planejar saindo de outro lugar</span></button>
+ </div>
+ <div id="tripManualOrigin" hidden><label for="tripOrigin" class="font-bold text-sm block mb-2">Cidade ou endereço de origem</label><input id="tripOrigin" class="tripField" autocomplete="address-level2" placeholder="Ex.: Fortaleza, CE" value=""></div>
+ <p id="tripOriginHint" class="tripTiny" aria-live="polite">O Google Maps usará a localização do seu aparelho.</p>
+ </div>
 <div id="tripTabs" role="tablist" aria-label="Etapas do planejador">
 <button type="button" class="tripTab" data-tab="custom" role="tab" aria-selected="true">🧭 Montar rota</button>
 <button type="button" class="tripTab" data-tab="preset" role="tab" aria-selected="false">🛣️ Rotas prontas</button>
@@ -240,5 +251,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js"></script>
+<script src="planejador.js?v=20261108-gps"></script>
 </body></html>
