@@ -1,7 +1,7 @@
 // Asphalt Boys · Cloudflare Pages Function
 // D1 binding: DB. Admin secret: ADMIN_TOKEN (Cloudflare Pages secret).
 const TYPES = ['destinos','paradas','rotas'];
-const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,mapa:400,maps:1200,foto:1200,googlePlaceId:250};
+const LIMITS = {nome:120,descricao:1500,destinoId:120,endereco:400,mapa:400,maps:1200,foto:1200,googlePlaceId:250,googlePhotoIndex:2};
 function reply(body,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}})}
 async function safeEqual(a,b){
   if(!a||!b)return false;
@@ -26,6 +26,8 @@ function cleanRecord(kind,r){
     out.categoria=String(r.categoria||'turismo').toLowerCase();
     if(!['cafe','almoco','turismo','descanso'].includes(out.categoria))throw Error('Categoria inválida.');
     out.horario=String(r.horario||'').slice(0,200);
+    out.googlePhotoIndex=String(Math.max(0,Math.min(9,parseInt(r.googlePhotoIndex,10)||0)));
+
     if(out.maps){let u;try{u=new URL(out.maps)}catch{throw Error('Link Google Maps inválido.')}const domains=['google.com','google.com.br','google.pt','google.co.uk','google.es','google.ca','google.fr','google.de','google.com.mx','google.com.ar'];const h=u.hostname.toLowerCase();const valid=domains.some(d=>h===d||h.endsWith('.'+d))||h==='maps.app.goo.gl'||(h==='goo.gl'&&u.pathname.startsWith('/maps/'));if(u.protocol!=='https:'||!valid)throw Error('Informe um link verdadeiro do Google Maps.');}
     if(out.foto&&(!/^https:\/\//.test(out.foto)))throw Error('Foto precisa usar https.');
   }
