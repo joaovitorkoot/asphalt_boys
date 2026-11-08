@@ -149,7 +149,7 @@ renderAsphaltCards();
 <h3 class="font-black text-lg mb-1">Escolha suas paradas</h3><p class="tripTiny mb-3">Escolha uma categoria, toque em Prévia para conhecer o local e adicione ao roteiro.</p>
 <div id="tripCategories" class="mb-4"></div>
 <div id="tripAvailable" class="space-y-2"></div>
-<p class="tripTiny mt-3">Você pode escolher até três paradas por trecho no Google Maps, por compatibilidade com celulares.</p>
+<p class="tripTiny mt-3">Escolha até 20 paradas. Para navegar no celular, os trajetos longos serão divididos automaticamente em trechos.</p>
 </div>
 <div id="tripPresetSection" hidden>
 <h3 class="font-black text-lg mb-1">Rotas prontas do grupo</h3><p class="tripTiny mb-3">Veja as paradas e escolha um roteiro cadastrado pelo Asphalt Boys.</p><div id="tripPresets" class="space-y-3"></div>
@@ -163,11 +163,12 @@ renderAsphaltCards();
 <button id="tripOpenWaze" type="button" class="tripNavBtn">Waze ↗</button>
 <button id="tripShare" type="button" class="tripNavBtn">↗ Compartilhar</button>
 </div>
+<div id="tripRouteSegments" hidden class="mt-4 rounded-xl border border-orange-500/35 bg-[#242831] p-3" role="region" aria-label="Trechos para navegar no Google Maps"></div>
 <div id="tripShareBox" hidden class="mt-4 p-3 rounded-xl border border-zinc-600">
 <label for="tripShareLink" class="font-semibold text-sm block mb-2">Link para o seu motogrupo</label><input id="tripShareLink" class="tripField" type="text" readonly>
 <div class="flex flex-wrap gap-2 mt-3"><button id="tripCopy" type="button" class="tripNavBtn">Copiar link</button><a id="tripShareWhats" class="tripNavBtn inline-flex items-center justify-center" target="_blank" rel="noopener noreferrer" href="https://www.whatsapp.com/">Enviar pelo WhatsApp ↗</a></div>
 </div>
-<p id="tripNote" role="status" class="tripTiny mt-3">Confira o trajeto antes de viajar. O Waze transfere somente o destino.</p>
+<p id="tripNote" role="status" class="tripTiny mt-3">Google Maps: roteiros longos têm links por trecho. Waze: abre apenas o destino.</p>
 </div>
 </div>
 
