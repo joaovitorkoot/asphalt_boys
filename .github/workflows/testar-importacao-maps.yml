@@ -1,0 +1,66 @@
+name: Testar importacao Google Maps
+on:
+  push:
+    branches: [feature/maps-link-import-all-sections]
+    paths:
+      - 'admin.html'
+      - 'functions/api/maps-import.js'
+      - '.github/workflows/testar-importacao-maps.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar rotas e lugares sem chamadas pagas
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import vm from 'node:vm';
+          const content=readFileSync('functions/api/maps-import.js','utf8');
+          const {onRequestPost}=await import('data:text/javascript;base64,'+Buffer.from(content).toString('base64'));
+          const html=readFileSync('admin.html','utf8');
+          const script=html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>'));
+          new vm.Script(script);
+          for(const marker of ['function importGoogleLink()', 'function chooseRouteFromGoogle(', "if(tab==='destinos')fields", "if(tab==='paradas')fields", "if(tab==='rotas')"])assert(html.includes(marker),marker);
+          const env={ADMIN_TOKEN:'strong-admin-placeholder-20-characters',GOOGLE_PLACES_API_KEY:'placeholder-only'};
+          const makeReq=(url,token=env.ADMIN_TOKEN)=>new Request('https://asphalt-boys.pages.dev/api/maps-import',{
+            method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({url})
+          });
+          const original=globalThis.fetch;
+          let calls=0;
+          globalThis.fetch=async (url,opts)=>{
+            calls++;
+            if(url.startsWith('https://maps.app.goo.gl/'))return new Response(null,{status:302,headers:{Location:'https://www.google.com/maps/place/Pico+Alto/'}});
+            if(url.startsWith('https://places.googleapis.com/v1/places:searchText'))return Response.json({places:[{
+              id:'ChIJ_test_12345',displayName:{text:'Pico Alto'},formattedAddress:'Pacoti, Ceará',
+              googleMapsUri:'https://www.google.com/maps/place/Pico+Alto/',primaryTypeDisplayName:{text:'Pico de montanha'}
+            }]});
+            throw Error('Unexpected external call: '+url);
+          };
+          try{
+            const req=(u,k)=>onRequestPost({request:makeReq(u,k),env});
+            let response=await req('https://www.google.com/maps/dir/?api=1&origin=Fortaleza%2C+CE&destination=Guaramiranga%2C+CE&waypoints=Pico+Alto%2C+Pacoti%7CBaturit%C3%A9');
+            assert.equal(response.status,200);
+            let body=await response.json();
+            assert.equal(body.type,'route');
+            assert.equal(body.route.destination,'Guaramiranga, CE');
+            assert.equal(body.route.waypoints.length,2);
+            response=await req('https://www.google.com/maps/place/Guaramiranga/');
+            assert.equal(response.status,200);
+            body=await response.json();
+            assert.equal(body.type,'place');assert.equal(body.results[0].name,'Pico Alto');
+            response=await req('https://maps.app.goo.gl/Example123');
+            assert.equal(response.status,200);
+            assert.equal((await response.json()).type,'place');
+            response=await req('https://attacker.example/path');
+            assert.equal(response.status,400);
+            response=await req('https://www.google.com/maps/place/Pico+Alto/','wrong-password');
+            assert.equal(response.status,401);
+            assert.equal(calls,3);
+            console.log('PASS: route, place, short link, unsafe host, invalid token, admin syntax');
+          }finally{globalThis.fetch=original}
+          NODE
