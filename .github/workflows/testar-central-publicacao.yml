@@ -21,8 +21,22 @@ jobs:
           import vm from 'node:vm';
           const html=fs.readFileSync('admin.html','utf8');
           new vm.Script(html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>')));
-          assert(html.includes('id="publicationQueue"'),'Footer publication section missing');
+          assert(html.includes('id="publicationQueue"'),'Publication queue missing');
           assert(html.includes('href="#publicationQueue"'),'Quick link missing');
+          const editorIndex=html.indexOf('<div id="editor"></div>');
+          const queueIndex=html.indexOf('<section id="publicationQueue"');
+          const listIndex=html.indexOf('<div id="listing"',editorIndex);
+          assert(editorIndex>=0&&queueIndex>editorIndex&&listIndex>queueIndex,
+            'Pending items must appear directly under the form, inside the editing panel');
+          const lookup=html.slice(html.indexOf('function placeLookupMarkup(){'),html.indexOf('function form(){'));
+          assert(lookup.includes('id="mapsImportUrl"'),'Maps link import must remain');
+          assert(!lookup.includes('googlePlaceQuery')&&!lookup.includes('googlePlaceSearchBtn'),
+            'Name search should not occupy space in the interface');
+          const save=html.slice(html.indexOf('async function saveRecord(e){'),html.indexOf('async function removeRecord(id){'));
+          assert(save.includes("mapsLinkDraft[tab]='';"),'Clear imported Maps link after successful save');
+          assert(save.indexOf("await call('POST'")<save.indexOf("mapsLinkDraft[tab]='';"),
+            'Never erase the Maps link before server confirms successful save');
+          assert(save.includes("button.dataset.queuePublish===v.id"),'Jump to saved pending item');
           assert(html.includes('renderPublicationQueue();'),'Must refresh queue when form renders');
           const start=html.indexOf('function publicationQueueItems(){');
           const end=html.indexOf('function render(resetPicker=true){',start);
