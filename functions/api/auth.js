@@ -1,7 +1,9 @@
 // Login persistente do painel Asphalt Boys. Senha com PBKDF2; sessão opaca em cookie HttpOnly.
 const COOKIE='__Host-ab_admin';
 const MONTH=30*24*60*60;
-const ITERATIONS=210000;
+// Cloudflare Workers limita PBKDF2 a 100.000 iteracoes por chamada.
+// HMAC com segredo do servidor protege as senhas mesmo se o banco vazar.
+const ITERATIONS=100000;
 const enc=new TextEncoder();
 const reply=(obj,status=200,cookie='')=>{
  const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -33,8 +35,14 @@ async function initDB(db){
  await db.prepare('CREATE TABLE IF NOT EXISTS ab_admin_sessions (token_hash TEXT PRIMARY KEY,expires_at INTEGER NOT NULL)').run();
  await db.prepare('CREATE TABLE IF NOT EXISTS ab_admin_limits (client_key TEXT PRIMARY KEY,attempts INTEGER NOT NULL,reset_at INTEGER NOT NULL)').run();
 }
-async function pbkdf2(password,salt,iterations=ITERATIONS){
- const key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);
+async function pbkdf2(password,salt,iterations=ITERATIONS,env){
+ const secret=String(env?.ADMIN_TOKEN||'').trim();
+ if(secret.length<20)throw Error('Segredo administrativo indisponível.');
+ if(!Number.isInteger(iterations)||iterations<1||iterations>100000)throw Error('Parâmetros de senha inválidos.');
+ // Pepper server-side: o ADMIN_TOKEN nunca é exposto nem gravado junto com o hash.
+ const pepperKey=await crypto.subtle.importKey('raw',enc.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ const peppered=new Uint8Array(await crypto.subtle.sign('HMAC',pepperKey,enc.encode('AsphaltBoys:password:v1:'+password)));
+ const key=await crypto.subtle.importKey('raw',peppered,'PBKDF2',false,['deriveBits']);
  return new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations,hash:'SHA-256'},key,256));
 }
 async function adminAccount(db){
@@ -105,7 +113,7 @@ export async function onRequestPost({request,env}){
    if(action==='setup'&&account)return reply({error:'O login já foi configurado. Entre ou use a recuperação.'},409);
    if(action==='recover'&&!account)return reply({error:'Configure o primeiro acesso.'},409);
    const salt=crypto.getRandomValues(new Uint8Array(16));
-   const hashed=toB64(await pbkdf2(password,salt));
+   const hashed=toB64(await pbkdf2(password,salt,ITERATIONS,env));
    if(action==='setup'){
     const outcome=await env.DB.prepare('INSERT OR IGNORE INTO ab_admin_login(id,email,salt,password_hash,iterations) VALUES(1,?,?,?,?)').bind(email,toB64(salt),hashed,ITERATIONS).run();
     if(Number(outcome.meta?.changes||0)!==1)return reply({error:'Conta já configurada.'},409);
@@ -124,7 +132,7 @@ export async function onRequestPost({request,env}){
   if(!account||account.email!==email){
    await failedLogin(env.DB,rate);return invalid();
   }
-  const derived=await pbkdf2(password,fromB64(account.salt),Number(account.iterations));
+  const derived=await pbkdf2(password,fromB64(account.salt),Number(account.iterations),env);
   const stored=fromB64(account.password_hash);
   if(!sameBytes(derived,stored)){
    await failedLogin(env.DB,rate);return invalid();
