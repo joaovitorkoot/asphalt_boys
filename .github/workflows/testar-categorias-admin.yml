@@ -1,0 +1,62 @@
+name: Testar categorias e edicao admin
+on:
+  push:
+    branches: [feature/admin-categorias-editar-paradas]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify category parity and editable existing content
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const html=fs.readFileSync('admin.html','utf8');
+          const publicJs=fs.readFileSync('planejador.js','utf8');
+          const admin=html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>'));
+          new vm.Script(admin);new vm.Script(publicJs);
+          const helper=admin.slice(admin.indexOf('const KEY='),admin.indexOf('function normalizedPlaceName'));
+          const sandbox={localStorage:{getItem(){return null},setItem(){}}};
+          const run=(code)=>vm.runInNewContext(helper+'\n'+code,sandbox);
+          for(const value of ['cafe','almoco','turismo','descanso']){
+            assert(publicJs.includes("['"+value+"'"),'Public missing '+value);
+            assert(html.includes("['"+value+"'"),'Admin missing '+value);
+          }
+          assert(html.includes('data-stop-category'));
+          assert(html.includes('data-stop-quick'));
+          assert(html.includes('data-edit'));
+          assert(html.includes('data-select-dest'));
+          assert(html.includes("v.destinoId=selectedDestId"));
+          assert(html.includes('function editableRoutes('));
+          assert(html.includes('function editableStops('));
+          assert(publicJs.includes('foto:p.foto||found.foto'));
+          let result=run("JSON.stringify({guara:editableStops('guaramiranga').map(x=>x.id),canoa:editableStops('canoa-quebrada').map(x=>x.id)})");
+          let obj=JSON.parse(result);
+          assert(obj.guara.includes('pico-alto-parada'));
+          assert.equal(obj.canoa.length,0);
+          result=run("remote=true;data={destinos:[],paradas:[],rotas:[]};selectedDestId='guaramiranga';tab='paradas';selectedStopCategory='turismo';form()");
+          assert(result.includes('data-edit="pico-alto-parada"'));
+          assert(result.includes('Café da manhã'));
+          assert(result.includes('Pontos turísticos'));
+          result=run("remote=true;data={destinos:[],paradas:[],rotas:[]};selectedDestId='guaramiranga';tab='paradas';selectedStopCategory='turismo';editing='pico-alto-parada';form()");
+          assert(result.includes('value="Pico Alto"'));
+          result=run("remote=true;data={destinos:[],paradas:[],rotas:[]};selectedDestId='guaramiranga';tab='paradas';selectedStopCategory='almoco';form()");
+          assert(!result.includes('data-edit="pico-alto-parada"'));
+          assert(result.includes('value="almoco" selected'));
+          result=run("remote=true;data={destinos:[],paradas:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto modificado',categoria:'cafe',status:'publicado',foto:'https://example.org/new.jpg'}],rotas:[]};JSON.stringify(editableStops('guaramiranga'))");
+          obj=JSON.parse(result);
+          assert.equal(obj.length,1);
+          assert.equal(obj[0].foto,'https://example.org/new.jpg');
+          assert.equal(obj[0].categoria,'cafe');
+          result=run("remote=true;data={destinos:[],paradas:[],rotas:[]};draft.rotas=[{id:'rota-antiga',destinoId:'guaramiranga',nome:'Rota antiga',paradas:['pico-alto-parada']}];JSON.stringify(editableRoutes('guaramiranga'))");
+          obj=JSON.parse(result);
+          assert.equal(obj[0].id,'rota-antiga');
+          assert.deepEqual(Array.from(obj[0].paradas),['pico-alto-parada']);
+          console.log('PASS: categories match, existing Pico Alto editable, local drafts, card isolation, photo edits');
+          NODE
