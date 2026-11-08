@@ -27,7 +27,8 @@ function licenseLabel(value){
  return lic;
 }
 async function fetchJson(url){
- const res=await fetch(url,{headers:{'User-Agent':'AsphaltBoys/1.0 (https://github.com/joaovitorkoot/asphalt_boys; photos from open licenses)','Accept':'application/json'},redirect:'error'});
+ const res=await fetch(url,{headers:{'User-Agent':'AsphaltBoys/1.0 (https://github.com/joaovitorkoot/asphalt_boys; photos from open licenses)','Accept':'application/json'},redirect:'manual'});
+ if(res.status>=300&&res.status<400)throw Error('Fonte redirecionou a consulta: HTTP '+res.status);
  if(!res.ok)throw Error('HTTP '+res.status);
  return res.json();
 }

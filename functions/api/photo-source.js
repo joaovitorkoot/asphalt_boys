@@ -19,7 +19,8 @@ function isFreeLicense(input){
  return /^(?:cc\s*by(?:-sa)?\s*\d|cc0|public domain|pd|pdm)(?:[\s\d.-]|$)/i.test(s);
 }
 async function getJson(url){
- const r=await fetch(url,{headers:{'User-Agent':'AsphaltBoys/1.0 (https://github.com/joaovitorkoot/asphalt_boys)','Accept':'application/json'},redirect:'error'});
+ const r=await fetch(url,{headers:{'User-Agent':'AsphaltBoys/1.0 (https://github.com/joaovitorkoot/asphalt_boys)','Accept':'application/json'},redirect:'manual'});
+ if(r.status>=300&&r.status<400)throw Error('Fonte redirecionou a consulta.');
  if(!r.ok)throw Error('Fonte indisponível');
  return r.json();
 }

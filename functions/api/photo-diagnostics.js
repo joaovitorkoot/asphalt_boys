@@ -8,7 +8,7 @@ export async function onRequestGet(){
  ];
  const results=await Promise.all(urls.map(async([name,url])=>{
   try{
-   const r=await fetch(url,{headers:{'User-Agent':'AsphaltBoys/1.0 (https://github.com/joaovitorkoot/asphalt_boys; photos from open licenses)','Accept':'application/json'},redirect:'error'});
+   const r=await fetch(url,{headers:{'User-Agent':'AsphaltBoys/1.0 (https://github.com/joaovitorkoot/asphalt_boys; photos from open licenses)','Accept':'application/json'},redirect:'manual'});
    const type=r.headers.get('Content-Type')||'';
    let snippet='';
    try{snippet=(await r.text()).slice(0,150).replace(/[^a-zA-Z0-9 ,.:/_-]/g,'_')}catch{}

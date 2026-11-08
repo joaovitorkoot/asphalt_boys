@@ -1,0 +1,51 @@
+name: Testar compatibilidade de fotos com Cloudflare
+on:
+  push:
+    branches: [fix/open-photos-cloudflare-fetch]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Simular fetch de Cloudflare Workers sem redirecionamento proibido
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const load=async path=>await import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync(path)).toString('base64'));
+          const search=(await load('functions/api/photo-search.js')).onRequestPost;
+          const source=(await load('functions/api/photo-source.js')).onRequestPost;
+          const token='cloudflare-regression-long-secret-123';
+          const env={ADMIN_TOKEN:token};
+          const req=(endpoint,body)=>new Request('https://asphalt-boys.pages.dev/api/'+endpoint,{method:'POST',
+            headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+          const calls=[],image=new Uint8Array(220);image[0]=255;image[1]=216;
+          globalThis.fetch=async(address,options)=>{
+            assert.notEqual(options?.redirect,'error','Cloudflare Workers does not support redirect=error');
+            if(options?.redirect)assert.equal(options.redirect,'manual');
+            calls.push(String(address));
+            const url=String(address);
+            if(url.includes('commons.wikimedia.org'))return Response.json({query:{pages:[{
+              title:'File:Pico Alto.JPG',imageinfo:[{
+               mime:'image/jpeg',thumburl:'https://upload.wikimedia.org/wikipedia/commons/thumb/picoalto.jpg',
+               descriptionurl:'https://commons.wikimedia.org/wiki/File:Pico_Alto.JPG',
+               extmetadata:{LicenseShortName:{value:'CC BY-SA 3.0'},Artist:{value:'Photographer'}}
+              }]}
+            ]}});
+            if(url.includes('api.openverse.org/v1/images/?'))return Response.json({results:[]});
+            if(url.includes('upload.wikimedia.org'))return new Response(image,{headers:{'Content-Type':'image/jpeg'}});
+            throw Error('Unexpected external URL: '+url);
+          };
+          let resp=await search({request:req('photo-search',{query:'Pico Alto',region:'Guaramiranga'}),env});
+          assert.equal(resp.status,200);
+          const payload=await resp.json();assert.equal(payload.results.length,1);
+          assert.equal(payload.results[0].title,'Pico Alto');
+          resp=await source({request:req('photo-source',{source:'commons',id:'File:Pico Alto.JPG'}),env});
+          assert.equal(resp.status,200);
+          assert.equal((await resp.arrayBuffer()).byteLength,220);
+          assert(calls.some(x=>x.includes('commons.wikimedia.org')));
+          console.log('PASS: Cloudflare-compatible fetch, photo search and transfer');
+          NODE
