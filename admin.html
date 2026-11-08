@@ -313,37 +313,54 @@ async function browseGooglePhotos(){
 // 16:9 para destino; 1:1 para paradas, com fundo suave nas sobras.
 async function preparePhoto(file,kind=tab){
  if(!file||!file.type.startsWith('image/'))throw Error('Selecione uma imagem da galeria.');
- if(file.size>20000000)throw Error('Escolha uma imagem menor que 20 MB.');
+ if(file.size>30000000)throw Error('A imagem original ultrapassa 30 MB.');
  const source=URL.createObjectURL(file);
  try{
   const img=new Image();img.decoding='async';
   await new Promise((ok,fail)=>{img.onload=ok;img.onerror=()=>fail(Error('Não foi possível abrir a imagem.'));img.src=source});
   if(!img.naturalWidth||!img.naturalHeight)throw Error('A foto não tem dimensões válidas.');
   const ratio=kind==='destinos'?16/9:1;
-  for(const longSide of [1100,960,800,640,520]){
-   const cw=kind==='destinos'?longSide:Math.min(900,longSide);
+  const maxBytes=200000; // O banco aceita até 220 KB; manter uma margem segura.
+  // Começar com resolução alta, reduzindo somente o necessário.
+  const sizes=kind==='destinos'?[1100,960,800,720,640,520,440,360,300,240]:
+   [900,800,720,640,560,480,400,340,280,240];
+  // Safari/iOS pode não exportar canvas como WebP e retornar PNG sem avisar.
+  // Nesse caso, tentar JPEG em vez de rejeitar todas as resoluções.
+  const codecs=['image/webp','image/jpeg'];
+  const qualities=[0.86,0.75,0.64,0.53,0.43,0.34,0.25];
+  let lastProblem='';
+  for(const cw of sizes){
    const ch=Math.round(cw/ratio);
    const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;
    const ctx=canvas.getContext('2d',{alpha:false});
    if(!ctx)throw Error('O navegador não conseguiu preparar a imagem.');
    ctx.fillStyle='#222833';ctx.fillRect(0,0,cw,ch);
-   // Fundo desfocado ajustado ao quadro sem criar barras brancas.
+   // Fundo preenchido sem barras brancas; imagem original inteira sobreposta.
    const cover=Math.max(cw/img.naturalWidth,ch/img.naturalHeight);
    const bw=img.naturalWidth*cover,bh=img.naturalHeight*cover;
    ctx.save();ctx.filter='blur('+Math.max(12,Math.round(cw/32))+'px) brightness(0.6)';
    ctx.drawImage(img,(cw-bw)/2,(ch-bh)/2,bw,bh);
    ctx.restore();
-   // Imagem original integral, centralizada sem cortes.
    const padding=Math.max(5,Math.round(cw*0.018));
    const scale=Math.min((cw-padding*2)/img.naturalWidth,(ch-padding*2)/img.naturalHeight);
    const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
    ctx.drawImage(img,(cw-w)/2,(ch-h)/2,w,h);
-   for(const quality of [0.85,0.72,0.58,0.43]){
-    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
-    if(blob&&blob.type==='image/webp'&&blob.size>=100&&blob.size<=200000)return blob;
+   try{
+    for(const mime of codecs){
+     for(const quality of qualities){
+      const blob=await new Promise(resolve=>{
+       try{canvas.toBlob(resolve,mime,quality)}catch{resolve(null)}
+      });
+      if(blob&&blob.type===mime&&blob.size>=100&&blob.size<=maxBytes)return blob;
+      if(blob?.type!==mime)lastProblem='Formato não suportado: '+mime;
+     }
+    }
+   }finally{
+    // Evitar acumular memória de canvas no iPhone.
+    canvas.width=0;canvas.height=0;
    }
   }
-  throw Error('A foto ficou muito grande após o ajuste. Tente uma imagem menor.');
+  throw Error('Não consegui otimizar esta imagem automaticamente. Experimente uma foto JPEG ou outra imagem. '+lastProblem);
  }finally{URL.revokeObjectURL(source)}
 }
 function setPhotoCredits(meta){
