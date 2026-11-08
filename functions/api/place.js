@@ -12,12 +12,8 @@ export async function onRequestGet({request,env}){
   if(!env.GOOGLE_PLACES_API_KEY)return json({available:false,message:"A chave GOOGLE_PLACES_API_KEY não foi encontrada neste ambiente da Cloudflare."},503);
   if(!/^[a-zA-Z0-9_-]{3,120}$/.test(id))return json({available:false,message:"Parada inválida."},400);
   try{
-    // Nunca consulte locais inventados pelo visitante: apenas paradas publicadas no banco.
-    // A parada inicial Pico Alto é pública mesmo antes de cadastro no D1.
-    // Demais paradas só podem consultar o Google após publicação no banco.
-    const publicSeed=id==='pico-alto-parada'?{
-      id:'pico-alto-parada',nome:'Pico Alto',endereco:'Pico Alto, Guaramiranga, Ceará, Brasil'
-    }:null;
+    // Somente paradas publicadas no D1; nada deve reaparecer após exclusão.
+    const publicSeed=null;
     let record=null;
     if(env.DB)record=await env.DB.prepare("SELECT payload FROM site_content WHERE kind = 'paradas' AND status = 'publicado' AND id = ?").bind(id).first();
     if(!record&&!publicSeed)return json({available:false,message:env.DB?"Esta parada ainda não foi publicada.":"Banco D1 não conectado. Esta parada ainda não está disponível."},404);
@@ -50,7 +46,7 @@ export async function onRequestGet({request,env}){
       address:place.formattedAddress||stop.endereco||"",category:String(place.primaryTypeDisplayName?.text||"").slice(0,100),rating:typeof place.rating==="number"?place.rating:null,
       count:typeof place.userRatingCount==="number"?place.userRatingCount:null,
       hours:Array.isArray(place.regularOpeningHours?.weekdayDescriptions)?place.regularOpeningHours.weekdayDescriptions:[],
-      map:place.googleMapsUri||stop.maps||"",photo,photoAttributions:(chosenPhoto?.authorAttributions||[]).map(a=>({name:String(a.displayName||"").slice(0,120),uri:String(a.uri||"").slice(0,500)}))};
+      map:stop.maps||place.googleMapsUri||"",photo,photoAttributions:(chosenPhoto?.authorAttributions||[]).map(a=>({name:String(a.displayName||"").slice(0,120),uri:String(a.uri||"").slice(0,500)}))};
     const output=json(result);
     return output;
   }catch(e){

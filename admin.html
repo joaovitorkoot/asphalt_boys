@@ -107,6 +107,9 @@ function destinationsForPicker(){
  const byId=new Map(baseDestinations.map(d=>[d.id,d]));
  if(remote)for(const d of draft.destinos)if(!byId.has(d.id)&&!data.destinos.some(x=>x.id===d.id))byId.set(d.id,{...d,_origin:'local'});
  for(const d of data.destinos)byId.set(d.id,{...byId.get(d.id),...d,_origin:remote?'database':'local'});
+ // O título da viagem é independente do nome dos pontos turísticos importados.
+ if(byId.has('guaramiranga'))byId.set('guaramiranga',{...byId.get('guaramiranga'),nome:'Guaramiranga'});
+ if(byId.has('canoa-quebrada'))byId.set('canoa-quebrada',{...byId.get('canoa-quebrada'),nome:'Canoa Quebrada'});
  return [...byId.values()];
 }
 function currentDestination(){
@@ -125,7 +128,7 @@ function destinationPicker(){
  }).join('');
  return '<section id="destinationPicker" class="rounded-xl border border-zinc-600 bg-[#1d2027] p-4 mb-5">'+
    '<h3 class="font-black text-lg">1. Escolha o card da viagem</h3>'+
-   '<p class="tiny mt-1 mb-3">Tudo que você cadastrar em Paradas ou Rotas prontas ficará ligado somente à viagem selecionada.</p>'+
+   '<p class="tiny mt-1 mb-3">Escolha a cidade da viagem. Pico Alto e outros locais específicos devem ser cadastrados em Paradas, não no título da viagem.</p>'+
    '<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">'+cards+'</div>'+
    (tab==='destinos'?'<button id="newDestinationButton" type="button" class="subbtn mt-3">+ Criar novo card de viagem</button>':'')+
    (creatingNewDestination?'<p class="mt-3 text-orange-300 text-sm font-bold">Você está criando um card novo. Nenhum card existente será alterado.</p>':
@@ -469,11 +472,11 @@ function placeLookupMarkup(){
 function form(){
  if(tab==='backup')return '<p class="muted mb-4">Guarde uma cópia dos seus cadastros. A importação substitui somente os rascunhos locais, nunca altera o banco público.</p><div class="flex flex-wrap gap-2"><button type="button" class="btn" id="export">Exportar JSON</button><label class="subbtn cursor-pointer">Importar JSON<input id="import" type="file" accept=".json,application/json" class="hidden"></label></div>';
  if(!selectedDestId&&!creatingNewDestination)return destinationPicker();
- const d=tab==='destinos'?(creatingNewDestination?{}:(data.destinos.find(x=>x.id===selectedDestId)||currentDestination()||{})):(tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===editing):editableRoutes(selectedDestId).find(x=>x.id===editing))||{};
+ const d=tab==='destinos'?(creatingNewDestination?{}:(currentDestination()||data.destinos.find(x=>x.id===selectedDestId)||{})):(tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===editing):editableRoutes(selectedDestId).find(x=>x.id===editing))||{};
  const f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
  let fields='';
  if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup();
- if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Cole o link do Google Maps','url')+'<p class="tiny mt-1">A pesquisa do Google Maps acima preenche este campo. Fotos e avaliações são consultadas na prévia pública.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
+ if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Link exato do Google Maps (será respeitado no site)','url')+'<input type="hidden" id="f_mapCoordinates" name="mapCoordinates" value="'+esc(d.mapCoordinates||'')+'"><p class="tiny mt-1">O site abrirá este link exatamente como foi cadastrado. Use o endereço para o roteiro, ou importe o link para identificar as coordenadas.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
  if(tab==='rotas'){const dest=selectedDestId;fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(dest)+'"><p class="tiny text-orange-300">Essa rota será adicionada somente a '+esc(currentDestination()?.nome||dest)+'.</p>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+f('maps','Link do trajeto no Google Maps','url')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
  return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
@@ -503,6 +506,7 @@ function listHtml(){
      const autoGoogle=tab==='paradas'&&!photo;
      const badge=origin==='default'?'Padrão do site':origin==='local'?'Somente no navegador':x.status==='publicado'?'Publicado no site':'Rascunho — não aparece no site';
      const canPublish=tab==='paradas'&&!system&&remote&&(origin==='local'||x.status!=='publicado');
+     const canPublishDestination=tab==='destinos'&&remote&&x.status!=='publicado';
      const icon=photo?'<img src="'+esc(photo)+'" class="w-20 h-16 object-cover rounded-md flex-none" alt="" loading="lazy">':
        autoGoogle?'<div class="w-20 flex-none" data-admin-google-photo="'+esc(x.id)+'"><div class="w-20 h-16 bg-zinc-800 rounded-md flex items-center justify-center text-2xl" data-google-photo-frame>📍</div><span class="tiny text-center block mt-1" data-google-photo-credit></span></div>':
        '<div class="w-14 h-14 rounded-md bg-zinc-800 flex items-center justify-center flex-none text-2xl">🏍️</div>';
@@ -510,7 +514,9 @@ function listHtml(){
        '<div class="flex gap-3 items-start">'+icon+'<div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2">'+
        '<strong class="break-words">'+esc(x.nome)+'</strong><span class="pill '+(x.status==='publicado'?'published':'')+'">'+esc(badge)+'</span></div>'+
        '<p class="tiny mt-1">'+esc(x.descricao||x.endereco||'')+'</p>'+
-       (x.fotoLicenca?'<p class="tiny mt-1">📸 '+esc(x.fotoAutor||'Autor informado na fonte')+' · '+esc(x.fotoLicenca)+' · Imagem adaptada'+(safeUrl(x.fotoFonteUrl)?' · <a target="_blank" rel="noopener noreferrer" class="text-orange-300 underline" href="'+esc(safeUrl(x.fotoFonteUrl))+'">Ver origem</a>':'')+'</p>':'')+
+       (x.fotoLicenca?'<details class="tiny mt-1"><summary class="cursor-pointer text-zinc-400">ⓘ Foto</summary><p class="mt-1">'+esc(x.fotoAutor||'Autor informado na fonte')+' · '+esc(x.fotoLicenca)+' · imagem adaptada'+
+  (safeUrl(x.fotoFonteUrl)?' · <a target="_blank" rel="noopener noreferrer" class="underline" href="'+esc(safeUrl(x.fotoFonteUrl))+'">Original</a>':'')+
+  (safeUrl(x.fotoLicencaUrl)?' · <a target="_blank" rel="noopener noreferrer" class="underline" href="'+esc(safeUrl(x.fotoLicencaUrl))+'">Licença</a>':'')+'</p></details>':'')+
        (tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas</p>':'')+
        (origin==='local'&&remote?'<p class="text-xs text-amber-300 mt-1">Salvo apenas neste navegador. Abra e salve no banco para sincronizar.</p>':'')+
        (origin==='default'?'<p class="tiny mt-1">Já aparece no site. Você pode personalizar e salvar no banco.</p>':'')+
@@ -518,6 +524,7 @@ function listHtml(){
        '</div></div><div class="flex flex-wrap gap-2 mt-3">'+
        '<button type="button" class="subbtn text-sm" data-edit="'+esc(x.id)+'">✏️ Editar</button>'+
        (canPublish?'<button type="button" class="btn text-sm" data-publish-stop="'+esc(x.id)+'">🚀 Publicar no site</button>':'')+
+       (canPublishDestination?'<button type="button" class="btn text-sm" data-publish-destination="'+esc(x.id)+'">🚀 Publicar card com foto</button>':'')+
        (system?'':'<button type="button" class="subbtn text-sm text-red-300" data-delete="'+esc(x.id)+'">Excluir</button>')+
        (tab==='rotas'?'<a class="subbtn text-sm" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote&&origin!=='local'?'':'&preview=local')+'">Ver rota</a>':'')+
        '</div></article>';
@@ -528,15 +535,29 @@ function listHtml(){
 function normalizedPlaceName(value){
  return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 }
-function applyGooglePlace(place){
+function applyGooglePlace(place,fromPastedLink=false){
  if(!place||!['destinos','paradas'].includes(tab))return;
- const fields=tab==='destinos'?{nome:place.name,mapa:place.address,maps:place.maps,googlePlaceId:place.id}:{nome:place.name,endereco:place.address,maps:place.maps,googlePlaceId:place.id};
- for(const [name,value] of Object.entries(fields)){
-   const el=$('#f_'+name);
-   if(el&&typeof value==='string')el.value=value;
+ const originalLink=fromPastedLink?safeUrl(mapsLinkDraft[tab]||''):'';
+ const currentName=currentDestination()?.nome||'';
+ const isExistingTrip=tab==='destinos'&&!creatingNewDestination;
+ const isSameDestination=normalizedPlaceName(place.name)===normalizedPlaceName(currentName);
+ // Não trocar o link da cidade por um estabelecimento ou mirante com nome parecido.
+ const mapFields=tab==='destinos'?
+  (isExistingTrip?(isSameDestination?{maps:originalLink||place.maps,googlePlaceId:place.id}:{}):
+   {nome:place.name,mapa:place.address,maps:originalLink||place.maps,googlePlaceId:place.id}):
+  {nome:place.name,endereco:place.address,maps:originalLink||place.maps,
+   googlePlaceId:place.id,mapCoordinates:fromPastedLink?(place.mapCoordinates||''):''};
+ for(const [name,value] of Object.entries(mapFields)){
+  const el=$('#f_'+name);
+  if(el&&typeof value==='string')el.value=value;
  }
- const description=$('#f_descricao');
- if(description&&!description.value.trim()&&place.category)description.value=place.category;
+ // Uma foto/estabelecimento como "Pico Alto" não renomeia o card "Guaramiranga".
+ if(isExistingTrip){
+  const name=$('#f_nome');if(name)name.value=currentName;
+ }else{
+  const description=$('#f_descricao');
+  if(description&&!description.value.trim()&&place.category)description.value=place.category;
+ }
  const name=$('#f_nome');if(name)name.focus();
 }
 function chooseRouteFromGoogle(route){
@@ -601,7 +622,7 @@ function initMapsImport(){
  results.addEventListener('click',e=>{
    const choice=e.target.closest('button[data-place-index]');if(!choice)return;
    const place=importMatches[Number(choice.dataset.placeIndex)];if(!place)return;
-   applyGooglePlace(place);
+   applyGooglePlace(place,true);
    note.textContent='✓ '+place.name+' importado. Os campos estão preenchidos e podem ser editados antes de salvar.';
    results.innerHTML='';
  });
@@ -630,7 +651,7 @@ async function importGoogleLink(){
      if(tab==='rotas'){note.textContent='Este link é de um lugar, não de trajeto. No Google Maps, monte e compartilhe uma rota com origem e destino.';return}
      importMatches=Array.isArray(payload.results)?payload.results:[];
      if(!importMatches.length){note.textContent='Nenhum local correspondente foi encontrado.';return}
-     if(importMatches.length===1){applyGooglePlace(importMatches[0]);note.textContent='✓ Local importado. Os campos foram preenchidos. Revise e salve quando estiver pronto.';return}
+     if(importMatches.length===1){applyGooglePlace(importMatches[0],true);note.textContent='✓ Local importado. Os campos foram preenchidos. Revise e salve quando estiver pronto.';return}
      note.textContent='O Google encontrou '+importMatches.length+' opções. Selecione o local correto:';
      results.innerHTML=importMatches.map((place,i)=>'<button type="button" data-place-index="'+i+'" class="block w-full text-left border border-zinc-600 hover:border-orange-400 rounded-xl p-3 bg-[#242831]"><strong class="block">'+esc(place.name)+'</strong><span class="block tiny mt-1">'+esc(place.address)+'</span><span class="block text-orange-300 text-sm mt-2 font-bold">Usar este local →</span></button>').join('');
    }
@@ -693,6 +714,12 @@ function render(resetPicker=true){
    selectedStopCategory=b.dataset.stopCategory;editing=null;render();
    $('#stopCategoryBar')?.scrollIntoView({behavior:'smooth',block:'start'});
  });
+ const mapsField=$('#f_maps');
+ if(tab==='paradas'&&mapsField)mapsField.addEventListener('input',()=>{
+  const coords=$('#f_mapCoordinates'),placeId=$('#f_googlePlaceId');
+  if(coords)coords.value='';
+  if(placeId)placeId.value='';
+ });
  const newRecord=$('#newRecordButton');
  if(newRecord)newRecord.onclick=()=>{editing=null;picked=[];render();$('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'});};
  if(tab==='backup'){backupListeners();return;}
@@ -724,6 +751,7 @@ function render(resetPicker=true){
  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;render();$('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'})});
  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeRecord(b.dataset.delete));
  document.querySelectorAll('[data-publish-stop]').forEach(b=>b.onclick=()=>publishExistingStop(b.dataset.publishStop));
+ document.querySelectorAll('[data-publish-destination]').forEach(b=>b.onclick=()=>publishExistingDestination(b.dataset.publishDestination));
  loadAutoGoogleCardPhotos();
 }
 async function call(method,body,admin=true){
@@ -777,6 +805,31 @@ $('#checkPublicSync').onclick=async()=>{
  catch(e){note.textContent='⚠️ Não consegui confirmar a integração: '+String(e.message||e)}
  finally{btn.disabled=false}
 };
+async function publishExistingDestination(id){
+ if(!remote||!token){alert('Conecte ao banco primeiro.');return}
+ if(busy||id!==selectedDestId)return;
+ const record=data.destinos.find(p=>p.id===id);
+ if(!record)return;
+ const name=id==='guaramiranga'?'Guaramiranga':id==='canoa-quebrada'?'Canoa Quebrada':record.nome;
+ if(!confirm('Publicar o card "'+name+'" com a foto que está no cadastro?'))return;
+ const payload={...record,id,nome:name,status:'publicado'};
+ if(id==='guaramiranga')payload.mapa='Guaramiranga, CE';
+ busy=true;
+ const button=document.querySelector('[data-publish-destination="'+id+'"]');
+ if(button){button.disabled=true;button.textContent='Publicando...'}
+ try{
+  const result=await call('POST',{kind:'destinos',record:payload});
+  const visible=await call('GET',undefined,false);
+  const published=visible.destinos?.find(d=>d.id===id&&d.status==='publicado');
+  if(!published||published.nome!==name||published.foto!==result.record.foto)
+   throw Error('O card foi enviado, mas a confirmação pública não corresponde ao cadastro.');
+  data.destinos=data.destinos.map(p=>p.id===id?result.record:p);
+  draft.destinos=draft.destinos.map(p=>p.id===id?result.record:p);
+  saveLocal();render();
+  announce('✅ '+name+' publicado com a foto cadastrada. Atualize o site público para conferir.');
+ }catch(e){alert('Não foi possível confirmar a publicação: '+String(e.message||e));render()}
+ finally{busy=false}
+}
 async function publishExistingStop(id){
  if(!remote||!token){alert('Conecte ao banco com sua senha de administrador.');return}
  if(busy)return;
@@ -816,12 +869,27 @@ async function saveRecord(e){
  const v=Object.fromEntries(new FormData(e.target));
  if(tab==='destinos'){
    v.id=creatingNewDestination?slugForDestination(v.nome):selectedDestId;
+   if(v.id==='guaramiranga')v.nome='Guaramiranga';
+   if(v.id==='canoa-quebrada')v.nome='Canoa Quebrada';
  }else{
    if(!selectedDestId||!destinationsForPicker().some(d=>d.id===selectedDestId)){alert('Selecione um card de viagem antes de salvar.');return}
    v.destinoId=selectedDestId;
    v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
  }
  const old=data[tab].find(x=>x.id===v.id);
+ // Se a pessoa colou o link manualmente, pegar o ponto via redirecionamento
+ // oficial do Google, sem nova consulta por nome que pode encontrar outra cidade.
+ if(tab==='paradas'&&remote&&v.maps&&!v.mapCoordinates){
+  try{
+   const response=await fetch('./api/map-coordinates',{method:'POST',headers:{
+    'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({url:v.maps}),cache:'no-store'});
+   if(response.ok){
+    const result=await response.json();
+    if(result.verified&&result.mapCoordinates)v.mapCoordinates=result.mapCoordinates;
+   }
+  }catch{}
+ }
  if(tab==='rotas'){
   v.paradas=[...picked];
   if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}

@@ -61,6 +61,23 @@ function parseMaps(u){
  if(!query&&!placeId)return {error:"Não encontrei o nome desse local no link. Tente compartilhar a ficha do lugar pelo Google Maps."};
  return {type:"place",query,placeId};
 }
+function exactCoords(u){
+ // Use the saved point coordinates from the full Google Maps URL, not the map viewport.
+ const raw=decodeURIComponent(u.pathname);
+ const pair=raw.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)||
+            raw.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+ if(!pair)return "";
+ const lat=Number(pair[1]),lng=Number(pair[2]);
+ if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)return "";
+ return lat.toFixed(7)+","+lng.toFixed(7);
+}
+function distanceMeters(a,b){
+ if(!a||!b)return Infinity;
+ const r=Math.PI/180,lat1=a[0]*r,lat2=b[0]*r;
+ const dlat=(b[0]-a[0])*r,dlon=(b[1]-a[1])*r;
+ const h=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlon/2)**2;
+ return 12742000*Math.asin(Math.min(1,Math.sqrt(h)));
+}
 export async function onRequestPost({request,env}){
  if(!(await auth(request,env)))return json({error:"Conecte ao banco usando a senha de administrador antes de importar."},401);
  if(!env.GOOGLE_PLACES_API_KEY)return json({error:"A chave GOOGLE_PLACES_API_KEY não está disponível neste ambiente."},503);
@@ -73,27 +90,46 @@ export async function onRequestPost({request,env}){
  try{
    u=await resolveShortUrl(u);
    const parsed=parseMaps(u);
+   const mapCoordinates=exactCoords(u);
    if(parsed.error)return json({error:parsed.error},422);
    if(parsed.type==="route")return json(parsed);
    const key=String(env.GOOGLE_PLACES_API_KEY);
    let url,init;
    if(parsed.placeId&&/^[a-zA-Z0-9_-]{5,250}$/.test(parsed.placeId)){
      url="https://places.googleapis.com/v1/places/"+encodeURIComponent(parsed.placeId)+"?languageCode=pt-BR";
-     init={method:"GET",headers:{"X-Goog-Api-Key":key,"X-Goog-FieldMask":"id,displayName,formattedAddress,googleMapsUri,primaryTypeDisplayName"}};
+     init={method:"GET",headers:{"X-Goog-Api-Key":key,"X-Goog-FieldMask":"id,displayName,formattedAddress,googleMapsUri,primaryTypeDisplayName,location"}};
    }else{
      if(parsed.query.length<3)return json({error:"O link não contém um nome de local válido."},422);
      url="https://places.googleapis.com/v1/places:searchText";
-     init={method:"POST",headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,"X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.googleMapsUri,places.primaryTypeDisplayName"},body:JSON.stringify({textQuery:parsed.query,languageCode:"pt-BR",regionCode:"BR",pageSize:5})};
+     const body={textQuery:parsed.query,languageCode:"pt-BR",regionCode:"BR",pageSize:8};
+     if(mapCoordinates){
+       const [latitude,longitude]=mapCoordinates.split(",").map(Number);
+       body.locationBias={circle:{center:{latitude,longitude},radius:800}};
+     }
+     init={method:"POST",headers:{"Content-Type":"application/json","X-Goog-Api-Key":key,
+      "X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.googleMapsUri,places.primaryTypeDisplayName,places.location"},body:JSON.stringify(body)};
    }
    const resp=await fetch(url,init);
    if(!resp.ok)return json({error:resp.status===403?"O Google recusou a consulta (403); confira faturamento e Places API (New).":resp.status===429?"Limite de consultas do Google atingido.":"O Google não conseguiu identificar o local ("+resp.status+")."},502);
    const payload=await resp.json();
    const list=Array.isArray(payload.places)?payload.places:[payload];
-   const matches=list.slice(0,5).map(p=>({
+   const [lat,lng]=mapCoordinates?mapCoordinates.split(",").map(Number):[null,null];
+   const candidates=list.map(p=>({
      id:String(p.id||"").slice(0,250),name:String(p.displayName?.text||"").slice(0,120),
-     address:String(p.formattedAddress||"").slice(0,400),maps:String(p.googleMapsUri||u.href).slice(0,1200),
-     category:String(p.primaryTypeDisplayName?.text||"").slice(0,100)
+     address:String(p.formattedAddress||"").slice(0,400),
+     maps:value.slice(0,1200),mapCoordinates,
+     category:String(p.primaryTypeDisplayName?.text||"").slice(0,100),
+     distance:mapCoordinates?distanceMeters([lat,lng],
+       [Number(p.location?.latitude),Number(p.location?.longitude)]):0
    })).filter(p=>p.id&&p.name);
+   // Não sugerir um Pico Alto de outra cidade se o link traz coordenadas.
+   const matches=(mapCoordinates?candidates.filter(p=>p.distance<=2500):candidates)
+    .sort((a,b)=>a.distance-b.distance).slice(0,5)
+    .map(({distance,...p})=>p);
+   if(!matches.length&&mapCoordinates&&parsed.query)
+     return json({type:"place",results:[{id:"",name:parsed.query,address:"",
+       maps:value.slice(0,1200),mapCoordinates,category:""}],
+       notice:"Nenhum resultado próximo ao ponto do link. Use o local indicado pelo endereço e coordenadas."});
    if(!matches.length)return json({error:"O Google não retornou locais. Tente buscar pelo nome do destino."},404);
    return json({type:"place",results:matches});
  }catch(e){

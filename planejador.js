@@ -36,7 +36,10 @@
    q('tripCategories').innerHTML=categories.map(([id,label])=>'<button type="button" class="tripCat" data-cat="'+id+'" aria-pressed="'+(category===id)+'">'+label+'</button>').join('');
    q('tripAvailable').innerHTML=stops.length?stops.map(p=>{
      const pic=httpsUrl(p.foto),dis=selected.includes(p.id),full=selected.length>=3,loc=String(p.endereco||'').trim();
-     const credits=p.fotoLicenca?'<p class="tripTiny mt-1">📸 '+esc(p.fotoAutor||'Autor na fonte')+' · '+esc(p.fotoLicenca)+(httpsUrl(p.fotoFonteUrl)?' · <a href="'+esc(httpsUrl(p.fotoFonteUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Origem</a>':'')+(httpsUrl(p.fotoLicencaUrl)?' · <a href="'+esc(httpsUrl(p.fotoLicencaUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Licença</a>':'')+' · Foto adaptada</p>':'';
+     const credits=p.fotoLicenca&&pic?'<details class="tripTiny mt-1"><summary class="cursor-pointer text-zinc-400" aria-label="Créditos da foto">ⓘ</summary><p class="mt-1">'+esc(p.fotoAutor||'Autor informado na fonte')+' · '+esc(p.fotoLicenca)+' · Foto adaptada'+
+  (httpsUrl(p.fotoFonteUrl)?' · <a href="'+esc(httpsUrl(p.fotoFonteUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Original</a>':'')+
+  (httpsUrl(p.fotoLicencaUrl)?' · <a href="'+esc(httpsUrl(p.fotoLicencaUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Licença</a>':'')+
+  '</p></details>':'';
      return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categories.find(([id])=>id===normalize(p.categoria))[1])+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p>'+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Até 3 paradas':'+ Adicionar')+'</button></div></div></article>';
    }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.</p>';
    loadPublicStopPhotos();
@@ -61,7 +64,7 @@
        credit.textContent='';
        const attributions=Array.isArray(result.photoAttributions)?result.photoAttributions.filter(x=>x&&x.name):[];
        const label='Foto: '+(attributions.length?attributions.map(a=>a.name).join(', '):'Google Maps');
-       const el=document.createElement('a');el.textContent=label;el.className='underline';
+       const el=document.createElement('a');el.textContent='ⓘ';el.title=label;el.setAttribute('aria-label',label);el.className='underline text-xs';
        el.href=httpsUrl(attributions[0]?.uri)||httpsUrl(result.map)||'https://maps.google.com/';
        el.rel='noopener noreferrer';el.target='_blank';credit.appendChild(el);
      }
@@ -155,10 +158,13 @@
   credit.hidden=true;credit.textContent='';credit.removeAttribute('href');
   const legal=q('tripOpenPhotoCredit');
   if(legal){
-   legal.textContent='';legal.hidden=!photo||!p.fotoLicenca;
+   legal.textContent='';legal.open=false;legal.hidden=!photo||!p.fotoLicenca;
    if(!legal.hidden){
+    const summary=document.createElement('summary');
+    summary.textContent='ⓘ';summary.title='Créditos e licença da foto';summary.className='cursor-pointer text-xs';
+    legal.appendChild(summary);
     const label=document.createElement('span');
-    label.textContent='📸 Foto: '+(p.fotoAutor||'Autor informado na fonte')+' · '+p.fotoLicenca+' · Imagem adaptada para o card. ';
+    label.textContent=(p.fotoAutor||'Autor informado na fonte')+' · '+p.fotoLicenca+' · Imagem adaptada. ';
     legal.appendChild(label);
     for(const [url,display] of [[p.fotoFonteUrl,'Original'],[p.fotoLicencaUrl,'Licença']]){
      const link=httpsUrl(url);if(!link)continue;
@@ -180,10 +186,9 @@
     }
     q('tripGoogleInfo').textContent='';
     q('tripGoogleSource').hidden=false;
-    if(result.name)q('tripPreviewName').textContent=String(result.name).slice(0,140);
-    if(result.category)q('tripPreviewCategory').textContent=String(result.category).slice(0,100);
-    if(result.address)q('tripPreviewAddress').textContent=result.address;
-    if(httpsUrl(result.map))q('tripPreviewMap').href=httpsUrl(result.map);
+    // Não trocar o nome, categoria, endereço ou link do local cadastrado por
+    // outro ponto homônimo retornado pela pesquisa automática do Google.
+    if(!httpsUrl(p.maps)&&httpsUrl(result.map))q('tripPreviewMap').href=httpsUrl(result.map);
     if(typeof result.rating==='number'&&Number.isFinite(result.rating)&&result.rating>=0&&result.rating<=5){
       const rate=result.rating,formatted=rate.toFixed(1).replace('.',',');
       const full=Math.min(5,Math.max(0,Math.round(rate)));
@@ -204,7 +209,7 @@
       q('tripPreviewPlaceholder').hidden=true;
       im.onerror=()=>{if(photo){im.onerror=null;im.src=photo;im.alt='Foto de '+p.nome}else{im.hidden=true;q('tripPreviewPlaceholder').hidden=false}credit.hidden=true};
       const authors=Array.isArray(result.photoAttributions)?result.photoAttributions.filter(a=>a&&a.name):[];
-      credit.textContent='Foto: '+(authors.length?authors.map(a=>a.name).join(', '):'Google Maps');
+      credit.textContent='ⓘ';credit.title='Foto: '+(authors.length?authors.map(a=>a.name).join(', '):'Google Maps');credit.setAttribute('aria-label',credit.title);
       credit.href=httpsUrl(authors[0]?.uri)||httpsUrl(result.map)||mapLink(p);
       credit.hidden=false;
     }
@@ -220,7 +225,7 @@
  function googleUrl(){
   const origin=q('tripOrigin').value.trim();if(!origin){q('tripNote').textContent='Informe sua cidade de origem.';q('tripOrigin').focus();return null}
   if(selected.length>3){q('tripNote').textContent='Divida o roteiro em trechos de até três paradas.';return null}
-  const points=selected.map(id=>stopById(id)?.endereco).filter(Boolean);
+  const points=selected.map(id=>{const p=stopById(id);return p?.mapCoordinates||p?.endereco}).filter(Boolean);
   safeStore('asphalt-boys-ultima-origem',origin);
   return 'https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(origin)+'&destination='+encodeURIComponent(destinationUrl())+'&travelmode=driving'+(points.length?'&waypoints='+encodeURIComponent(points.join('|')):'');
  }
@@ -248,7 +253,14 @@
    }
    for(const p of data.destinos){
     let existing=lugares.find(l=>mapping(l.id)===p.id);
-    if(existing){if(p.nome)existing.nome=p.nome;if(p.descricao)existing.sub=p.descricao;if(httpsUrl(p.foto)){existing.img=p.foto;existing.cover=p.foto}if(p.mapa)existing.dest=p.mapa;if(p.fotoLicenca){existing.fotoAutor=p.fotoAutor;existing.fotoLicenca=p.fotoLicenca;existing.fotoLicencaUrl=p.fotoLicencaUrl;existing.fotoFonteUrl=p.fotoFonteUrl}}
+    if(existing){if(p.nome)existing.nome=p.nome;
+     if(p.descricao&&!(p.id==='guaramiranga'&&/^(pico de montanha|atração turística)$/i.test(p.descricao.trim())))
+       existing.sub=p.descricao;
+     if(httpsUrl(p.foto)){existing.img=p.foto;existing.cover=p.foto}
+     if(p.id==='guaramiranga'){existing.nome='Guaramiranga';existing.dest='Guaramiranga, CE'}
+     else if(p.id==='canoa-quebrada'){existing.nome='Canoa Quebrada';existing.dest='Canoa Quebrada, Aracati, CE'}
+     else if(p.mapa)existing.dest=p.mapa;
+     if(p.fotoLicenca){existing.fotoAutor=p.fotoAutor;existing.fotoLicenca=p.fotoLicenca;existing.fotoLicencaUrl=p.fotoLicencaUrl;existing.fotoFonteUrl=p.fotoFonteUrl}}
     else lugares.push({id:p.id,nome:p.nome,sub:p.descricao||'Explore este destino',img:httpsUrl(p.foto)||'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=900&q=80',note:'Destino do grupo',dest:p.mapa||p.nome,fotoAutor:p.fotoAutor,fotoLicenca:p.fotoLicenca,fotoLicencaUrl:p.fotoLicencaUrl,fotoFonteUrl:p.fotoFonteUrl});
    }
    if(typeof renderAsphaltCards==='function')renderAsphaltCards();
