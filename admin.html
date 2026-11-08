@@ -57,6 +57,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 <section class="box p-4 sm:p-5 mb-6" aria-label="Conexão administrativa">
 <div class="flex flex-wrap items-center justify-between gap-3"><div><strong class="text-base">Status da publicação</strong><p id="connection" class="tiny mt-1" role="status">Verificando conexão com o servidor...</p></div><span id="mode" class="pill">Rascunhos locais</span></div>
 <div id="legacyTokenArea" hidden class="grid sm:grid-cols-[1fr_auto] gap-3 items-end mt-3"><div><label class="lbl" for="secret">Token de administrador (somente após configurar na Cloudflare)</label><input class="field" id="secret" type="password" autocomplete="off" placeholder="Digite o valor do ADMIN_TOKEN (não o nome da variável)"><div class="flex items-center justify-between gap-2 mt-2"><span class="tiny">Use a senha configurada na produção da Cloudflare (mínimo 20 caracteres).</span><button id="showAdminPassword" type="button" class="text-orange-300 text-xs font-bold underline whitespace-nowrap">Mostrar senha</button></div></div><button id="connect" type="button" class="subbtn">Conectar ao banco</button></div>
+<div class="mt-3"><a class="subbtn inline-flex items-center gap-2 text-sm" href="#publicationQueue" id="pendingPublicationShortcut">📋 Ver pendências para publicar <strong id="pendingTopCount" class="pill">0</strong></a></div>
 <div id="syncArea" class="mt-3" hidden><div class="flex flex-wrap gap-2"><button type="button" id="sync" class="subbtn">Enviar meus rascunhos locais para o banco</button><button type="button" id="checkPublicSync" class="subbtn">🔎 Verificar site público</button></div><p class="tiny mt-1">Enviar não publica automaticamente: cadastros continuam com o status definido em cada formulário.</p><p id="publicSyncStatus" role="status" class="tiny mt-2"></p></div>
 </section>
 <div class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-5">
@@ -65,6 +66,16 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 </nav>
 <section class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><div id="listing" class="mt-6"></div></section>
 </div>
+<section id="publicationQueue" class="box p-4 sm:p-6 mt-6 scroll-mt-5" aria-label="Pendências de publicação">
+ <div class="flex flex-wrap justify-between items-start gap-3 mb-4"><div>
+  <p class="text-orange-400 text-xs font-black tracking-widest">CENTRAL DE PUBLICAÇÃO</p>
+  <h2 class="text-2xl font-black mt-1">📋 Falta publicar</h2>
+  <p class="muted text-sm mt-1">Veja tudo que você salvou e ainda não publicou. Publique aqui, sem procurar nas categorias.</p>
+ </div><div id="publicationQueueCounts" class="text-sm text-zinc-300 font-semibold"></div></div>
+ <p id="publicationQueueMessage" class="tiny mb-3" role="status"></p>
+ <div id="publicationQueueList" class="space-y-4"></div>
+ <p class="tiny mt-4">Nenhum item é publicado automaticamente. O botão <strong>Publicar no site</strong> confirma e envia somente o cadastro já salvo.</p>
+</section>
 </div>
 </main>
 <script>
@@ -996,6 +1007,141 @@ function switchStopCategory(next){
  $('#stopCategoryBar')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+// Central única dos cadastros ainda fora do site, independente da aba ativa.
+function publicationQueueItems(){
+ const result=[];
+ for(const kind of types){
+  const known=new Set();
+  for(const record of data[kind]||[]){
+   if(!record?.id)continue;
+   known.add(record.id);
+   if(record.status!=='publicado')result.push({kind,record,source:remote?'database':'local'});
+  }
+  // Rascunhos antigos somente no navegador podem ainda não existir no D1.
+  if(remote)for(const record of draft[kind]||[]){
+   if(!record?.id||known.has(record.id))continue;
+   result.push({kind,record,source:'local'});
+   known.add(record.id);
+  }
+ }
+ return result;
+}
+function renderPublicationQueue(){
+ const container=$('#publicationQueueList'),counts=$('#publicationQueueCounts'),shortcut=$('#pendingTopCount');
+ if(!container||!counts)return;
+ const queue=publicationQueueItems();
+ const published=remote?types.reduce((sum,kind)=>sum+(data[kind]||[]).filter(x=>x.status==='publicado').length,0):0;
+ counts.textContent=queue.length+' pendente(s)'+(remote?' · '+published+' publicado(s)':' · conexão necessária');
+ if(shortcut)shortcut.textContent=String(queue.length);
+ if(!queue.length){
+  container.innerHTML='<p class="text-sm text-emerald-300 border border-emerald-700/50 rounded-xl p-4">✓ Nenhum cadastro aguardando publicação. Tudo que foi salvo no banco está publicado!</p>';
+  return;
+ }
+ const headings={destinos:'🌄 Destinos',paradas:'📍 Paradas',rotas:'🛣️ Rotas prontas'};
+ const destinations=destinationsForPicker();
+ const rows=kind=>queue.filter(x=>x.kind===kind);
+ container.innerHTML=types.filter(kind=>rows(kind).length).map(kind=>
+  '<section class="border border-zinc-700 rounded-xl p-3 sm:p-4 bg-[#14171c]">'+
+   '<h3 class="font-bold text-lg mb-3">'+headings[kind]+' <span class="pill">'+rows(kind).length+'</span></h3>'+
+   rows(kind).map(({record,source})=>{
+    const name=String(record.nome||'Cadastro sem nome');
+    const dest=kind==='destinos'?'':(destinations.find(d=>d.id===record.destinoId)?.nome||record.destinoId||'Destino não escolhido');
+    const photo=safeUrl(record.foto);
+    const info=kind==='paradas'?categoryLabelsForStop(record):kind==='rotas'?
+       ((Array.isArray(record.paradas)?record.paradas.length:0)+' parada(s) na rota'):'Card de viagem';
+    const local=source==='local';
+    const status=local?'📱 Apenas neste aparelho':'📝 Salvo no banco · não publicado';
+    const disabled=!remote?' disabled aria-disabled="true"':'';
+    const title=local?'Publicar envia este rascunho do aparelho para o banco':'Publicar a versão salva no banco';
+    return '<article class="border border-zinc-700 bg-[#21252c] p-3 rounded-xl mb-2 last:mb-0">'+
+      '<div class="flex gap-3 items-start">'+
+       (photo?'<img src="'+esc(photo)+'" class="rounded-md w-16 h-16 object-cover flex-none" alt="" loading="lazy">':
+         '<div class="w-16 h-16 rounded-md bg-zinc-800 flex items-center justify-center text-2xl flex-none" aria-hidden="true">📍</div>')+
+       '<div class="min-w-0 flex-1"><p class="font-semibold break-words">'+esc(name)+'</p>'+
+       (dest?'<p class="tiny mt-1">📍 '+esc(dest)+'</p>':'')+
+       '<p class="tiny mt-1">'+esc(info)+'</p>'+
+       '<p class="tiny text-orange-300 mt-1">'+status+'</p></div></div>'+
+      '<div class="flex flex-wrap gap-2 mt-3">'+
+       '<button type="button" class="btn text-sm" data-queue-publish="'+esc(record.id)+'" data-queue-kind="'+kind+'" title="'+esc(title)+'"'+disabled+'>🚀 Publicar no site</button>'+
+       '<button type="button" class="subbtn text-sm" data-queue-edit="'+esc(record.id)+'" data-queue-kind="'+kind+'">✏️ Conferir/editar</button>'+
+      '</div></article>';
+   }).join('')+
+  '</section>').join('');
+ container.querySelectorAll('[data-queue-publish]').forEach(button=>button.onclick=()=>publishQueuedRecord(button.dataset.queueKind,button.dataset.queuePublish,button));
+ container.querySelectorAll('[data-queue-edit]').forEach(button=>button.onclick=()=>openQueuedRecord(button.dataset.queueKind,button.dataset.queueEdit));
+}
+function openQueuedRecord(kind,id){
+ const pending=publicationQueueItems().find(x=>x.kind===kind&&x.record.id===id);
+ if(!pending)return;
+ if(photoUploading){alert('Conclua o envio da foto antes de abrir outro cadastro.');return}
+ storeUnfinishedForm();
+ tab=kind;editing=id;creatingNewDestination=false;
+ selectedDestId=kind==='destinos'?id:pending.record.destinoId;
+ if(kind==='paradas')selectedStopCategory=categoriesForStop(pending.record)[0]||'turismo';
+ if(kind==='rotas')picked=[...(pending.record.paradas||[])];
+ render();
+ $('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function publishQueuedRecord(kind,id,button){
+ if(!remote||!(token||sessionReady)){alert('Entre no painel e conecte ao banco para publicar.');return}
+ if(busy||photoUploading)return;
+ if(!types.includes(kind))return;
+ const item=publicationQueueItems().find(x=>x.kind===kind&&x.record.id===id);
+ if(!item)return;
+ const record=item.record;
+ const name=String(record.nome||'').trim();
+ const destination=kind==='destinos'?name:
+   (destinationsForPicker().find(d=>d.id===record.destinoId)?.nome||record.destinoId||'');
+ if(!name){alert('Abra o cadastro e informe o nome antes de publicar.');return}
+ if(kind==='paradas'){
+  if(!record.destinoId||!String(record.endereco||'').trim()){
+   alert('Abra a parada e informe o destino e o endereço antes de publicar.');return
+  }
+  if(!categoriesForStop(record).length){
+   alert('Abra a parada e selecione pelo menos uma categoria.');return
+  }
+ }
+ if(kind==='rotas'){
+  const stops=Array.isArray(record.paradas)?record.paradas:[];
+  if(!stops.length){alert('Adicione pelo menos uma parada antes de publicar essa rota.');return}
+  const unpub=stops.filter(stopId=>!data.paradas.some(p=>p.id===stopId&&p.destinoId===record.destinoId&&p.status==='publicado'));
+  if(unpub.length){
+   alert('Publique primeiro as '+unpub.length+' parada(s) desta rota. Você pode encontrá-las aqui na fila de pendências.');return;
+  }
+ }
+ const description=kind==='paradas'?categoryLabelsForStop(record):kind==='rotas'?'Rota pronta':'Destino';
+ if(!confirm('Publicar "'+name+'" em '+destination+'?\\n'+description+'\\n\\nSerá publicada a versão já salva deste cadastro.'))return;
+ const { _origin,...fields }=record;
+ const payload={...fields,status:'publicado'};
+ if(kind==='destinos'){
+  if(id==='guaramiranga'||id==='canoa-quebrada')payload.nome=id==='guaramiranga'?'Guaramiranga':'Canoa Quebrada';
+ }else if(kind==='paradas'){
+  payload.categorias=categoriesForStop(record);
+  payload.categoria=payload.categorias.includes(record.categoria)?record.categoria:payload.categorias[0];
+ }
+ busy=true;button.disabled=true;button.textContent='Publicando...';
+ const message=$('#publicationQueueMessage');
+ if(message)message.textContent='Publicando "'+name+'" e verificando no site...';
+ try{
+  const result=await call('POST',{kind,record:payload});
+  const publicData=await call('GET',undefined,false);
+  const visible=publicData[kind]?.find(p=>p.id===id&&p.status==='publicado');
+  if(!visible)throw Error('O banco salvou o registro, mas ainda não consegui confirmar a publicação no site.');
+  data[kind]=data[kind].filter(p=>p.id!==id).concat(result.record);
+  draft[kind]=draft[kind].map(p=>p.id===id?{...result.record}:p);
+  saveLocal();
+  storeUnfinishedForm();
+  render();
+  const notification=$('#publicationQueueMessage');
+  if(notification)notification.textContent='✅ "'+name+'" publicado e confirmado no site! Faltam '+publicationQueueItems().length+' cadastro(s).';
+  announce('✅ Publicado: '+name+'.');
+  $('#publicationQueue')?.scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(error){
+  if(message)message.textContent='⚠️ Não consegui confirmar "'+name+'": '+String(error.message||error)+'. Confira antes de tentar novamente.';
+  alert('Não foi possível confirmar a publicação: '+String(error.message||error));
+ }finally{busy=false;if(button.isConnected){button.disabled=false;button.textContent='🚀 Publicar no site'}}
+}
+
 function render(resetPicker=true){
  categorySuggestionSeq++;categoryUserEdited=false;
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
@@ -1006,6 +1152,7 @@ function render(resetPicker=true){
  const keepPhoto=!!photoSourceFile&&photoSourceKey===unfinishedFormKey();
  if(!keepPhoto){photoSourceFile=null;photoSourceMeta=null;photoSourceForm=null;photoAppliedMode='';photoSourceKey=''}
  $('#editor').innerHTML=form();$('#listing').innerHTML='';
+ renderPublicationQueue();
  const recovered=restoreUnfinishedForm();
  if(recovered&&tab==='paradas')categoryUserEdited=true;
  if(keepPhoto)photoSourceForm=$('#recordForm');
