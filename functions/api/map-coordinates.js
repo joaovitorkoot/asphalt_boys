@@ -44,7 +44,8 @@ function coords(u){
  }
  const direct=valid(path.match(/\/maps\/(?:search|place)\/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:\/|$)/));
  if(direct)return direct;
- if(/\/maps\/@/.test(path))return valid(path.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/));
+ // @latitude,longitude indica o centro da tela, não necessariamente o pin.
+ // Somente coordenadas explícitas do ponto podem ser confirmadas.
  return '';
 }
 export async function onRequestPost({request,env}){
