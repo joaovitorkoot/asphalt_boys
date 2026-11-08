@@ -40,7 +40,7 @@ abEl('ano').textContent=new Date().getFullYear();
 renderAsphaltCards();
 </script>
 <style>
-#tripModal[hidden],#tripMain[hidden],#tripStopPreview[hidden],#tripCustomSection[hidden],#tripPresetSection[hidden],#tripMineSection[hidden],#tripShareBox[hidden],#tripPhotoCredit[hidden],#tripGoogleRating[hidden],#tripGoogleSource[hidden],#tripHoursDetails[hidden],#tripModalHero[hidden],#tripManualOrigin[hidden],#tripOpenSegments[hidden],#tripPreviewPhoto[hidden],#tripPreviewPlaceholder[hidden],.tripPresetStops[hidden]{display:none!important}
+#tripModal[hidden],#tripMain[hidden],#tripStopPreview[hidden],#tripCustomSection[hidden],#tripPresetSection[hidden],#tripMineSection[hidden],#tripShareBox[hidden],#tripPhotoCredit[hidden],#tripGoogleRating[hidden],#tripGoogleSource[hidden],#tripHoursDetails[hidden],#tripModalHero[hidden],#tripManualOrigin[hidden],#tripPreviewPhoto[hidden],#tripPreviewPlaceholder[hidden],.tripPresetStops[hidden]{display:none!important}
 #tripModal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:10px;background:rgba(0,0,0,.84);backdrop-filter:blur(9px)}
 #tripPanel{width:min(820px,100%);max-height:calc(100dvh - 20px);overflow-y:auto;overscroll-behavior:contain;border:1px solid #444a53;border-radius:20px;background:#15191f;box-shadow:0 24px 80px #000b}
 #tripPanel:focus{outline:none}
@@ -73,6 +73,8 @@ renderAsphaltCards();
 .tripPickedActions button{min-width:35px;min-height:39px;font-size:17px}
 .tripStopCheck{display:inline-flex;align-items:center;min-height:28px;margin-top:7px;color:#ffbc8b;font-size:12px;font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .tripStopWarning{font-size:11px;line-height:1.5;color:#ffbe7d;margin-top:7px;border-left:2px solid #fb923c;padding-left:8px}
+.tripStageSettings{display:grid;gap:8px;border:1px solid #434953;background:#1a1f26;border-radius:12px;padding:13px}
+.tripStageSettings select{width:100%;max-width:460px}
 .tripLegStatus{font-size:12px;font-weight:900;letter-spacing:.09em;color:#ffad6f;margin-top:10px}
 .tripLegDescription{font-size:14px;font-weight:800;color:#fff;margin:8px 0 14px;line-height:1.5}
 .tripLegStart{display:flex;align-items:center;justify-content:center;text-align:center;min-height:55px;width:100%;text-decoration:none;font-size:15px}
@@ -177,7 +179,7 @@ renderAsphaltCards();
 <h3 class="font-black text-lg mb-1">Escolha suas paradas</h3><p class="tripTiny mb-3">Escolha uma categoria, toque em Prévia para conhecer o local e adicione ao roteiro.</p>
 <div id="tripCategories" class="mb-4"></div>
 <div id="tripAvailable" class="space-y-2"></div>
-<p class="tripTiny mt-3">Escolha até 20 paradas. O planejador tenta até 9 locais em uma rota; com mais locais, usa etapas de até 8. Se o Maps não mostrar todos, ative o modo compatível de 4.</p>
+<p class="tripTiny mt-3">Escolha até 20 paradas. Cada etapa pode levar até 9 paradas no aplicativo Maps, contando o destino final. Escolha a quantidade por etapa em Meu roteiro.</p>
 </div>
 <div id="tripPresetSection" hidden>
 <h3 class="font-black text-lg mb-1">Rotas prontas do grupo</h3><p class="tripTiny mb-3">Veja as paradas e escolha um roteiro cadastrado pelo Asphalt Boys.</p><div id="tripPresets" class="space-y-3"></div>
@@ -187,9 +189,23 @@ renderAsphaltCards();
 <p class="tripTiny mt-1 mb-3">Organize a ordem das paradas antes de abrir ou compartilhar.</p>
  <p class="tripTiny mb-3">💾 Roteiro salvo automaticamente neste aparelho, mesmo depois de atualizar a página.</p><div id="tripChosen" class="space-y-2"></div>
 <p id="tripRouteSummary" class="font-bold text-sm mt-4"></p>
+<div class="tripStageSettings mt-4">
+ <label for="tripStageSize" class="font-bold text-sm">Paradas por etapa no Google Maps</label>
+ <select id="tripStageSize" class="tripField" aria-describedby="tripStageDescription">
+  <option value="9" selected>9 paradas (padrão)</option>
+  <option value="8">8 paradas</option>
+  <option value="7">7 paradas</option>
+  <option value="6">6 paradas</option>
+  <option value="5">5 paradas</option>
+  <option value="4">4 paradas (compatibilidade)</option>
+  <option value="3">3 paradas</option>
+  <option value="2">2 paradas</option>
+  <option value="1">1 parada</option>
+ </select>
+ <p id="tripStageDescription" class="tripTiny">A última parada de cada etapa é o destino. A próxima etapa continua a partir dela, na mesma ordem.</p>
+</div>
 <div class="flex gap-2 flex-wrap mt-4">
 <button id="tripOpenMaps" type="button" class="tripBtn">Google Maps ↗</button>
- <button id="tripOpenSegments" type="button" class="tripNavBtn" hidden>🛡️ Modo compatível: 4 por etapa</button>
 <button id="tripOpenWaze" type="button" class="tripNavBtn">Waze ↗</button>
 <button id="tripShare" type="button" class="tripNavBtn">↗ Compartilhar</button>
 </div>
@@ -271,5 +287,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261108-exactplaces"></script>
+<script src="planejador.js?v=20261108-stage9"></script>
 </body></html>
