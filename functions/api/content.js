@@ -9,10 +9,11 @@ async function safeEqual(a,b){
   const [x,y]=await Promise.all([crypto.subtle.digest('SHA-256',enc.encode(a)),crypto.subtle.digest('SHA-256',enc.encode(b))]);
   const u=new Uint8Array(x),v=new Uint8Array(y);let diff=0;for(let i=0;i<u.length;i++)diff|=u[i]^v[i];return diff===0;
 }
+function adminReady(env){return typeof env.ADMIN_TOKEN==='string'&&env.ADMIN_TOKEN.trim().length>=20}
 async function authorized(req,env){
-  if(!env.ADMIN_TOKEN||String(env.ADMIN_TOKEN).length<20)return false;
+  if(!adminReady(env))return false;
   const auth=req.headers.get('Authorization')||'';
-  return auth.startsWith('Bearer ')&&await safeEqual(auth.slice(7),env.ADMIN_TOKEN);
+  return auth.startsWith('Bearer ')&&await safeEqual(auth.slice(7).trim(),env.ADMIN_TOKEN.trim());
 }
 function cleanRecord(kind,r){
   if(!r||typeof r!=='object'||Array.isArray(r))throw Error('Cadastro inválido.');
@@ -46,13 +47,15 @@ export async function onRequestGet({request,env}){
   if(!env.DB)return reply({error:'Banco de dados ainda não configurado.',code:'DB_NOT_READY'},503);
   try{
     const admin=new URL(request.url).searchParams.get('admin')==='1';
-    if(admin&&!(await authorized(request,env)))return reply({error:'Acesso administrativo não autorizado.'},401);
+    if(admin&&!adminReady(env))return reply({error:'O ADMIN_TOKEN não está disponível na produção do Cloudflare Pages ou tem menos de 20 caracteres.',code:'ADMIN_NOT_READY'},503);
+    if(admin&&!(await authorized(request,env)))return reply({error:'Senha do administrador diferente do ADMIN_TOKEN salvo na Cloudflare. Confira a senha nova, sem espaços extras.',code:'ADMIN_INVALID_TOKEN'},401);
     return reply(await readData(env.DB,admin));
   }catch(e){return reply({error:'Erro de leitura; confirme a tabela site_content no banco.',details:String(e.message||e).slice(0,170)},500)}
 }
 export async function onRequestPost({request,env}){
   if(!env.DB)return reply({error:'Banco de dados não configurado.'},503);
-  if(!(await authorized(request,env)))return reply({error:'Token administrativo incorreto ou não configurado.'},401);
+  if(!adminReady(env))return reply({error:'ADMIN_TOKEN não configurado na produção ou com menos de 20 caracteres.',code:'ADMIN_NOT_READY'},503);
+  if(!(await authorized(request,env)))return reply({error:'Senha do administrador incorreta. Digite o valor novo do ADMIN_TOKEN.',code:'ADMIN_INVALID_TOKEN'},401);
   try{
     if(Number(request.headers.get('content-length')||0)>40000)return reply({error:'Cadastro muito grande.'},413);
     const b=await request.json();if(!TYPES.includes(b.kind))return reply({error:'Tipo inválido.'},400);
@@ -63,7 +66,8 @@ export async function onRequestPost({request,env}){
 }
 export async function onRequestDelete({request,env}){
   if(!env.DB)return reply({error:'Banco de dados não configurado.'},503);
-  if(!(await authorized(request,env)))return reply({error:'Não autorizado.'},401);
+  if(!adminReady(env))return reply({error:'ADMIN_TOKEN não configurado na produção ou com menos de 20 caracteres.',code:'ADMIN_NOT_READY'},503);
+  if(!(await authorized(request,env)))return reply({error:'Senha do administrador incorreta.',code:'ADMIN_INVALID_TOKEN'},401);
   try{const b=await request.json();if(!TYPES.includes(b.kind)||!/^[a-zA-Z0-9_-]{3,120}$/.test(String(b.id||'')))return reply({error:'Registro inválido.'},400);
     await env.DB.prepare('DELETE FROM site_content WHERE id = ? AND kind = ?').bind(b.id,b.kind).run();
     return reply({ok:true});
