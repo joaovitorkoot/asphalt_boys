@@ -1,0 +1,99 @@
+name: Validar Guaramiranga e Maps exato
+on:
+  push:
+    branches: [fix/guaramiranga-place-links-and-credits]
+    paths:
+      - 'admin.html'
+      - 'planejador.js'
+      - 'index.html'
+      - 'functions/api/maps-import.js'
+      - 'functions/api/place.js'
+      - 'functions/api/content.js'
+      - '.github/workflows/testar-maps-exato.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar link original, coord GPS, titulo e credito discreto
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const admin=fs.readFileSync('admin.html','utf8');
+          const publicJS=fs.readFileSync('planejador.js','utf8');
+          const html=fs.readFileSync('index.html','utf8');
+          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          new vm.Script(publicJS);
+          for(const x of [
+           "nome:'Guaramiranga'", "applyGooglePlace(place,true)", "mapCoordinates",
+           "if(v.id==='guaramiranga')v.nome='Guaramiranga';",
+           "if(byId.has('guaramiranga'))",
+           "summary class=\"cursor-pointer text-zinc-400\""
+          ])assert(admin.includes(x),'Missing admin behavior '+x);
+          assert(publicJS.includes("const mapLink=p=>httpsUrl(p.maps)||"));
+          assert(publicJS.includes("if(!httpsUrl(p.maps)&&httpsUrl(result.map))"));
+          assert(publicJS.includes("p?.mapCoordinates||p?.endereco"));
+          assert(publicJS.includes("existing.nome='Guaramiranga'"));
+          assert(html.includes('<details id="tripOpenPhotoCredit"'));
+          assert(html.includes('aria-label="Créditos da foto"'));
+          assert(!html.includes('📷 '+String.fromCharCode(39)+'+abEsc(l.fotoAutor'));
+          const mod=async path=>await import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync(path,'utf8')).toString('base64'));
+          const importer=(await mod('functions/api/maps-import.js')).onRequestPost;
+          const content=await mod('functions/api/content.js');
+          const key='dummy-admin-key-more-than-20-characters';
+          const link='https://maps.app.goo.gl/CCQuEH8HfXjQT5gG8';
+          let searched=false;
+          globalThis.fetch=async(url,init)=>{
+           if(url===link)return new Response(null,{status:302,headers:{
+            Location:'https://www.google.com/maps/place/Pico+Alto/@-4.2081293,-38.9751541,2111m/data=!3m1!1e3!4m6!3m5!1s0x7bf3fefad1db533:0x7b92506ff55b03d0!8m2!3d-4.2080812!4d-38.9747743'
+           }});
+           if(String(url).includes('places:searchText')){
+            searched=true;
+            const request=JSON.parse(init.body);
+            assert.equal(request.locationBias.circle.center.latitude,-4.2080812);
+            assert.equal(request.locationBias.circle.center.longitude,-38.9747743);
+            return Response.json({places:[
+             {id:'ChIJ_wrong_pacoti',displayName:{text:'Pico Alto Pacoti'},formattedAddress:'Pacoti, CE',location:{latitude:-4.39,longitude:-38.88}},
+             {id:'ChIJ_correct_guaramiranga',displayName:{text:'Pico Alto - Guaramiranga'},formattedAddress:'Pernambuquinho, Guaramiranga, CE',location:{latitude:-4.20808,longitude:-38.97477}}
+            ]});
+           }
+           throw Error('Unexpected network '+url);
+          };
+          const r=await importer({request:new Request('https://asphalt-boys.pages.dev/api/maps-import',{
+            method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
+            body:JSON.stringify({url:link})
+          }),env:{ADMIN_TOKEN:key,GOOGLE_PLACES_API_KEY:'fake-key'}});
+          assert.equal(r.status,200);
+          const p=await r.json();
+          assert.equal(p.type,'place');
+          assert(searched);
+          assert.equal(p.results.length,1,'Must not suggest distant Pacoti result');
+          assert.equal(p.results[0].maps,link,'Must preserve pasted link, not similar Google search result');
+          assert.equal(p.results[0].mapCoordinates,'-4.2080812,-38.9747743');
+          assert.equal(p.results[0].name,'Pico Alto - Guaramiranga');
+          const records=new Map();
+          const db={prepare(sql){return{
+           args:[],bind(...a){this.args=a;return this},
+           async run(){if(sql.startsWith('INSERT INTO site_content')){const [id,kind,destino_id,status,payload]=this.args;records.set(id,{kind,payload,status})}return {success:true}},
+           async all(){return {results:[...records.values()].filter(x=>!sql.includes('WHERE status = ?')||x.status===this.args[0])}}
+          }}};
+          const env={DB:db,ADMIN_TOKEN:key};
+          const destination={id:'guaramiranga',nome:'Pico Alto',descricao:'Serra de Guaramiranga',
+            foto:'https://asphalt-boys.pages.dev/api/image?id=11111111-2222-3333-4444-555555555555',status:'publicado'};
+          const saved=await content.onRequestPost({env,request:new Request('https://asphalt-boys.pages.dev/api/content',{
+           method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
+           body:JSON.stringify({kind:'destinos',record:destination})
+          })});
+          assert.equal(saved.status,200);
+          const sr=await saved.json();
+          assert.equal(sr.record.nome,'Guaramiranga');
+          assert.equal(sr.record.foto,destination.foto);
+          const visible=await content.onRequestGet({env,request:new Request('https://asphalt-boys.pages.dev/api/content')});
+          assert.equal((await visible.json()).destinos[0].nome,'Guaramiranga');
+          console.log('PASS: exact Pico Alto link and coordinates, card city name and photo preserved, compact credits');
+          NODE
