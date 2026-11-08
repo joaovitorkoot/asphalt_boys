@@ -73,6 +73,14 @@ renderAsphaltCards();
 .tripPickedActions button{min-width:35px;min-height:39px;font-size:17px}
 .tripStopCheck{display:inline-flex;align-items:center;min-height:28px;margin-top:7px;color:#ffbc8b;font-size:12px;font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .tripStopWarning{font-size:11px;line-height:1.5;color:#ffbe7d;margin-top:7px;border-left:2px solid #fb923c;padding-left:8px}
+.tripLegStatus{font-size:12px;font-weight:900;letter-spacing:.09em;color:#ffad6f;margin-top:10px}
+.tripLegDescription{font-size:14px;font-weight:800;color:#fff;margin:8px 0 14px;line-height:1.5}
+.tripLegStart{display:flex;align-items:center;justify-content:center;text-align:center;min-height:55px;width:100%;text-decoration:none;font-size:15px}
+.tripLegControls{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.tripLegControls button{flex:1 1 170px;min-height:45px}
+.tripLegNext{border-color:#fb923c;color:#ffbb86}
+.tripLegAll summary{cursor:pointer;color:#ffb37d;font-size:12px;font-weight:700;margin:13px 0}
+.tripLegListLink{display:block;text-decoration:none;margin:7px 0;font-size:12px;padding:10px}
 .tripPresetCard{border:1px solid #434953;padding:16px;background:#1b2028;border-radius:13px}
 .tripPresetStops{margin:13px 0 0 20px;list-style:decimal;color:#c5cbd4;font-size:13px}
 .tripPresetStops li{margin:5px 0}
@@ -191,7 +199,7 @@ renderAsphaltCards();
 <label for="tripShareLink" class="font-semibold text-sm block mb-2">Link para o seu motogrupo</label><input id="tripShareLink" class="tripField" type="text" readonly>
 <div class="flex flex-wrap gap-2 mt-3"><button id="tripCopy" type="button" class="tripNavBtn">Copiar link</button><a id="tripShareWhats" class="tripNavBtn inline-flex items-center justify-center" target="_blank" rel="noopener noreferrer" href="https://www.whatsapp.com/">Enviar pelo WhatsApp ↗</a></div>
 </div>
-<p id="tripNote" role="status" class="tripTiny mt-3">Google Maps: roteiros longos têm links por trecho. Waze: abre apenas o destino.</p>
+<p id="tripNote" role="status" class="tripTiny mt-3">Google Maps: roteiros longos são navegados por etapas. O Asphalt Boys guarda todas as paradas até você finalizar.</p>
 </div>
 </div>
 
@@ -263,5 +271,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261108-restore"></script>
+<script src="planejador.js?v=20261108-guidedlegs"></script>
 </body></html>
