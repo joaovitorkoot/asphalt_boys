@@ -62,14 +62,28 @@ function parseMaps(u){
  return {type:"place",query,placeId};
 }
 function exactCoords(u){
- // Use the saved point coordinates from the full Google Maps URL, not the map viewport.
- const raw=decodeURIComponent(u.pathname);
- const pair=raw.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)||
-            raw.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
- if(!pair)return "";
- const lat=Number(pair[1]),lng=Number(pair[2]);
- if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)return "";
- return lat.toFixed(7)+","+lng.toFixed(7);
+ // Pin da ficha do local (e não a posição da câmera do mapa).
+ const decoded=value=>{try{return decodeURIComponent(value)}catch{return value}};
+ const full=decoded(u.pathname+u.search+u.hash),path=decoded(u.pathname);
+ const valid=m=>{
+   if(!m)return '';
+   const lat=Number(m[1]),lng=Number(m[2]);
+   return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?
+     lat.toFixed(7)+','+lng.toFixed(7):'';
+ };
+ const pin=valid(full.match(/!3d(-?\\d+(?:\\.\\d+)?)!4d(-?\\d+(?:\\.\\d+)?)/));
+ if(pin)return pin;
+ for(const key of ['q','query','ll','destination','daddr']){
+   const q=String(u.searchParams.get(key)||'');
+   const point=valid(q.match(/^\\s*\\(?(-?\\d+(?:\\.\\d+)?)\\s*[,;]\\s*(-?\\d+(?:\\.\\d+)?)\\)?\\s*$/));
+   if(point)return point;
+ }
+ const embedded=valid(path.match(/\\/maps\\/(?:place|search)\\/(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)(?:\\/|$)/));
+ if(embedded)return embedded;
+ // Link compartilhado que aponta só para uma coordenada da tela.
+ if(/\\/maps\\/@/.test(path))
+   return valid(path.match(/@(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?)/));
+ return '';
 }
 function distanceMeters(a,b){
  if(!a||!b)return Infinity;
@@ -91,8 +105,18 @@ export async function onRequestPost({request,env}){
    u=await resolveShortUrl(u);
    const parsed=parseMaps(u);
    const mapCoordinates=exactCoords(u);
-   if(parsed.error)return json({error:parsed.error},422);
+   if(parsed.error&&!mapCoordinates)return json({error:parsed.error},422);
    if(parsed.type==="route")return json(parsed);
+   // Se o link foi compartilhado como latitude/longitude, a coordenada
+   // é a fonte de verdade. Nunca trocar o pin por pesquisa de nome.
+   const isGpsOnly=mapCoordinates&&(
+     parsed.error||!parsed.query||
+     /^\\s*-?\\d+(?:\\.\\d+)?\\s*[,;]\\s*-?\\d+(?:\\.\\d+)?\\s*$/.test(parsed.query)
+   );
+   if(isGpsOnly)return json({type:"place",results:[{
+     id:"",name:"Ponto GPS "+mapCoordinates,address:mapCoordinates,
+     maps:value.slice(0,1200),mapCoordinates,category:""
+   }],notice:"Coordenadas importadas sem pesquisa aproximada. Pode editar o nome e salvar."});
    const key=String(env.GOOGLE_PLACES_API_KEY);
    let url,init;
    if(parsed.placeId&&/^[a-zA-Z0-9_-]{5,250}$/.test(parsed.placeId)){
