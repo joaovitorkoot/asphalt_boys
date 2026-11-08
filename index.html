@@ -39,7 +39,7 @@ abEl('ano').textContent=new Date().getFullYear();
 renderAsphaltCards();
 </script>
 <style>
-#tripModal[hidden],#tripMain[hidden],#tripStopPreview[hidden],#tripCustomSection[hidden],#tripPresetSection[hidden],#tripMineSection[hidden],#tripShareBox[hidden],#tripPhotoCredit[hidden],#tripPreviewPhoto[hidden],#tripPreviewPlaceholder[hidden],.tripPresetStops[hidden]{display:none!important}
+#tripModal[hidden],#tripMain[hidden],#tripStopPreview[hidden],#tripCustomSection[hidden],#tripPresetSection[hidden],#tripMineSection[hidden],#tripShareBox[hidden],#tripPhotoCredit[hidden],#tripGoogleRating[hidden],#tripGoogleSource[hidden],#tripHoursDetails[hidden],#tripModalHero[hidden],#tripPreviewPhoto[hidden],#tripPreviewPlaceholder[hidden],.tripPresetStops[hidden]{display:none!important}
 #tripModal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:10px;background:rgba(0,0,0,.84);backdrop-filter:blur(9px)}
 #tripPanel{width:min(820px,100%);max-height:calc(100dvh - 20px);overflow-y:auto;overscroll-behavior:contain;border:1px solid #444a53;border-radius:20px;background:#15191f;box-shadow:0 24px 80px #000b}
 #tripPanel:focus{outline:none}
@@ -63,14 +63,64 @@ renderAsphaltCards();
 .tripPresetCard{border:1px solid #434953;padding:16px;background:#1b2028;border-radius:13px}
 .tripPresetStops{margin:13px 0 0 20px;list-style:decimal;color:#c5cbd4;font-size:13px}
 .tripPresetStops li{margin:5px 0}
-.tripPreviewPhoto{width:100%;height:clamp(220px,46vw,350px);object-fit:cover;background:#303640}
-.tripPreviewPlaceholder{display:grid;place-items:center;width:100%;height:clamp(220px,46vw,350px);background:linear-gradient(130deg,#32483d,#202c36);font-size:55px}
+
+/* Cartão real de local — visual premium, dados ao vivo do Google Places. */
+#tripStopPreview{padding:18px clamp(10px,3vw,28px) 28px;background:#0e0f12;min-height:100%}
+.tripPlaceBrandbar{display:flex;align-items:center;justify-content:center;gap:11px;margin:3px 0 20px;color:#f6f6f6;font-size:clamp(16px,3vw,22px);font-weight:900;letter-spacing:.055em}
+.tripPlaceBrandbar strong{color:#ff781b}
+.tripPlaceMark{width:42px;height:29px;color:#ff781b}
+.tripPlaceCard{width:min(680px,100%);overflow:hidden;margin:0 auto;border:1px solid #363438;border-radius:24px;background:radial-gradient(circle at 100% 100%,#20180f 0,transparent 38%),#18191d;box-shadow:0 25px 65px #0007}
+.tripPlaceMedia{position:relative;height:clamp(230px,47vw,365px);background:#29313a}
+.tripPreviewPhoto,.tripPreviewPlaceholder{width:100%;height:100%;object-fit:cover}
+.tripPreviewPlaceholder{display:grid;place-items:center;background:linear-gradient(125deg,#2a4139,#1d2a34);font-size:64px}
+.tripPlaceClose{position:absolute;right:16px;top:16px;width:45px;height:45px;border-radius:50%;display:grid;place-items:center;background:#101115de;border:1px solid #ffffff4d;color:#fff;font-size:31px;line-height:1;cursor:pointer}
+.tripPlaceClose:hover{background:#2d3037}
+.tripPlaceBody{padding:clamp(19px,4vw,36px)}
+.tripPlaceEyebrow{display:flex;align-items:center;gap:14px;color:#ff781b;letter-spacing:.31em;font-size:11px;font-weight:900}
+.tripPlaceEyebrow span{height:3px;width:42px;background:linear-gradient(90deg,#ff781b,transparent);border-radius:9px}
+.tripPlaceTitle{margin:8px 0 0;font-size:clamp(32px,6vw,50px);line-height:1.13;letter-spacing:-.035em;font-weight:900;color:#fff}
+.tripPlaceRating{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:22px 0 20px}
+.tripPlaceRating strong{font-size:clamp(23px,4vw,32px);font-weight:800;font-variant-numeric:tabular-nums}
+.tripPlaceStars{font-size:clamp(19px,3vw,24px);letter-spacing:0.01em;white-space:nowrap}
+.tripPlaceStarOn{color:#ff781b}.tripPlaceStarOff{color:#747780}
+.tripPlaceCount{font-size:clamp(14px,2.5vw,19px);color:#b8b8bf}
+.tripPlaceDetails{display:grid;gap:16px;margin:18px 0}
+.tripPlaceDetail{display:flex;align-items:flex-start;gap:16px;min-width:0;color:#d2d3d7;font-size:clamp(15px,2.6vw,19px);line-height:1.4}
+.tripPlaceDetail svg{flex:none;width:24px;height:24px;color:#ff781b;margin-top:1px}
+.tripPlaceDescription{font-size:13px;line-height:1.5;color:#aeb1b9;margin:14px 0 0}
+.tripPlaceHours{margin-top:16px;color:#d4d5d9;border-top:1px solid #34343a;padding-top:14px}
+.tripPlaceHours summary{font-size:13px;font-weight:700;cursor:pointer;color:#ffae73}
+.tripPlaceHours p{margin-top:10px;white-space:pre-line;font-size:12px;line-height:1.6;color:#bbc0c8}
+.tripPlaceGoogleInfo{font-size:12px;color:#a6abb4;margin:15px 0 0;line-height:1.5}
+.tripPlaceGoogleInfo:empty{display:none}
+.tripPlaceActions{display:grid;gap:12px;margin-top:25px}
+.tripPlaceMapBtn,.tripPlaceAddBtn{display:flex;justify-content:center;align-items:center;gap:12px;min-height:55px;width:100%;border-radius:13px;padding:12px 16px;font-size:clamp(14px,2.4vw,18px);font-weight:800;text-align:center;text-decoration:none}
+.tripPlaceMapBtn{background:#f97316;color:#131313;border:1px solid #ff8c39;box-shadow:0 5px 17px #f973162b}
+.tripPlaceMapBtn:hover{background:#ff8c36}
+.tripPlaceMapBtn svg{flex:none;width:21px;height:21px}
+.tripPlaceMapBtn .tripPlaceExternal{margin-left:auto;width:19px;height:19px}
+.tripPlaceMapBtn span{flex:1}
+.tripPlaceAddBtn{border:2px solid #f97316;background:transparent;color:#f4f4f5;cursor:pointer}
+.tripPlaceAddBtn:hover:not(:disabled){background:#f973161c}
+.tripPlaceAddBtn span{font-size:23px;font-weight:700;line-height:1}
+.tripPlaceAddBtn:disabled{opacity:.5;cursor:not-allowed;border-color:#72757d}
+.tripPlaceAttribution{display:block;font-size:11px;line-height:1.45;color:#aeb0b7;margin-top:12px}
+.tripPlaceCredit{text-decoration:underline;text-underline-offset:2px}
+@media(max-width:580px){
+ #tripStopPreview{padding:12px 7px 18px}
+ .tripPlaceCard{border-radius:18px}
+ .tripPlaceMedia{height:clamp(205px,67vw,300px)}
+ .tripPlaceBody{padding:22px 20px 25px}
+ .tripPlaceBrandbar{margin-bottom:13px}
+ .tripPlaceDetails{gap:14px}
+ .tripPlaceMapBtn,.tripPlaceAddBtn{min-height:53px}
+}
 #tripPanel::-webkit-scrollbar{width:5px}#tripPanel::-webkit-scrollbar-thumb{background:#4e5661;border-radius:9px}
 @media(max-width:580px){#tripCategories{grid-template-columns:repeat(2,minmax(0,1fr))}.tripTab{font-size:11px;padding:8px 3px}.tripStop{grid-template-columns:62px minmax(0,1fr)}.tripStop img,.tripFallback{width:62px;height:76px}#tripPanel{border-radius:14px}}
 </style>
 <div id="tripModal" hidden role="dialog" aria-modal="true" aria-labelledby="tripTitle">
 <div id="tripPanel" tabindex="-1">
-<div class="relative"><img id="tripCover" class="w-full h-40 sm:h-52 object-cover" alt=""><div class="absolute inset-0 bg-gradient-to-t from-[#15191f] to-transparent"></div><button id="tripClose" type="button" class="absolute top-3 right-3 w-11 h-11 rounded-full bg-black/80 border border-white/20 text-2xl" aria-label="Fechar planejador">×</button><div class="absolute bottom-3 left-5 right-5"><p class="text-orange-400 text-xs font-black tracking-widest">ASPHALT BOYS · PLANEJADOR</p><h2 id="tripTitle" class="text-3xl font-black mt-1">Destino</h2></div></div>
+<div id="tripModalHero" class="relative"><img id="tripCover" class="w-full h-40 sm:h-52 object-cover" alt=""><div class="absolute inset-0 bg-gradient-to-t from-[#15191f] to-transparent"></div><button id="tripClose" type="button" class="absolute top-3 right-3 w-11 h-11 rounded-full bg-black/80 border border-white/20 text-2xl" aria-label="Fechar planejador">×</button><div class="absolute bottom-3 left-5 right-5"><p class="text-orange-400 text-xs font-black tracking-widest">ASPHALT BOYS · PLANEJADOR</p><h2 id="tripTitle" class="text-3xl font-black mt-1">Destino</h2></div></div>
 <div id="tripMain" class="px-4 sm:px-7 py-5 space-y-5">
 <p id="tripDesc" class="text-zinc-400 text-sm"></p>
 <div><label for="tripOrigin" class="font-bold text-sm block mb-2">📍 Sua cidade de origem</label><input id="tripOrigin" class="tripField" autocomplete="address-level2" placeholder="Ex.: Fortaleza, CE" value="Horizonte, CE"></div>
@@ -105,24 +155,54 @@ renderAsphaltCards();
 <p id="tripNote" role="status" class="tripTiny mt-3">Confira o trajeto antes de viajar. O Waze transfere somente o destino.</p>
 </div>
 </div>
-<section id="tripStopPreview" hidden aria-label="Prévia do local">
-<div class="relative">
-<img id="tripPreviewPhoto" class="tripPreviewPhoto" alt="" hidden>
-<div id="tripPreviewPlaceholder" class="tripPreviewPlaceholder" hidden>📍</div>
-<button type="button" id="tripPreviewBack" class="absolute top-3 left-3 bg-black/85 border border-white/25 rounded-xl px-4 py-2.5 text-sm font-bold">← Voltar</button>
-</div>
-<div class="px-5 sm:px-7 py-5">
-<a id="tripPhotoCredit" class="tripTiny underline inline-block mb-2" target="_blank" rel="noopener noreferrer" hidden></a>
-<p id="tripPreviewCategory" class="text-sm text-orange-400 font-bold"></p><h3 id="tripPreviewName" class="text-2xl font-black mt-1"></h3>
-<p id="tripPreviewAddress" class="text-sm text-zinc-300 mt-2"></p><p id="tripPreviewDesc" class="text-zinc-300 text-sm mt-3"></p>
-<p id="tripPreviewHours" class="tripTiny mt-3"></p>
-<div class="rounded-xl border border-zinc-700 bg-[#20252d] p-4 mt-4">
-<p class="text-sm font-bold">📍 Localização e avaliações</p>
-<p class="tripTiny mt-1">Ao abrir este local, o site tenta consultar avaliações, horários e fotos pelo Google Places. Se não houver dados disponíveis, você pode abrir a ficha diretamente no Maps.</p>
-<a id="tripPreviewMap" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps" class="inline-flex mt-3 rounded-lg border border-zinc-500 px-4 py-3 text-sm font-bold">📍 Abrir local no Google Maps ↗</a>
-</div>
-<button type="button" class="tripBtn w-full mt-5" id="tripPreviewAdd">+ Adicionar ao roteiro</button>
-</div>
+
+<section id="tripStopPreview" hidden aria-label="Informações da parada" aria-labelledby="tripPreviewName">
+  <div class="tripPlaceBrandbar">
+    <svg class="tripPlaceMark" viewBox="0 0 64 38" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 30 25 7l12 12 8-9 16 20M16 18l9 4 5-7 7 11M4 35h56"/></svg>
+    <span>ASPHALT <strong>BOYS</strong></span>
+  </div>
+  <article class="tripPlaceCard">
+    <div class="tripPlaceMedia">
+      <img id="tripPreviewPhoto" class="tripPreviewPhoto" alt="" hidden>
+      <div id="tripPreviewPlaceholder" class="tripPreviewPlaceholder" hidden>📍</div>
+      <button type="button" id="tripPreviewBack" class="tripPlaceClose" aria-label="Voltar às paradas">×</button>
+    </div>
+    <div class="tripPlaceBody">
+      <p class="tripPlaceEyebrow">PARADA <span aria-hidden="true"></span></p>
+      <h3 id="tripPreviewName" class="tripPlaceTitle"></h3>
+      <div id="tripGoogleRating" class="tripPlaceRating" hidden>
+        <strong id="tripRatingValue"></strong>
+        <span id="tripRatingStars" class="tripPlaceStars" aria-hidden="true"></span>
+        <span id="tripRatingCount" class="tripPlaceCount"></span>
+      </div>
+      <div class="tripPlaceDetails">
+        <div class="tripPlaceDetail">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m2 19 6.5-9 4 5 3.5-6 6 10H2Z"/><path d="m6 19 2.5-4 3 4"/></svg>
+          <span id="tripPreviewCategory"></span>
+        </div>
+        <div class="tripPlaceDetail tripPlaceAddress">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          <span id="tripPreviewAddress"></span>
+        </div>
+      </div>
+      <p id="tripPreviewDesc" class="tripPlaceDescription"></p>
+      <details id="tripHoursDetails" class="tripPlaceHours" hidden>
+        <summary>Ver horários de funcionamento</summary>
+        <p id="tripPreviewHours"></p>
+      </details>
+      <p id="tripGoogleInfo" class="tripPlaceGoogleInfo" role="status"></p>
+      <div class="tripPlaceActions">
+        <a id="tripPreviewMap" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps" class="tripPlaceMapBtn">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          <span>Ver no Google Maps</span>
+          <svg class="tripPlaceExternal" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5h6v6M19 5l-9 9"/><path d="M19 13v6H5V5h6"/></svg>
+        </a>
+        <button type="button" id="tripPreviewAdd" class="tripPlaceAddBtn"><span aria-hidden="true">＋</span> Adicionar à rota</button>
+      </div>
+      <p id="tripGoogleSource" class="tripPlaceAttribution" hidden>Informações e avaliações fornecidas pelo Google Maps.</p>
+      <a id="tripPhotoCredit" class="tripPlaceAttribution tripPlaceCredit" target="_blank" rel="noopener noreferrer" hidden></a>
+    </div>
+  </article>
 </section>
 </div></div>
 <script src="planejador.js"></script>

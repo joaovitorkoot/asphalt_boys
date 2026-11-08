@@ -68,46 +68,84 @@
    q('tripOrigin').value=(share&&share.origin)||safeRead('asphalt-boys-ultima-origem')||'Horizonte, CE';
    if(share&&share.route){const r=currentRoutes().find(x=>x.id===share.route);if(r){selected=(r.paradas||[]).filter(id=>stopById(id)).slice(0,3);presetId=r.id;tab='mine'}}
    else if(share&&share.stops){selected=share.stops.split(',').filter(id=>/^[a-z0-9_-]{3,120}$/i.test(id)&&stopById(id)).slice(0,3);if(selected.length)tab='mine'}
-   modal.hidden=false;q('tripStopPreview').hidden=true;q('tripMain').hidden=false;document.body.style.overflow='hidden';render();panel.scrollTop=0;panel.focus();return true;
+   modal.hidden=false;q('tripStopPreview').hidden=true;q('tripMain').hidden=false;q('tripModalHero').hidden=false;document.body.style.overflow='hidden';render();panel.scrollTop=0;panel.focus();return true;
  }
  function close(){modal.hidden=true;document.body.style.overflow='';if(focusBefore&&focusBefore.focus)focusBefore.focus()}
+
  function preview(id){
-  const p=stopById(id);if(!p)return;previewId=id;
-  q('tripMain').hidden=true;q('tripStopPreview').hidden=false;
-  q('tripPreviewName').textContent=p.nome;q('tripPreviewCategory').textContent=categories.find(([id])=>id===normalize(p.categoria))[1];
+  const p=stopById(id);if(!p)return;
+  previewId=id;
+  q('tripMain').hidden=true;
+  q('tripModalHero').hidden=true;
+  q('tripStopPreview').hidden=false;
+  q('tripPreviewName').textContent=p.nome;
+  const fallbackCategory=categories.find(([cat])=>cat===normalize(p.categoria));
+  q('tripPreviewCategory').textContent=fallbackCategory?fallbackCategory[1].replace(/^[^\s]+\s+/,''):'Ponto de parada';
   q('tripPreviewAddress').textContent=p.endereco||'Endereço ainda não cadastrado';
-  q('tripPreviewDesc').textContent=p.descricao||'Sem descrição cadastrada.';
-  q('tripPreviewHours').textContent=p.horario?'Horário informado pelo grupo: '+p.horario:'Horários: consulte o Google Maps.';
-  const photo=httpsUrl(p.foto),im=q('tripPreviewPhoto');im.hidden=!photo;im.onerror=()=>{im.hidden=true;q('tripPreviewPlaceholder').hidden=false};q('tripPreviewPlaceholder').hidden=!!photo;if(photo){im.src=photo;im.alt='Fotografia de '+p.nome}
-  // Atribuições das fotos iniciais ficam no rodapé do site, sem interromper a prévia.\n  q('tripPhotoCredit').hidden=true;q('tripPhotoCredit').textContent='';
+  q('tripPreviewDesc').textContent=p.descricao||'';
+  const hoursDetails=q('tripHoursDetails');
+  hoursDetails.open=false;
+  const savedHours=String(p.horario||'').trim();
+  hoursDetails.hidden=!savedHours;
+  q('tripPreviewHours').textContent=savedHours?'Horário informado pelo grupo: '+savedHours:'';
+  q('tripGoogleRating').hidden=true;
+  q('tripGoogleSource').hidden=true;
+  q('tripGoogleInfo').textContent=localPreview?'Prévia local. Publique esta parada para consultar os dados do Google.':'Consultando o Google Maps…';
+  const im=q('tripPreviewPhoto'),photo=httpsUrl(p.foto);
+  im.hidden=!photo;
+  q('tripPreviewPlaceholder').hidden=!!photo;
+  im.onerror=()=>{im.hidden=true;q('tripPreviewPlaceholder').hidden=false};
+  if(photo){im.src=photo;im.alt='Foto de '+p.nome}
+  const credit=q('tripPhotoCredit');
+  credit.hidden=true;credit.textContent='';credit.removeAttribute('href');
   q('tripPreviewMap').href=mapLink(p);
-  q('tripPreviewAdd').disabled=selected.includes(id)||selected.length>=3||!p.endereco;
-  q('tripPreviewAdd').textContent=selected.includes(id)?'✓ Já está no roteiro':selected.length>=3?'Máximo de três paradas':'+ Adicionar ao roteiro';
-  // Dados reais do Google carregados somente ao abrir a prévia de uma parada publicada.
-  let googleInfo=q('tripGoogleInfo');
-  if(!googleInfo){googleInfo=document.createElement('div');googleInfo.id='tripGoogleInfo';googleInfo.className='text-xs text-zinc-300 mt-3 p-3 border border-zinc-700 rounded-lg';q('tripPreviewDesc').insertAdjacentElement('afterend',googleInfo)}
-  googleInfo.textContent='Consultando informações do Google Maps...';
-  if(!localPreview)fetch('/api/place?stop='+encodeURIComponent(p.id),{cache:'no-store'}).then(async r=>{
-    const result=await r.json();if(previewId!==id||q('tripStopPreview').hidden)return;
-    if(!r.ok||!result.available){googleInfo.textContent=(result.message&&typeof result.message==='string'?result.message+' ':'')+'Você pode abrir a ficha completa no Google Maps pelo botão acima.';return}
-    const chunks=['Informações fornecidas pelo Google Maps'];
-    if(typeof result.rating==='number')chunks.push('★ '+result.rating.toFixed(1).replace('.',',')+'/5'+(typeof result.count==='number'?' ('+result.count+' avaliações)':''));
-    if(Array.isArray(result.hours)&&result.hours.length)chunks.push(result.hours.join(' · '));
-    googleInfo.textContent=chunks.join(' | ');
+  const add=q('tripPreviewAdd');
+  add.disabled=selected.includes(id)||selected.length>=3||!p.endereco;
+  add.textContent=selected.includes(id)?'✓ Já está na rota':selected.length>=3?'Máximo de três paradas':!p.endereco?'Endereço indisponível':'+ Adicionar à rota';
+  if(!localPreview)fetch('/api/place?stop='+encodeURIComponent(p.id),{cache:'no-store'}).then(async response=>{
+    const result=await response.json();
+    if(previewId!==id||q('tripStopPreview').hidden)return;
+    if(!response.ok||!result.available){
+      q('tripGoogleInfo').textContent='Informações do Google indisponíveis agora. Abra no Google Maps para conferir.';
+      return;
+    }
+    q('tripGoogleInfo').textContent='';
+    q('tripGoogleSource').hidden=false;
+    if(result.name)q('tripPreviewName').textContent=String(result.name).slice(0,140);
+    if(result.category)q('tripPreviewCategory').textContent=String(result.category).slice(0,100);
     if(result.address)q('tripPreviewAddress').textContent=result.address;
     if(httpsUrl(result.map))q('tripPreviewMap').href=httpsUrl(result.map);
-    // Foto oficial tem prioridade sobre a foto de fallback cadastrada, sem guardar a imagem no site.
-    if(httpsUrl(result.photo)&&p.id!=='pico-alto-parada'){
-       im.src=httpsUrl(result.photo);im.hidden=false;q('tripPreviewPlaceholder').hidden=true;
-       im.onerror=()=>{if(photo){im.onerror=null;im.src=photo}else{im.hidden=true;q('tripPreviewPlaceholder').hidden=false}};
-       q('tripPhotoCredit').hidden=false;q('tripPhotoCredit').textContent='Foto: '+(Array.isArray(result.photoAttributions)&&result.photoAttributions.length?result.photoAttributions.map(a=>a.name).filter(Boolean).join(', '):'Google Maps');
-       q('tripPhotoCredit').href=httpsUrl(result.map)||mapLink(p);
+    if(typeof result.rating==='number'&&Number.isFinite(result.rating)&&result.rating>=0&&result.rating<=5){
+      const rate=result.rating,formatted=rate.toFixed(1).replace('.',',');
+      const full=Math.min(5,Math.max(0,Math.round(rate)));
+      q('tripRatingValue').textContent=formatted;
+      q('tripRatingStars').innerHTML='<span class="tripPlaceStarOn">'+('★'.repeat(full))+'</span><span class="tripPlaceStarOff">'+('★'.repeat(5-full))+'</span>';
+      q('tripRatingCount').textContent=typeof result.count==='number'&&Number.isFinite(result.count)?'('+Math.max(0,result.count).toLocaleString('pt-BR')+' avaliações)':'';
+      q('tripGoogleRating').setAttribute('aria-label','Avaliação no Google Maps: '+formatted+' de 5 estrelas');
+      q('tripGoogleRating').hidden=false;
     }
-  }).catch(()=>{if(previewId===id)googleInfo.textContent='Consulte avaliações, horários e fotos no Google Maps.'});
-  else googleInfo.textContent='Prévia local: informações do Google disponíveis após publicar a parada no banco.';
-  panel.scrollTop=0;q('tripPreviewBack').focus();
+    if(Array.isArray(result.hours)&&result.hours.length){
+      q('tripPreviewHours').textContent=result.hours.filter(x=>typeof x==='string').slice(0,7).join('\n');
+      hoursDetails.hidden=false;
+    }
+    // Para o Pico Alto, mantemos a foto cadastrada pelo grupo; para as demais paradas,
+    // consultamos a foto fornecida pelo Google apenas enquanto o cartão está aberto.
+    if(httpsUrl(result.photo)&&p.id!=='pico-alto-parada'){
+      im.src=httpsUrl(result.photo);im.alt='Foto do local fornecida pelo Google Maps';im.hidden=false;
+      q('tripPreviewPlaceholder').hidden=true;
+      im.onerror=()=>{if(photo){im.onerror=null;im.src=photo;im.alt='Foto de '+p.nome}else{im.hidden=true;q('tripPreviewPlaceholder').hidden=false}credit.hidden=true};
+      const authors=Array.isArray(result.photoAttributions)?result.photoAttributions.filter(a=>a&&a.name):[];
+      credit.textContent='Foto: '+(authors.length?authors.map(a=>a.name).join(', '):'Google Maps');
+      credit.href=httpsUrl(authors[0]?.uri)||httpsUrl(result.map)||mapLink(p);
+      credit.hidden=false;
+    }
+  }).catch(()=>{
+    if(previewId===id&&!q('tripStopPreview').hidden)q('tripGoogleInfo').textContent='Não foi possível atualizar as informações do Google agora.';
+  });
+  panel.scrollTop=0;
+  q('tripPreviewBack').focus();
  }
- function previewBack(){q('tripStopPreview').hidden=true;q('tripMain').hidden=false;render();panel.scrollTop=0}
+ function previewBack(){q('tripStopPreview').hidden=true;q('tripMain').hidden=false;q('tripModalHero').hidden=false;render();panel.scrollTop=0}
  function addStop(id){if(!stopById(id)?.endereco||selected.length>=3||selected.includes(id))return;selected.push(id);presetId='';render()}
  function destinationUrl(){return destination.dest||destination.mapa||destination.nome}
  function googleUrl(){
