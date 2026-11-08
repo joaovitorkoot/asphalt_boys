@@ -32,7 +32,7 @@ jobs:
           assert(admin.includes("const editorForm=$('#recordForm')"),'Render function must not shadow form()');
           const cs=api.indexOf('function cleanRecord(kind,r){'),ce=api.indexOf('async function readData(',cs);
           assert(cs>=0&&ce>cs,'API normalization missing');
-          const clean=vm.runInNewContext(api.slice(cs,ce)+'\ncleanRecord',{URL});
+          const clean=vm.runInNewContext(api.slice(api.indexOf('const LIMITS ='),api.indexOf('function reply('))+api.slice(cs,ce)+'\ncleanRecord',{URL});
           const fields={id:'canaa-paes',nome:'Canaã Pães e Lanches',destinoId:'guaramiranga',
             categoria:'cafe',categorias:['cafe','almoco'],foto:'https://asphalt-boys.pages.dev/api/image?id=123',
             maps:'https://maps.app.goo.gl/CCQuEH8HfXjQT5gG8',status:'publicado'};
