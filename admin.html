@@ -61,7 +61,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 </section>
 <div class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-5">
 <nav class="box p-3 h-fit grid sm:grid-cols-4 lg:grid-cols-1 gap-2" aria-label="Seções administrativas">
-<button type="button" class="tab" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button type="button" class="tab" data-tab="paradas" aria-selected="false">📍 Paradas</button><div id="adminStopQuickLinks" hidden class="sm:col-span-4 lg:col-span-1 grid grid-cols-2 lg:grid-cols-1 gap-1 pl-2 border-l-2 border-orange-500/40"><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe">☕ Café da manhã</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="almoco">🍽️ Almoço</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="turismo">📸 Pontos turísticos</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="descanso">🏍️ Descanso</button></div><button type="button" class="tab" data-tab="rotas" aria-selected="false">🛣️ Rotas prontas</button><button type="button" class="tab" data-tab="backup" aria-selected="false">💾 Backup</button>
+<button type="button" class="tab" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button type="button" class="tab" data-tab="paradas" aria-selected="false">📍 Paradas</button><div id="adminStopQuickLinks" hidden class="sm:col-span-4 lg:col-span-1 grid grid-cols-2 lg:grid-cols-1 gap-1 pl-2 border-l-2 border-orange-500/40"><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe">☕ Café da manhã</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="almoco">🍽️ Almoço</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe_tarde">🥐 Café da tarde</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="jantar">🌙 Jantar</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="turismo">📸 Pontos turísticos</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="descanso">🏍️ Descanso</button></div><button type="button" class="tab" data-tab="rotas" aria-selected="false">🛣️ Rotas prontas</button><button type="button" class="tab" data-tab="backup" aria-selected="false">💾 Backup</button>
 </nav>
 <section class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><div id="listing" class="mt-6"></div></section>
 </div>
@@ -74,7 +74,7 @@ const seed={destinos:[{id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, n
 const types=['destinos','paradas','rotas']; const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const safeUrl=s=>{try{let u=new URL(String(s||''));return u.protocol==='https:'?u.href:''}catch{return ''}};
-const normalize=c=>/café|cafe/i.test(c)?'cafe':/almo|restaurante/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
+const normalize=c=>/cafe_tarde|caf[eé] da tarde/i.test(c)?'cafe_tarde':/jantar|janta/i.test(c)?'jantar':/café|cafe/i.test(c)?'cafe':/almo|restaurante/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
 function copy(d){return JSON.parse(JSON.stringify(d))}
 function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&types.every(t=>Array.isArray(d[t]))?d:copy(seed)}catch{return copy(seed)}}
 let draft=local(),data=copy(draft),remote=false,token='',sessionReady=false,tab='destinos',editing=null,picked=[],busy=false,photoUploading=false,selectedDestId='',creatingNewDestination=false,selectedStopCategory='turismo';
@@ -84,7 +84,7 @@ function announce(msg){$('#connection').textContent=msg}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
 function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
 function listForDest(dest){return routeStops(dest)}
-const stopCategories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
+const stopCategories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['cafe_tarde','🥐 Café da tarde'],['jantar','🌙 Jantar'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
 // Paradas são gerenciadas pelo banco/rascunhos, nunca recriadas pelo código.
 const publicSeedStops=[];
 function categoryLabel(c){return stopCategories.find(([id])=>id===normalize(c))?.[1]||'📸 Pontos turísticos'}
@@ -136,7 +136,7 @@ function stopCategoryTabs(){
   return '<section id="stopCategoryBar" class="rounded-xl border border-zinc-600 bg-[#1d2027] p-4 mb-4" aria-label="Categorias de paradas">'+
    '<h3 class="text-lg font-black">2. Filtrar paradas por categoria</h3>'+
    '<p class="tiny mt-1 mb-3">Os botões filtram a lista. No cadastro abaixo você pode marcar várias categorias para um mesmo local.</p>'+
-   '<div class="grid grid-cols-2 lg:grid-cols-4 gap-2">'+stopCategories.map(([id,label])=>
+   '<div class="grid grid-cols-2 md:grid-cols-3 gap-2">'+stopCategories.map(([id,label])=>
      '<button type="button" data-stop-category="'+id+'" aria-pressed="'+(selectedStopCategory===id)+'" class="subbtn text-left text-sm transition '+(selectedStopCategory===id?'!border-orange-400 !bg-orange-500/15 !text-orange-300':'')+'">'+esc(label)+' <span class="text-xs opacity-70">('+editableStops(selectedDestId).filter(p=>hasStopCategory(p,id)).length+')</span></button>').join('')+'</div>'+
    '</section>';
 }
