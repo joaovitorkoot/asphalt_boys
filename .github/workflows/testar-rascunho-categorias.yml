@@ -33,7 +33,7 @@ jobs:
             creatingNewDestination:false,selectedStopCategory:'cafe',
             picked:[],placeSearchSeq:0,mapsImportSeq:0,placeMatches:[],importMatches:[],
             photoSourceFile:null,photoSourceMeta:null,photoSourceForm:null,photoAppliedMode:'',
-            photoSourceKey:'',editableRoutes:()=>[],unfinishedFormKey:()=> 'test',
+            photoSourceKey:'',categorySuggestionSeq:0,categoryUserEdited:false,editableRoutes:()=>[],unfinishedFormKey:()=> 'test',
             form:()=>'<form id="recordForm"></form>',
             restoreUnfinishedForm:()=>false,$:selector=>fields[selector]||{}
           };
