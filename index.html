@@ -20,10 +20,11 @@ const lugares=[
 {id:'guaramiranga',nome:'Guaramiranga',sub:'Serra, clima agradável e paisagens verdes',img:'imagens/guaramiranga-entrada.png',cover:'imagens/guaramiranga-noite.png',fallbackImg:'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1100&q=85',note:'Imagem adaptada',dest:'Guaramiranga, Ceará, Brasil'},
 {id:'canoa',nome:'Canoa Quebrada',sub:'Falésias, litoral e uma paisagem inesquecível',img:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1100&q=85',note:'Foto ilustrativa',dest:'Canoa Quebrada, Aracati, Ceará, Brasil'}
 ];
+const abSafeUrl=value=>{try{const u=new URL(value);return u.protocol==='https:'?u.href:''}catch{return ''}};
 const abEl=id=>document.getElementById(id);
 const abEsc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 function renderAsphaltCards(){
- abEl('cards').innerHTML=lugares.map(l=>'<article class="soft overflow-hidden rounded-2xl group"><div class="relative"><img class="cardpic group-hover:scale-[1.03] transition duration-500" loading="lazy" src="'+abEsc(l.img)+'" alt="Imagem de '+abEsc(l.nome)+'"><span class="absolute right-3 bottom-3 bg-black/70 backdrop-blur px-3 py-1 rounded-full text-[11px]">'+abEsc(l.note||'Destino')+'</span></div><div class="p-6"><p class="text-orange-400 text-xs font-bold uppercase tracking-wider">Brasil · viagens</p><h3 class="text-2xl font-black mt-2">'+abEsc(l.nome)+'</h3><p class="text-zinc-400 text-sm mt-2 min-h-11">'+abEsc(l.sub)+'</p><button type="button" data-pick="'+abEsc(l.id)+'" class="mt-5 text-orange-400 font-bold hover:text-orange-300">Planejar viagem ↗</button></div></article>').join('');
+ abEl('cards').innerHTML=lugares.map(l=>'<article class="soft overflow-hidden rounded-2xl group"><div class="relative"><img class="cardpic group-hover:scale-[1.03] transition duration-500" loading="lazy" src="'+abEsc(l.img)+'" alt="Imagem de '+abEsc(l.nome)+'"><span class="absolute right-3 bottom-3 bg-black/70 backdrop-blur px-3 py-1 rounded-full text-[11px]">'+abEsc(l.note||'Destino')+'</span></div>'+ (l.fotoLicenca?'<div class="text-xs text-zinc-400 px-3 py-2">📷 '+abEsc(l.fotoAutor||'Autor na fonte')+' · '+abEsc(l.fotoLicenca)+(abSafeUrl(l.fotoFonteUrl)?' · <a class="text-orange-300 underline" target="_blank" rel="noopener noreferrer" href="'+abEsc(abSafeUrl(l.fotoFonteUrl))+'">Original</a>':'')+(abSafeUrl(l.fotoLicencaUrl)?' · <a class="text-orange-300 underline" target="_blank" rel="noopener noreferrer" href="'+abEsc(abSafeUrl(l.fotoLicencaUrl))+'">Licença</a>':'')+' · adaptada para o card</div>':'')+'<div class="p-6"><p class="text-orange-400 text-xs font-bold uppercase tracking-wider">Brasil · viagens</p><h3 class="text-2xl font-black mt-2">'+abEsc(l.nome)+'</h3><p class="text-zinc-400 text-sm mt-2 min-h-11">'+abEsc(l.sub)+'</p><button type="button" data-pick="'+abEsc(l.id)+'" class="mt-5 text-orange-400 font-bold hover:text-orange-300">Planejar viagem ↗</button></div></article>').join('');
  document.querySelectorAll('#cards img').forEach(img=>{img.onerror=()=>{const l=lugares.find(p=>img.alt==='Imagem de '+p.nome);img.onerror=null;if(l&&l.fallbackImg){img.src=l.fallbackImg;const tag=img.nextElementSibling;if(tag)tag.textContent='Foto ilustrativa';}}});
  abEl('avaliarDestino').innerHTML=lugares.map(l=>'<option value="'+abEsc(l.id)+'">'+abEsc(l.nome)+'</option>').join('');
  renderAsphaltRatings();
@@ -201,6 +202,7 @@ renderAsphaltCards();
       </div>
       <p id="tripGoogleSource" class="tripPlaceAttribution" hidden>Informações e avaliações fornecidas pelo Google Maps.</p>
       <a id="tripPhotoCredit" class="tripPlaceAttribution tripPlaceCredit" target="_blank" rel="noopener noreferrer" hidden></a>
+      <div id="tripOpenPhotoCredit" class="tripPlaceAttribution" hidden></div>
     </div>
   </article>
 </section>
