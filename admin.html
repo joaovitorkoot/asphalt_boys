@@ -49,7 +49,7 @@ const normalize=c=>/café|cafe/i.test(c)?'cafe':/almo|restaurante/i.test(c)?'alm
 function copy(d){return JSON.parse(JSON.stringify(d))}
 function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&types.every(t=>Array.isArray(d[t]))?d:copy(seed)}catch{return copy(seed)}}
 let draft=local(),data=copy(draft),remote=false,token='',tab='destinos',editing=null,picked=[],busy=false;
-let placeMatches=[],placeSearchSeq=0,importMatches=[],mapsImportSeq=0;
+let placeMatches=[],placeSearchSeq=0,importMatches=[],mapsImportSeq=0,mapsLinkDraft={destinos:'',paradas:'',rotas:''};
 function announce(msg){$('#connection').textContent=msg}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
 function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
@@ -72,9 +72,9 @@ function placeLookupMarkup(){
  '<h3 class="font-black text-base">📍 Preencher pelo Google Maps</h3>'+
  '<p class="tiny mt-1">'+label+' Os dados encontrados ficam editáveis antes de salvar.</p>'+
  '<label class="lbl" for="mapsImportUrl">Link do Google Maps</label>'+
- '<div class="grid sm:grid-cols-[1fr_auto] gap-2"><input class="field" id="mapsImportUrl" type="url" maxlength="1800" inputmode="url" autocomplete="off" placeholder="https://maps.app.goo.gl/..." '+(enabled?'':'disabled')+'>'+
- '<button id="mapsImportButton" class="btn" type="button" '+(enabled?'':'disabled')+'>Preencher pelo link</button></div>'+
- '<p id="mapsImportStatus" class="tiny mt-3" role="status">'+(enabled?'Cole um link e toque em Preencher pelo link.':'Conecte ao banco com o token para usar a importação.')+'</p>'+
+ '<div class="grid sm:grid-cols-[1fr_auto] gap-2"><input class="field" id="mapsImportUrl" type="url" maxlength="1800" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://maps.app.goo.gl/..." value="'+esc(mapsLinkDraft[tab]||'')+'">'+
+ '<button id="mapsImportButton" class="btn" type="button">Preencher pelo link</button></div>'+
+ '<p id="mapsImportStatus" class="tiny mt-3" role="status">'+(enabled?'Cole o link e toque em Preencher pelo link.':'Pode colar o link agora. Depois conecte ao banco acima para importar.')+'</p>'+
  '<div id="mapsImportResults" class="space-y-2 mt-3"></div>'+
  placeSearch+
  '<p class="tiny mt-3">A importação não salva nem publica automaticamente. Você poderá revisar e editar todos os campos.</p>'+
@@ -173,6 +173,8 @@ function initMapsImport(){
  const button=$('#mapsImportButton'),input=$('#mapsImportUrl'),results=$('#mapsImportResults'),note=$('#mapsImportStatus');
  if(!button||!input||!results||!note)return;
  button.addEventListener('click',importGoogleLink);
+ const sectionAtStart=tab;
+ input.addEventListener('input',()=>{mapsLinkDraft[sectionAtStart]=input.value});
  input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();importGoogleLink()}});
  results.addEventListener('click',e=>{
    const choice=e.target.closest('button[data-place-index]');if(!choice)return;
@@ -185,7 +187,7 @@ function initMapsImport(){
 async function importGoogleLink(){
  const input=$('#mapsImportUrl'),button=$('#mapsImportButton'),results=$('#mapsImportResults'),note=$('#mapsImportStatus');
  if(!input||!button||!results||!note)return;
- if(!remote||!token){note.textContent='Conecte ao banco com seu token de administrador.';return}
+ if(!remote||!token){note.textContent='Link recebido. Conecte ao banco no início da página e depois clique novamente em Preencher pelo link.';$('#secret')?.focus();return}
  const url=input.value.trim();if(!safeUrl(url)){note.textContent='Cole um link https válido do Google Maps.';input.focus();return}
  const initialTab=tab,seq=++mapsImportSeq;importMatches=[];results.innerHTML='';
  button.disabled=true;note.textContent='Importando o link pelo Google Maps…';
