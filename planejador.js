@@ -7,7 +7,17 @@
  const q=id=>document.getElementById(id);
  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const httpsUrl=s=>{try{let u=new URL(String(s||''));return u.protocol==='https:'?u.href:''}catch{return ''}};
- const mapLink=p=>httpsUrl(p.maps)||'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(String(p.endereco||p.nome||''));
+ const validCoords=s=>{const m=String(s||'').trim().match(/^(-?\d{1,2}(?:\.\d{1,9})?),\s*(-?\d{1,3}(?:\.\d{1,9})?)$/);return m&&Math.abs(Number(m[1]))<=90&&Math.abs(Number(m[2]))<=180?m[1]+','+m[2]:''};
+ const validPlaceId=s=>/^[a-zA-Z0-9_-]{5,250}$/.test(String(s||''))?String(s):'';
+ // Abrir o link ORIGINAL de quem cadastrou. Nunca trocar por resultado por nome.
+ const mapLink=p=>{
+   const original=httpsUrl(p.maps);if(original)return original;
+   const query=validCoords(p.mapCoordinates)||String(p.endereco||p.nome||'');
+   const u=new URL('https://www.google.com/maps/search/?api=1');
+   u.searchParams.set('query',query);
+   if(!validCoords(p.mapCoordinates)&&validPlaceId(p.googlePlaceId))u.searchParams.set('query_place_id',validPlaceId(p.googlePlaceId));
+   return u.href;
+ };
  const mapping=id=>id==='canoa'?'canoa-quebrada':id;
  const categories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
  const normalize=c=>/café|cafe/i.test(c)?'cafe':/restaurante|almo/i.test(c)?'almoco':/descanso|posto/i.test(c)?'descanso':'turismo';
@@ -225,9 +235,27 @@
  function googleUrl(){
   const origin=q('tripOrigin').value.trim();if(!origin){q('tripNote').textContent='Informe sua cidade de origem.';q('tripOrigin').focus();return null}
   if(selected.length>3){q('tripNote').textContent='Divida o roteiro em trechos de até três paradas.';return null}
-  const points=selected.map(id=>{const p=stopById(id);return p?.mapCoordinates||p?.endereco}).filter(Boolean);
+  const stops=selected.map(stopById).filter(Boolean);
+  // URLs curtas do Maps não funcionam como waypoints. Para garantir o mesmo
+  // ponto compartilhado, usar as coordenadas exatas ou o Place ID salvo.
+  const unresolved=stops.filter(p=>!validCoords(p.mapCoordinates)&&!validPlaceId(p.googlePlaceId));
+  if(unresolved.length){
+    q('tripNote').textContent='A parada "'+unresolved[0].nome+'" ainda não tem coordenadas ou identificação precisa. Abra o link original na prévia ou atualize o link no painel antes de montar a rota.';
+    return null;
+  }
+  const points=stops.map(p=>validCoords(p.mapCoordinates)||p.endereco||p.nome);
+  const ids=stops.map(p=>validPlaceId(p.googlePlaceId));
+  const url=new URL('https://www.google.com/maps/dir/?api=1');
+  url.searchParams.set('origin',origin);
+  url.searchParams.set('destination',destinationUrl());
+  url.searchParams.set('travelmode','driving');
+  if(points.length)url.searchParams.set('waypoints',points.join('|'));
+  // O Google exige uma identificação para cada waypoint quando esta opção
+  // é usada; coordenadas continuam sendo preferidas a IDs de local.
+  if(points.length&&ids.every(Boolean)&&stops.every(p=>!validCoords(p.mapCoordinates)))
+    url.searchParams.set('waypoint_place_ids',ids.join('|'));
   safeStore('asphalt-boys-ultima-origem',origin);
-  return 'https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(origin)+'&destination='+encodeURIComponent(destinationUrl())+'&travelmode=driving'+(points.length?'&waypoints='+encodeURIComponent(points.join('|')):'');
+  return url.href;
  }
  function share(){
   const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('dest',destination.id);
