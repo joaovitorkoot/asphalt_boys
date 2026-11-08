@@ -46,7 +46,7 @@
    const dLat=(lat+4.2156)*rad,dLon=(lon+38.9585)*rad;
    const a=Math.sin(dLat/2)**2+Math.cos(-4.2156*rad)*Math.cos(lat*rad)*Math.sin(dLon/2)**2;
    const km=6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(Math.max(0,1-a)));
-   if(km>70)return 'Coordenadas a cerca de '+Math.round(km)+' km da região de Guaramiranga.';
+   if(km>70)return 'GPS do cadastro a cerca de '+Math.round(km)+' km de Guaramiranga. Confira o ponto original antes de navegar.';
   }
   return '';
  }
@@ -344,10 +344,28 @@
  // Links universais tentam abrir o app com até 9 destinos; Safari pode limitar a 3 intermediários.
  // A última parada escolhida vira o destino final, sem incluir a cidade novamente.
  function routePoint(stop){
+  if(!stop)return null;
+  const name=String(stop.nome||'').trim(),address=String(stop.endereco||'').trim();
   const id=validPlaceId(stop.googlePlaceId),gps=validCoords(stop.mapCoordinates);
-  // O GPS extraído do link compartilhado tem prioridade sobre IDs sugeridos.
-  if(gps)return {type:'gps',value:gps,name:String(stop.nome)};
-  if(id)return {type:'place',id,value:String(stop.endereco||stop.nome),name:String(stop.nome)};
+  const cityId=String(stop.destinoId||mapping(destination?.id)||'');
+  const city=cityId==='guaramiranga'?'Guaramiranga, Ceará, Brasil':
+   cityId==='canoa-quebrada'?'Aracati, Ceará, Brasil':
+   [destination?.nome||'', 'Ceará, Brasil'].filter(Boolean).join(', ');
+  // Inclui sempre o nome do local. Enviar "CE-253" sozinho pode causar desvios.
+  const conciseName=name.replace(/,?\s*nome antigo e tradicional:\s*/i,' - ').replace(/\.+$/,'').trim();
+  const query=[conciseName,address,city].filter(Boolean).join(', ').slice(0,450);
+  // Place ID específico tem prioridade sobre GPS possivelmente extraído da câmera.
+  if(id&&name)return {type:'place',id,value:query,name};
+  if(gps){
+   if(cityId==='guaramiranga'){
+    const [lat,lon]=gps.split(',').map(Number),rad=Math.PI/180;
+    const dLat=(lat+4.2156)*rad,dLon=(lon+38.9585)*rad;
+    const h=Math.sin(dLat/2)**2+Math.cos(-4.2156*rad)*Math.cos(lat*rad)*Math.sin(dLon/2)**2;
+    const km=6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(Math.max(0,1-h)));
+    if(km>70)return null;
+   }
+   return {type:'gps',value:gps,name:name||gps};
+  }
   return null;
  }
  function oneGoogleSegment(origin,targets){
@@ -462,7 +480,7 @@
   const stops=selected.map(stopById).filter(Boolean);
   const fallback=routeSegmentsFor(stops,origin,segmentMode==='four'?MOBILE_WAYPOINTS+1:TESTED_APP_STOPS);
   if(fallback.error||fallback.unresolved.length){
-   q('tripNote').textContent=fallback.error||'Há uma parada sem GPS ou Place ID. Confira os links originais.';
+   q('tripNote').textContent=fallback.error||'Há uma parada sem identificação exata ou com GPS distante. Confira o link original antes de navegar.';
    showGoogleLegs(fallback);return null;
   }
   if(originMode==='manual')safeStore('asphalt-boys-ultima-origem',origin);
