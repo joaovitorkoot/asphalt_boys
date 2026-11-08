@@ -22,7 +22,7 @@
    if(!destination)return[];
    const destId=mapping(destination.id),stored=data.paradas.filter(p=>p.destinoId===destId);
    const seeds=initial[destId]||[];
-   const combined=stored.map(p=>{const found=seeds.find(s=>s.id===p.id||s.nome.toLowerCase()===String(p.nome||'').toLowerCase());return found?Object.assign({},found,p,{foto:found.id==='pico-alto-parada'?found.foto:(p.foto||found.foto),fonteFoto:found.id==='pico-alto-parada'?'':(p.fonteFoto||found.fonteFoto),linkFoto:found.id==='pico-alto-parada'?'':(p.linkFoto||found.linkFoto)}):p});
+   const combined=stored.map(p=>{const found=seeds.find(s=>s.id===p.id||s.nome.toLowerCase()===String(p.nome||'').toLowerCase());return found?Object.assign({},found,p,{foto:p.foto||found.foto,fonteFoto:p.fonteFoto||found.fonteFoto||'',linkFoto:p.linkFoto||found.linkFoto||''}):p});
    return combined.concat(seeds.filter(p=>!stored.some(x=>x.id===p.id||String(x.nome||'').toLowerCase()===p.nome.toLowerCase())));
  }
  function currentRoutes(){return destination?data.rotas.filter(r=>r.destinoId===mapping(destination.id)):[]}
