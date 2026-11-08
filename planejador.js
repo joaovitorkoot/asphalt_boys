@@ -36,7 +36,7 @@
  function suspectStop(p){
   if(!p)return '';
   const address=String(p.endereco||'').trim();
-  if(/^(?:CE|BR)[-\\s]?\\d{2,3}(?:\\s*,\\s*\\d+)?$/i.test(address))
+  if(/^(?:CE|BR)[-\s]?\d{2,3}(?:\s*,\s*\d+)?$/i.test(address))
    return 'Endereço contém somente o nome de uma rodovia.';
   const gps=validCoords(p.mapCoordinates);
   if(mapping(destination?.id)==='guaramiranga'&&gps){
