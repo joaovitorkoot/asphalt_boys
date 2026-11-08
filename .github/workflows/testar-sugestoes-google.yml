@@ -1,0 +1,78 @@
+name: Testar sugestoes automaticas do Google Maps
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/api/category-suggest.js'
+      - 'admin.html'
+      - '.github/workflows/testar-sugestoes-google.yml'
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar classificacao por tipos e horarios e interface do painel
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          import cryptoModule from 'node:crypto';
+          const api=fs.readFileSync('functions/api/category-suggest.js','utf8');
+          const admin=fs.readFileSync('admin.html','utf8');
+          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          assert(admin.includes("suggestImportedPlaceCategories(place);"),'Places imported must trigger automatic suggestions');
+          assert(admin.includes("id=\"categorySuggestBox\"") || admin.includes("id=\"categorySuggestBox\""),'Suggestions box missing');
+          assert(admin.includes("categoryUserEdited||!!editing"),'Never override existing user choices');
+          assert(admin.includes("storeUnfinishedForm();"),'Keep suggested categories as draft');
+          assert(admin.includes('categoryGoogleHoursList'),'Expose Google hours for review');
+          const begin=api.indexOf('const slots='),end=api.indexOf('export async function onRequestPost',begin);
+          assert(begin>=0&&end>begin,'Pure suggestions logic missing');
+          const suggest=vm.runInNewContext(api.slice(begin,end)+'\nsuggestForPlace');
+          const period=(oh,om,ch,cm,day=1)=>({
+            open:{day,hour:oh,minute:om},close:{day:ch<oh?day+1:day,hour:ch,minute:cm}
+          });
+          const results=p=>Array.from(suggest(p).suggestions).map(x=>x.id);
+          const cafe={primaryType:'cafe',regularOpeningHours:{periods:[period(7,0,18,0)],
+            weekdayDescriptions:['Segunda-feira: 07:00–18:00']}};
+          assert.deepEqual(results(cafe),['cafe','cafe_tarde']);
+          const restaurant={primaryType:'restaurant',regularOpeningHours:{periods:[period(10,0,22,0)]}};
+          assert.deepEqual(results(restaurant),['almoco','jantar']);
+          assert.deepEqual(results({...restaurant,regularOpeningHours:{periods:[period(10,0,15,0)]}}),['almoco']);
+          assert.deepEqual(results({...restaurant,regularOpeningHours:{periods:[period(17,0,23,0)]}}),['jantar']);
+          assert.deepEqual(results({primaryType:'observation_deck'}),['turismo','descanso']);
+          assert.deepEqual(results({...restaurant,businessStatus:'CLOSED_PERMANENTLY'}),[]);
+          assert.deepEqual(results({primaryType:'restaurant'}),['almoco']);
+          assert.deepEqual(results({...cafe,primaryType:'cafe',regularOpeningHours:{periods:[period(13,0,18,0)]}}),['cafe_tarde']);
+          const inputHours=suggest(cafe).hours;
+          assert.equal(inputHours[0],'Segunda-feira: 07:00–18:00');
+          assert(suggest(cafe).note.includes('não garante'),'Must warn hours do not confirm meal service');
+          const live=await import('data:text/javascript;base64,'+Buffer.from(api).toString('base64'));
+          const secret='test-admin-token-more-than-20-chars';
+          const placeId='ChIJabc12345678';
+          const env={ADMIN_TOKEN:secret,GOOGLE_PLACES_API_KEY:'test-mock-api-key'};
+          const headers={Origin:'https://asphalt-boys.pages.dev','Content-Type':'application/json'};
+          const request=(bearer,id=placeId)=>new Request('https://asphalt-boys.pages.dev/api/category-suggest',{
+            method:'POST',headers:{...headers,...(bearer?{Authorization:'Bearer '+bearer}:{})},body:JSON.stringify({placeId:id})
+          });
+          globalThis.fetch=async(url,init)=>{
+            assert(String(url).includes('places/'+placeId));
+            assert(init.headers['X-Goog-FieldMask'].includes('regularOpeningHours.periods'));
+            assert(init.headers['X-Goog-FieldMask'].includes('types'));
+            assert.equal(init.headers['X-Goog-Api-Key'],env.GOOGLE_PLACES_API_KEY);
+            return Response.json({...restaurant,primaryType:'restaurant',displayName:{text:'Restaurante Serra'}});
+          };
+          let response=await live.onRequestPost({request:request('wrong'),env});
+          assert.equal(response.status,401);
+          response=await live.onRequestPost({request:request(secret,'not a valid place'),env});
+          assert.equal(response.status,422);
+          response=await live.onRequestPost({request:request(secret),env});
+          assert.equal(response.status,200);
+          const body=await response.json();
+          assert.deepEqual(body.suggestions.map(x=>x.id),['almoco','jantar']);
+          assert(!('apiKey' in body));
+          console.log('PASS: meal suggestions, Google hours, types, auth, no secret leakage, UI review and existing edits preserved');
+          NODE
