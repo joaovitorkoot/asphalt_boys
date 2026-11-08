@@ -104,8 +104,8 @@ function drop(name,label,options,value){return '<label class="lbl" for="f_'+name
 
 // A seleção do card de viagem determina onde cada cadastro será salvo.
 const baseDestinations=[
- {id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',mapa:'Guaramiranga, CE',status:'rascunho'},
- {id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e litoral',mapa:'Canoa Quebrada, Aracati, CE',status:'rascunho'}
+ {id:'guaramiranga',nome:'Guaramiranga',descricao:'Serra, natureza e clima agradável',mapa:'Guaramiranga, CE',status:'publicado'},
+ {id:'canoa-quebrada',nome:'Canoa Quebrada',descricao:'Falésias e litoral',mapa:'Canoa Quebrada, Aracati, CE',status:'publicado'}
 ];
 function destinationsForPicker(){
  const byId=new Map(baseDestinations.map(d=>[d.id,d]));
@@ -120,7 +120,7 @@ function destinationPicker(){
  const cards=destinationsForPicker().map(d=>{
    const active=!creatingNewDestination&&selectedDestId===d.id;
    const cnt=editableStops(d.id).length;
-   const n=data.rotas.filter(r=>r.destinoId===d.id).length;
+   const n=editableRoutes(d.id).length;
    const img=safeUrl(d.foto);
    return '<button type="button" data-select-dest="'+esc(d.id)+'" aria-pressed="'+active+'" class="text-left rounded-xl border p-3 transition '+(active?'border-orange-400 bg-orange-500/15':'border-zinc-600 hover:border-orange-400 bg-[#22262c]')+'">'+
       (img?'<img class="rounded-lg w-full h-24 object-cover mb-2" alt="" src="'+esc(img)+'" loading="lazy">':'<div class="h-16 text-3xl mb-1" aria-hidden="true">'+(d.id==='canoa-quebrada'?'🏖️':'🏍️')+'</div>')+
@@ -418,7 +418,7 @@ function render(resetPicker=true){
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
  $('#sectionTitle').textContent=titles[tab];
  $('#sectionHelp').textContent={destinos:'Importe um destino pelo link do Google Maps ou pesquise pelo nome. Depois você pode editar e publicar.',paradas:'Busque locais no Google Maps, escolha a categoria e publique as paradas para os visitantes.',rotas:'Cole um link de trajeto do Google Maps para identificar paradas cadastradas, organizar e publicar uma rota.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
- if(resetPicker&&tab==='rotas')picked=[...(data.rotas.find(x=>x.id===editing)?.paradas||[])];
+ if(resetPicker&&tab==='rotas')picked=[...(editableRoutes(selectedDestId).find(x=>x.id===editing)?.paradas||[])];
  placeSearchSeq++;placeMatches=[];mapsImportSeq++;importMatches=[];
  $('#editor').innerHTML=form();$('#listing').innerHTML='';
  document.querySelectorAll('[data-select-dest]').forEach(b=>b.onclick=()=>{
