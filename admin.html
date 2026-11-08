@@ -69,7 +69,7 @@ function placeLookupMarkup(){
  '<button id="googlePlaceSearchBtn" class="btn" type="button" '+(enabled?'':'disabled')+'>Pesquisar</button></div>'+
  '<p id="googlePlaceLookupStatus" class="tiny mt-3" role="status">'+(enabled?'Digite um local e toque em Pesquisar. Cada busca consulta a API do Google.':'Conecte ao banco com o token de administrador para pesquisar no Google.')+'</p>'+
  '<div id="googlePlaceResults" class="space-y-2 mt-3"></div>'+
- '<p class="tiny mt-3">Fotos e avaliações serão consultadas pelo Google ao abrir a prévia no site. A pesquisa não publica a parada automaticamente.</p>'+
+ '<p class="tiny mt-3">'+(data.destinos.length?'':'Antes de salvar uma parada, cadastre um destino na aba Destinos. ')+'Fotos e avaliações serão consultadas pelo Google ao abrir a prévia no site. A pesquisa não publica a parada automaticamente.</p>'+
  '</section>';
 }
 function form(){
