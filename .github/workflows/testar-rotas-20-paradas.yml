@@ -1,0 +1,98 @@
+name: Testar rotas de ate 20 paradas e Maps por trechos
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'planejador.js'
+      - 'index.html'
+      - '.github/workflows/testar-rotas-20-paradas.yml'
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar 3, 4, 8 e 20 paradas, mistura de GPS e Place IDs e URLs moveis
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const js=fs.readFileSync('planejador.js','utf8');
+          const html=fs.readFileSync('index.html','utf8');
+          new vm.Script(js);
+          assert(html.includes('id="tripRouteSegments"'),'Missing route-leg links container');
+          assert(html.includes('Escolha até 20 paradas'),'Long route help missing');
+          assert(!js.includes('selected.length>=3'),'Unexpected old three-stop cap');
+          assert(!js.includes('selected.length>3||'),'Unexpected old three-stop navigation lock');
+          assert(!js.includes('.slice(0,3)'),'Shared or ready routes must not be truncated');
+          const start=js.indexOf(' function routePoint(stop){'),end=js.indexOf(' function share(){',start);
+          assert(start>0&&end>start);
+          const pieces=js.slice(start,end);
+          const validCoords=s=>{
+            const m=String(s||'').match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
+            return m&&Math.abs(Number(m[1]))<=90&&Math.abs(Number(m[2]))<=180?m[1]+','+m[2]:'';
+          };
+          const validPlaceId=s=>/^[a-zA-Z0-9_-]{5,250}$/.test(String(s||''))?String(s):'';
+          const city='Guaramiranga, CE';
+          const context={MAX_ROUTE_STOPS:20,MOBILE_WAYPOINTS:3,validCoords,validPlaceId,
+            destination:{dest:city,nome:'Guaramiranga'},URL,document:{createElement:()=>{}},
+            q:()=>{},safeStore:()=>{},mapLink:()=>'',location:{}};
+          const funcs=vm.runInNewContext(
+            'const MAX_ROUTE_STOPS=20,MOBILE_WAYPOINTS=3;\n'+
+            'const validCoords='+validCoords.toString()+';\n'+
+            'const validPlaceId='+validPlaceId.toString()+';\n'+
+            'const destination={dest:"Guaramiranga, CE",nome:"Guaramiranga"};\n'+
+            pieces+'\n({routePoint,oneGoogleSegment,routeSegmentsFor})',{URL});
+          const gps=i=>({id:'g'+i,nome:'Parada '+i,endereco:'Parada em Guaramiranga',
+            mapCoordinates:(-4.1-i/1000)+','+(-38.9-i/1000),maps:'https://maps.app.goo.gl/original'+i});
+          const place=i=>({id:'p'+i,nome:'Restaurante '+i,endereco:'Rua principal '+i+', Guaramiranga',
+            googlePlaceId:'ChIJvalidPlaceId'+i,maps:'https://maps.app.goo.gl/point'+i});
+          function plan(stops){
+            const result=funcs.routeSegmentsFor(stops,'Horizonte, CE');
+            assert.equal(result.error,undefined,'Should not reject stop count '+stops.length);
+            assert.equal(result.unresolved.length,0);
+            assert(result.segments.length>=1);
+            let last='Horizonte, CE';
+            for(const segment of result.segments){
+              const url=new URL(segment.url);
+              assert.equal(url.origin,'https://www.google.com');
+              assert.equal(url.pathname,'/maps/dir/');
+              assert.equal(url.searchParams.get('api'),'1');
+              assert.equal(url.searchParams.get('origin'),last,'Adjacent route legs must connect');
+              const waypoints=url.searchParams.get('waypoints')?.split('|')||[];
+              assert(waypoints.length<=3,'Never exceed mobile waypoint limit');
+              const ids=url.searchParams.get('waypoint_place_ids')?.split('|')||[];
+              assert(ids.length===0||ids.length===waypoints.length,
+                'Cannot mix partial waypoint_place_ids with GPS');
+              assert(segment.url.length<2048);
+              last=url.searchParams.get('destination');
+            }
+            assert.equal(last,city,'All routes should finish in Guaramiranga');
+            return result;
+          }
+          const three=plan([gps(1),gps(2),gps(3)]);
+          assert.equal(three.segments.length,1);
+          assert.equal(new URL(three.segments[0].url).searchParams.get('waypoints').split('|').length,3);
+          const four=plan([gps(1),gps(2),gps(3),gps(4)]);
+          assert.equal(four.segments.length,2);
+          const eight=plan(Array.from({length:8},(_,i)=>gps(i+1)));
+          assert.equal(eight.segments.length,3);
+          const twenty=plan(Array.from({length:20},(_,i)=>gps(i+1)));
+          assert.equal(twenty.segments.length,6,'20 stops plus destination should form 6 legs');
+          const allIds=plan([place(1),place(2),place(3)]);
+          assert(new URL(allIds.segments[0].url).searchParams.get('waypoint_place_ids').includes('ChIJvalidPlaceId1'));
+          const mixed=plan([gps(1),place(2),gps(3),place(4),gps(5),place(6)]);
+          assert(mixed.segments.length>1);
+          assert(mixed.segments.some(s=>new URL(s.url).searchParams.get('destination_place_id')),'Place ID remains precise');
+          assert(mixed.segments.some(s=>new URL(s.url).searchParams.get('origin_place_id')),'Place ID connects route legs');
+          const noLocation={id:'bad',nome:'Parada não identificada',endereco:'Centro',maps:'https://maps.app.goo.gl/example'};
+          const unresolved=funcs.routeSegmentsFor([gps(1),noLocation],'Horizonte, CE');
+          assert.equal(unresolved.unresolved[0],noLocation);
+          assert.equal(unresolved.segments.length,0,'Never invent GPS or substitute a name');
+          const tooMany=funcs.routeSegmentsFor(Array.from({length:21},(_,i)=>gps(i)),'Horizonte, CE');
+          assert(tooMany.error.includes('20'));
+          console.log('PASS: 3, 4, 8, 20 stops; mixed GPS/Place ID; mobile route legs; share limit; no substituted points');
+          NODE
