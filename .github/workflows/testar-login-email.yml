@@ -23,7 +23,7 @@ jobs:
           import fs from 'node:fs';
           import vm from 'node:vm';
           import cryptoModule from 'node:crypto';
-          globalThis.crypto=cryptoModule.webcrypto;
+          assert(globalThis.crypto?.subtle,'WebCrypto unavailable');
           const html=fs.readFileSync('admin.html','utf8');
           new vm.Script(html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>')));
           for(const marker of ['id="adminAuthGate"','id="adminLoginForm"','id="adminSetupForm"',
