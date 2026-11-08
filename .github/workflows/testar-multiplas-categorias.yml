@@ -1,0 +1,75 @@
+name: Validar multiplas categorias por parada
+on:
+  push:
+    branches: [main]
+    paths:
+      - admin.html
+      - planejador.js
+      - functions/api/content.js
+      - '.github/workflows/testar-multiplas-categorias.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir cadastro unico, API, filtros e login do painel
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const admin=fs.readFileSync('admin.html','utf8');
+          const planner=fs.readFileSync('planejador.js','utf8');
+          const api=fs.readFileSync('functions/api/content.js','utf8');
+          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          new vm.Script(planner);
+          assert(admin.includes('name="categorias" value="') || admin.includes('name="categorias" value="'+ "'+id+'" ));
+          assert(admin.includes("formData.getAll('categorias')"),'All selected checkboxes must reach server');
+          assert(admin.includes('photoSourceKey=unfinishedFormKey()'),'Unsaved uploaded photo preserved');
+          assert(admin.includes("const editorForm=$('#recordForm')"),'Render function must not shadow form()');
+          const cs=api.indexOf('function cleanRecord(kind,r){'),ce=api.indexOf('async function readData(',cs);
+          assert(cs>=0&&ce>cs,'API normalization missing');
+          const clean=vm.runInNewContext(api.slice(cs,ce)+'\ncleanRecord',{URL});
+          const fields={id:'canaa-paes',nome:'Canaã Pães e Lanches',destinoId:'guaramiranga',
+            categoria:'cafe',categorias:['cafe','almoco'],foto:'https://asphalt-boys.pages.dev/api/image?id=123',
+            maps:'https://maps.app.goo.gl/CCQuEH8HfXjQT5gG8',status:'publicado'};
+          const saved=clean('paradas',fields);
+          assert.deepEqual(Array.from(saved.categorias),['cafe','almoco']);
+          assert.equal(saved.categoria,'cafe');
+          assert.equal(saved.foto,fields.foto);
+          assert.equal(saved.maps,fields.maps);
+          assert.equal(saved.id,fields.id);
+          const legacy=clean('paradas',{...fields,categoria:'almoco',categorias:undefined});
+          assert.deepEqual(Array.from(legacy.categorias),['almoco']);
+          assert.equal(legacy.categoria,'almoco');
+          const dup=clean('paradas',{...fields,categorias:['cafe','cafe','almoco']});
+          assert.deepEqual(Array.from(dup.categorias),['cafe','almoco']);
+          assert.throws(()=>clean('paradas',{...fields,categorias:[]}),/categoria/);
+          assert.throws(()=>clean('paradas',{...fields,categorias:['cafe','invalida']}),/Categoria|categoria/);
+          const as=admin.indexOf('function categoryLabel(c){'),ae=admin.indexOf('function storedStops(destId){',as);
+          const adminHelpers=vm.runInNewContext(
+            "const stopCategories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Turismo'],['descanso','🏍️ Descanso']];\n"+
+            admin.slice(as,ae)+'\n({hasStopCategory,categoriesForStop,stopCategoriesMarkup})',
+            {normalize:x=>x,selectedStopCategory:'cafe',esc:x=>String(x)});
+          assert(adminHelpers.hasStopCategory(saved,'cafe'));
+          assert(adminHelpers.hasStopCategory(saved,'almoco'));
+          assert(!adminHelpers.hasStopCategory(saved,'turismo'));
+          const chooser=adminHelpers.stopCategoriesMarkup(saved);
+          assert(chooser.includes('value="cafe" checked'));
+          assert(chooser.includes('value="almoco" checked'));
+          assert.equal(adminHelpers.categoriesForStop(legacy)[0],'almoco');
+          const ps=planner.indexOf(' const categories=['),pe=planner.indexOf(' // O D1 é a fonte de verdade',ps);
+          const pub=vm.runInNewContext(planner.slice(ps,pe)+'\n({stopCategories,categoryLabels})');
+          assert.deepEqual(Array.from(pub.stopCategories(saved)),['cafe','almoco']);
+          assert.deepEqual(Array.from(pub.stopCategories(legacy)),['almoco']);
+          assert(pub.categoryLabels(saved).includes('Almoço'));
+          assert(planner.includes('stopCategories(p).includes(category)'),'Public planner must use multi category filter');
+          const listed=[saved].filter(p=>pub.stopCategories(p).includes('cafe'));
+          const listed2=[saved].filter(p=>pub.stopCategories(p).includes('almoco'));
+          assert.equal(listed.length,1);assert.equal(listed2.length,1);
+          assert.strictEqual(listed[0],listed2[0],'Both tabs must reuse the same stop');
+          console.log('PASS: one D1 record, one photo and link, breakfast + lunch visible, legacy saved, invalid rejected');
+          NODE
