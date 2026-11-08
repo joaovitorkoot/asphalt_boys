@@ -38,7 +38,7 @@ jobs:
           assert.equal(mapping({maps:original,googlePlaceId:'ChIJwrong'}),original,'Must open original shared Google Maps URL');
           const routeCode=planner.slice(planner.indexOf(' function routePoint(stop){'),planner.indexOf(' function share(){'));
           const funcs=vm.runInNewContext(helpers+'\n'+routeCode+'\n({routePoint,routeSegmentsFor})',{
-            URL,destination:{dest:'Guaramiranga, Ceará',nome:'Guaramiranga'}
+            URL,destination:{dest:'Guaramiranga, Ceará',nome:'Guaramiranga'},destinationUrl:()=> 'Guaramiranga, Ceará'
           });
           const gps={id:'p',nome:'Pico Alto',mapCoordinates:'-4.2080812,-38.9747743',
             googlePlaceId:'ChIJwrong',endereco:'Pico Alto'};
