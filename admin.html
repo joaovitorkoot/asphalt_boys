@@ -147,14 +147,14 @@ function photoPickerMarkup(){
  const enabled=remote&&!!token,tabName=tab==='destinos'?'destino':'parada';
  return '<div class="rounded-lg border border-zinc-600 p-3 mt-3">'+
   '<p class="font-bold text-sm">📸 Foto do '+tabName+'</p>'+
-  '<p class="tiny mt-1">Você também pode selecionar uma foto da galeria do celular ou computador, sem precisar de URL. A imagem será reduzida automaticamente.</p>'+
+  '<p class="tiny mt-1">Selecione uma foto do celular ou computador. Ela será adaptada automaticamente para '+(tab==='destinos'?'16:9 (card de viagem)':'1:1 (card de parada)')+', mantendo a foto inteira e preenchendo as bordas sem cortes.</p>'+
   '<label class="subbtn inline-flex items-center cursor-pointer mt-3" for="photoFile">📷 Adicionar foto</label>'+
   '<input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp,image/avif" class="sr-only" aria-label="Adicionar foto do dispositivo">'+
   (tab==='paradas'?'<div class="mt-3 border-t border-zinc-600 pt-3"><button type="button" id="browseGooglePhotos" class="subbtn text-sm" '+(enabled?'':'disabled')+'>🌄 Escolher foto do Google Maps</button>'+
     '<p class="tiny mt-2">Busca exata pelo nome do local e destino. Sem foto própria, a primeira foto disponível do Google aparece automaticamente no card. Caso a API não entregue fotos, use Adicionar foto com autorização.</p>'+
     '<div id="googlePhotoGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3" aria-label="Fotos do Google Maps"></div><p id="googlePhotoGalleryStatus" class="tiny mt-2" role="status"></p></div>':'')+
   '<p id="photoUploadStatus" role="status" class="tiny mt-2">'+(enabled?'Escolha sua foto. Depois confira e salve o cadastro.':'Conecte ao banco antes de enviar uma imagem.')+'</p>'+
-  '<img id="photoPreview" alt="Prévia da foto selecionada" hidden class="rounded-lg w-full max-w-xs h-36 mt-3 object-cover">'+
+  '<img id="photoPreview" alt="Prévia da foto selecionada" hidden class="rounded-lg w-full max-w-sm mt-3 object-contain bg-zinc-800 '+(tab==='destinos'?'aspect-video':'aspect-square')+'">'+
  '</div>';
 }
 function googlePhotoAttribution(place,photo){
@@ -211,7 +211,7 @@ function loadAutoGoogleCardPhotos(){
     if(!url)return;
     const frame=node.querySelector('[data-google-photo-frame]'),credit=node.querySelector('[data-google-photo-credit]');
     if(frame){frame.textContent='';const img=document.createElement('img');img.src=url;
-     img.className='w-20 h-16 object-cover rounded-md';img.alt='Foto do Google Maps: '+(result.placeName||record.nome);
+     img.className='w-20 h-16 object-contain bg-zinc-800 rounded-md';img.alt='Foto do Google Maps: '+(result.placeName||record.nome);
      img.loading='lazy';frame.appendChild(img)}
     showGooglePhotoCredit(credit,result,photo,true);
    }).catch(()=>{}).finally(()=>{active--;pump()});
@@ -253,7 +253,7 @@ async function browseGooglePhotos(){
   for(const p of result.photos){
    const url=safeUrl(p.url);if(!url)continue;
    const tile=document.createElement('button');tile.type='button';tile.className='text-left border border-zinc-600 rounded-lg p-2 hover:border-orange-400';
-   const img=document.createElement('img');img.src=url;img.alt='Selecionar foto '+(p.index+1)+' do Google Maps';img.loading='lazy';img.className='w-full h-28 object-cover rounded-md';
+   const img=document.createElement('img');img.src=url;img.alt='Selecionar foto '+(p.index+1)+' do Google Maps';img.loading='lazy';img.className='w-full h-28 object-contain bg-zinc-800 rounded-md';
    tile.appendChild(img);
    const credit=document.createElement('span');credit.className='tiny block mt-1';showGooglePhotoCredit(credit,result,p,true);tile.appendChild(credit);
    tile.addEventListener('click',()=>{
@@ -272,30 +272,42 @@ async function browseGooglePhotos(){
  }catch(err){if(button.isConnected)note.textContent='Não consegui consultar as fotos: '+String(err.message||err)}
  finally{if(button.isConnected)button.disabled=false}
 }
-async function preparePhoto(file){
+// Monta imagem com a proporção do card, mantendo toda a foto visível.
+// 16:9 para destino; 1:1 para paradas, com fundo suave nas sobras.
+async function preparePhoto(file,kind=tab){
  if(!file||!file.type.startsWith('image/'))throw Error('Selecione uma imagem da galeria.');
  if(file.size>20000000)throw Error('Escolha uma imagem menor que 20 MB.');
- const src=URL.createObjectURL(file);
+ const source=URL.createObjectURL(file);
  try{
-  const img=new Image();
-  img.decoding='async';
-  await new Promise((ok,fail)=>{img.onload=ok;img.onerror=()=>fail(Error('Não foi possível abrir a imagem.'));img.src=src});
-  let canvas=document.createElement('canvas');
-  for(const width of [1200,1000,800,640,520]){
-    const scale=Math.min(1,width/Math.max(img.naturalWidth,img.naturalHeight));
-    canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));
-    canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
-    const ctx=canvas.getContext('2d');
-    if(!ctx)throw Error('Seu navegador não conseguiu preparar a imagem.');
-    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(img,0,0,canvas.width,canvas.height);
-    for(const quality of [0.8,0.67,0.5]){
-      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
-      if(blob&&blob.type==='image/webp'&&blob.size>=100&&blob.size<=200000)return blob;
-    }
+  const img=new Image();img.decoding='async';
+  await new Promise((ok,fail)=>{img.onload=ok;img.onerror=()=>fail(Error('Não foi possível abrir a imagem.'));img.src=source});
+  if(!img.naturalWidth||!img.naturalHeight)throw Error('A foto não tem dimensões válidas.');
+  const ratio=kind==='destinos'?16/9:1;
+  for(const longSide of [1100,960,800,640,520]){
+   const cw=kind==='destinos'?longSide:Math.min(900,longSide);
+   const ch=Math.round(cw/ratio);
+   const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;
+   const ctx=canvas.getContext('2d',{alpha:false});
+   if(!ctx)throw Error('O navegador não conseguiu preparar a imagem.');
+   ctx.fillStyle='#222833';ctx.fillRect(0,0,cw,ch);
+   // Fundo desfocado ajustado ao quadro sem criar barras brancas.
+   const cover=Math.max(cw/img.naturalWidth,ch/img.naturalHeight);
+   const bw=img.naturalWidth*cover,bh=img.naturalHeight*cover;
+   ctx.save();ctx.filter='blur('+Math.max(12,Math.round(cw/32))+'px) brightness(0.6)';
+   ctx.drawImage(img,(cw-bw)/2,(ch-bh)/2,bw,bh);
+   ctx.restore();
+   // Imagem original integral, centralizada sem cortes.
+   const padding=Math.max(5,Math.round(cw*0.018));
+   const scale=Math.min((cw-padding*2)/img.naturalWidth,(ch-padding*2)/img.naturalHeight);
+   const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
+   ctx.drawImage(img,(cw-w)/2,(ch-h)/2,w,h);
+   for(const quality of [0.85,0.72,0.58,0.43]){
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
+    if(blob&&blob.type==='image/webp'&&blob.size>=100&&blob.size<=200000)return blob;
+   }
   }
-  throw Error('Não consegui reduzir essa imagem. Tente uma foto menos pesada.');
- }finally{URL.revokeObjectURL(src)}
+  throw Error('A foto ficou muito grande após o ajuste. Tente uma imagem menor.');
+ }finally{URL.revokeObjectURL(source)}
 }
 async function onPhotoChosen(event){
  const file=event.target.files?.[0];if(!file)return;
@@ -305,14 +317,22 @@ async function onPhotoChosen(event){
  note.textContent='Preparando e enviando sua foto...';
  photoUploading=true;
  try{
-  const blob=await preparePhoto(file);
+  const blob=await preparePhoto(file,tab);
   const response=await fetch('./api/image-upload',{method:'POST',
     headers:{'Authorization':'Bearer '+token,'Content-Type':blob.type},body:blob,cache:'no-store'});
   const result=await response.json();
   if(!response.ok)throw Error(result.error||'Não foi possível enviar a imagem.');
-  field.value=new URL(result.url,location.origin).href;
-  if(preview){preview.src=field.value;preview.hidden=false}
-  note.textContent='✓ Foto enviada! Clique em Salvar no banco para usar no card selecionado.';
+  // Só considera a foto salva depois de confirmar que a URL pública realmente abre.
+  const uploadedUrl=new URL(result.url,location.origin).href;
+  await new Promise((resolve,reject)=>{
+   const verification=new Image();
+   verification.onload=()=>resolve();
+   verification.onerror=()=>reject(Error('A foto foi enviada, mas não abriu no site público. Tente novamente.'));
+   verification.src=uploadedUrl;
+  });
+  field.value=uploadedUrl;
+  if(preview){preview.src=uploadedUrl;preview.hidden=false}
+  note.textContent='✓ Foto adaptada, enviada e confirmada no site! Clique em Salvar no banco para usá-la no card.';
  }catch(err){note.textContent='Não foi possível enviar: '+String(err.message||err)}
  finally{photoUploading=false}
 }
