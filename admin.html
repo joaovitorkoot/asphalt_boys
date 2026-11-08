@@ -21,6 +21,7 @@ body{background:#0b0d10;color:#f5f5f4;font:15px/1.5 system-ui,-apple-system,Sego
 .pick{display:flex;gap:9px;align-items:center;padding:10px;border:1px solid #454b56;border-radius:9px}
 .pick input{width:18px;height:18px;accent-color:#fb923c}.tiny{font-size:12px;color:#aaafb9}
 button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
+[hidden]{display:none!important}
 </style>
 </head><body>
 <header class="border-b border-zinc-800"><div class="max-w-6xl mx-auto px-5 py-5 flex flex-wrap items-center justify-between gap-4"><a href="./" class="text-xl font-black italic">ASPHALT <span class="text-orange-400">BOYS</span></a><a href="./" class="text-sm text-zinc-300 underline">← Voltar ao site</a></div></header>
@@ -68,10 +69,19 @@ function editableStops(destId){
   // Banco online tem prioridade. A parada padrão é exibida mesmo antes do primeiro cadastro no D1.
   const map=new Map(publicSeedStops.filter(p=>p.destinoId===destId).map(p=>[p.id,{...p,_origin:'default'}]));
   if(remote)for(const p of draft.paradas.filter(x=>x.destinoId===destId)){
-    if(!map.has(p.id))map.set(p.id,{...p,_origin:'local'});
+    const base=map.get(p.id);
+    const props=['nome','categoria','descricao','endereco','foto','horario','maps','googlePlaceId'];
+    const unchanged=base&&props.every(k=>String(base[k]||'')===String(p[k]||''));
+    if(!unchanged)map.set(p.id,{...p,_origin:'local'});
   }
-  for(const p of storedStops(destId))map.set(p.id,{...p,_origin:'database'});
+  for(const p of storedStops(destId))map.set(p.id,{...p,_origin:remote?'database':'local'});
   return [...map.values()];
+}
+function editableRoutes(destId){
+ const map=new Map();
+ if(remote)for(const r of draft.rotas.filter(x=>x.destinoId===destId))map.set(r.id,{...r,_origin:'local'});
+ for(const r of data.rotas.filter(x=>x.destinoId===destId))map.set(r.id,{...r,_origin:remote?'database':'local'});
+ return [...map.values()];
 }
 function routeStops(destId){
   const map=new Map(publicSeedStops.filter(p=>p.destinoId===destId).map(p=>[p.id,p]));
@@ -99,7 +109,8 @@ const baseDestinations=[
 ];
 function destinationsForPicker(){
  const byId=new Map(baseDestinations.map(d=>[d.id,d]));
- for(const d of data.destinos)byId.set(d.id,{...byId.get(d.id),...d});
+ if(remote)for(const d of draft.destinos)if(!byId.has(d.id)&&!data.destinos.some(x=>x.id===d.id))byId.set(d.id,{...d,_origin:'local'});
+ for(const d of data.destinos)byId.set(d.id,{...byId.get(d.id),...d,_origin:remote?'database':'local'});
  return [...byId.values()];
 }
 function currentDestination(){
@@ -211,7 +222,7 @@ function placeLookupMarkup(){
 function form(){
  if(tab==='backup')return '<p class="muted mb-4">Guarde uma cópia dos seus cadastros. A importação substitui somente os rascunhos locais, nunca altera o banco público.</p><div class="flex flex-wrap gap-2"><button type="button" class="btn" id="export">Exportar JSON</button><label class="subbtn cursor-pointer">Importar JSON<input id="import" type="file" accept=".json,application/json" class="hidden"></label></div>';
  if(!selectedDestId&&!creatingNewDestination)return destinationPicker();
- const d=tab==='destinos'?(creatingNewDestination?{}:(data.destinos.find(x=>x.id===selectedDestId)||currentDestination()||{})):(tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===editing):data[tab].find(x=>x.id===editing&&x.destinoId===selectedDestId))||{};
+ const d=tab==='destinos'?(creatingNewDestination?{}:(data.destinos.find(x=>x.id===selectedDestId)||currentDestination()||{})):(tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===editing):editableRoutes(selectedDestId).find(x=>x.id===editing))||{};
  const f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
  let fields='';
  if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoPickerMarkup();
@@ -230,7 +241,7 @@ function listHtml(){
  let items;
  if(tab==='destinos')items=data.destinos.filter(x=>x.id===selectedDestId);
  else if(tab==='paradas')items=editableStops(selectedDestId).filter(x=>normalize(x.categoria)===selectedStopCategory);
- else items=data.rotas.filter(x=>x.destinoId===selectedDestId);
+ else items=editableRoutes(selectedDestId);
  const category=tab==='paradas'?categoryLabel(selectedStopCategory):'';
  const heading=tab==='paradas'?category+' · '+items.length+' local(is)':tab==='rotas'?'Rotas cadastradas · '+items.length:'Dados do card · '+items.length;
  return '<section class="mb-5 rounded-xl border border-zinc-700 p-4 bg-[#14171c]" id="existingRecords">'+
@@ -240,7 +251,7 @@ function listHtml(){
    '</div>'+
    (items.length?items.map(x=>{
      const system=tab==='paradas'&&Boolean(builtInStop(x.id));
-     const origin=tab==='paradas'?x._origin:'database';
+     const origin=tab==='destinos'?'database':x._origin;
      const photo=safeUrl(x.foto);
      const badge=origin==='default'?'Padrão do site':origin==='local'?'Rascunho local':x.status==='publicado'?'Publicado':'Rascunho';
      const icon=photo?'<img src="'+esc(photo)+'" class="w-20 h-16 object-cover rounded-md flex-none" alt="" loading="lazy">':'<div class="w-14 h-14 rounded-md bg-zinc-800 flex items-center justify-center flex-none text-2xl">'+(tab==='paradas'?'📍':'🏍️')+'</div>';
@@ -255,7 +266,7 @@ function listHtml(){
        '</div></div><div class="flex flex-wrap gap-2 mt-3">'+
        '<button type="button" class="subbtn text-sm" data-edit="'+esc(x.id)+'">✏️ Editar</button>'+
        (system?'':'<button type="button" class="subbtn text-sm text-red-300" data-delete="'+esc(x.id)+'">Excluir</button>')+
-       (tab==='rotas'?'<a class="subbtn text-sm" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote?'':'&preview=local')+'">Ver rota</a>':'')+
+       (tab==='rotas'?'<a class="subbtn text-sm" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote&&origin!=='local'?'':'&preview=local')+'">Ver rota</a>':'')+
        '</div></article>';
    }).join(''):'<p class="muted text-sm">'+(tab==='paradas'?'Nenhum local nesta categoria para '+esc(currentDestination()?.nome||selectedDestId)+'. Toque em + Nova parada.':tab==='destinos'?'Este card já existe no site; edite as informações no formulário abaixo.':'Nenhuma rota cadastrada neste destino.')+'</p>')+
    '</section>';
@@ -475,10 +486,13 @@ async function saveRecord(e){
  editing=null;render();
 }
 async function removeRecord(id){
- const entry=data[tab].find(x=>x.id===id);if(!entry||!confirm('Excluir '+entry.nome+'?'))return;
- if(remote)try{await call('DELETE',{kind:tab,id})}catch(e){alert('Não foi excluído: '+e.message);return}
+ if(tab==='paradas'&&builtInStop(id)){alert('Este local é padrão do site. Você pode editá-lo, mas não excluí-lo pelo painel.');return}
+ const entry=tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===id):tab==='rotas'?editableRoutes(selectedDestId).find(x=>x.id===id):data[tab].find(x=>x.id===id);
+ if(!entry||!confirm('Excluir '+entry.nome+'?'))return;
+ if(remote&&entry._origin!=='local')try{await call('DELETE',{kind:tab,id})}catch(e){alert('Não foi excluído: '+e.message);return}
  data[tab]=data[tab].filter(x=>x.id!==id);
- if(!remote){draft=copy(data);saveLocal()}
+ if(remote){draft[tab]=draft[tab].filter(x=>x.id!==id);saveLocal()}
+ else{draft=copy(data);saveLocal()}
  editing=null;render();
 }
 function backupListeners(){
