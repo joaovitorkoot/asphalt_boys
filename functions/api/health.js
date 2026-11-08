@@ -1,5 +1,6 @@
 // Diagnóstico mínimo da configuração do projeto (sem mostrar credenciais).
 // Não valida senhas e não executa nenhuma operação administrativa.
+// Após trocar segredos, uma nova implantação do Pages aplica os valores de produção.
 export function onRequestGet({env}){
   return new Response(JSON.stringify({
     databaseReady:Boolean(env.DB),
