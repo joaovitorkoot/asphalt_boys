@@ -1,0 +1,88 @@
+name: Testar exclusao de parada padrao
+on:
+  push:
+    branches: [fix/delete-default-stops]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar exclusao no D1 e ausencia de reaparicao no publico
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const admin=fs.readFileSync('admin.html','utf8');
+          const planner=fs.readFileSync('planejador.js','utf8');
+          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          new vm.Script(planner);
+          assert(admin.includes('const publicSeedStops=[]'));
+          assert(admin.includes("paradas:[],rotas:[]"));
+          assert(!planner.includes("const initial={guaramiranga:"));
+          assert(!planner.includes('seeds.filter('));
+          assert(planner.includes('return data.paradas.filter(p=>p.destinoId===destId)'));
+          assert(admin.includes("data-delete"));
+          assert(admin.includes("await call('DELETE',{kind:tab,id})"));
+          assert(admin.includes("await call('GET',undefined,false)"));
+          const api=(await import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync('functions/api/content.js','utf8')).toString('base64')));
+          const secret='mock-admin-token-at-least-20-chars';
+          const rows=new Map();
+          const db={prepare(sql){
+            return {args:[],bind(...args){this.args=args;return this},
+             async run(){
+               if(sql.startsWith('INSERT INTO site_content')){
+                const [id,kind,destino_id,status,payload]=this.args;
+                rows.set(id,{id,kind,destino_id,status,payload});
+               }
+               if(sql.startsWith('DELETE FROM site_content')){
+                const [id,kind]=this.args;
+                if(rows.get(id)?.kind===kind)rows.delete(id);
+               }
+               return {success:true};
+             },async all(){
+               const output=[...rows.values()].filter(r=>{
+                 if(sql.includes("kind = 'rotas'"))return r.kind==='rotas';
+                 if(sql.includes('WHERE status = ?'))return r.status===this.args[0];
+                 return true;
+               });
+               return {results:output};
+             }
+            };
+          }};
+          const env={DB:db,ADMIN_TOKEN:secret};
+          const origin='https://asphalt-boys.pages.dev';
+          const makeRequest=(method,body,authorized=true)=>new Request(origin+'/api/content',{
+            method,headers:{'Content-Type':'application/json',...(authorized?{Authorization:'Bearer '+secret}:{})},
+            body:JSON.stringify(body)
+          });
+          const stop={id:'pico-alto-parada',nome:'Pico Alto',destinoId:'guaramiranga',
+           categoria:'turismo',endereco:'Pico Alto, Guaramiranga, CE',status:'publicado'};
+          let result=await api.onRequestPost({request:makeRequest('POST',{kind:'paradas',record:stop}),env});
+          assert.equal(result.status,200);
+          const publicGet=()=>api.onRequestGet({request:new Request(origin+'/api/content'),env});
+          assert.equal((await (await publicGet()).json()).paradas.length,1);
+          // Cannot delete if a ready route depends on it.
+          const route={id:'rota-a',nome:'Rota A',destinoId:'guaramiranga',
+           paradas:['pico-alto-parada'],status:'publicado'};
+          result=await api.onRequestPost({request:makeRequest('POST',{kind:'rotas',record:route}),env});
+          assert.equal(result.status,200);
+          result=await api.onRequestDelete({request:makeRequest('DELETE',{kind:'paradas',id:stop.id}),env});
+          assert.equal(result.status,409);
+          assert.equal((await (await publicGet()).json()).paradas.length,1);
+          result=await api.onRequestDelete({request:makeRequest('DELETE',{kind:'rotas',id:route.id}),env});
+          assert.equal(result.status,200);
+          // Authentication remains mandatory.
+          result=await api.onRequestDelete({request:makeRequest('DELETE',{kind:'paradas',id:stop.id},false),env});
+          assert.equal(result.status,401);
+          assert.equal(rows.has(stop.id),true);
+          result=await api.onRequestDelete({request:makeRequest('DELETE',{kind:'paradas',id:stop.id}),env});
+          assert.equal(result.status,200);
+          assert.equal(rows.has(stop.id),false);
+          assert.equal((await (await publicGet()).json()).paradas.length,0);
+          console.log('PASS: delete authenticated, no orphaned routes, public API empty after removal, no hardcoded Pico Alto.');
+          NODE
