@@ -243,7 +243,13 @@
     q('tripNote').textContent='A parada "'+unresolved[0].nome+'" ainda não tem coordenadas ou identificação precisa. Abra o link original na prévia ou atualize o link no painel antes de montar a rota.';
     return null;
   }
-  const points=stops.map(p=>validCoords(p.mapCoordinates)||p.endereco||p.nome);
+  const byGps=stops.every(p=>!!validCoords(p.mapCoordinates));
+  const byPlaceId=stops.every(p=>!!validPlaceId(p.googlePlaceId));
+  if(stops.length&&!byGps&&!byPlaceId){
+    q('tripNote').textContent='Para não mudar o ponto compartilhado, esta rota precisa de coordenadas exatas para todas as paradas (ou Place IDs de todas elas). Abra o link da parada diretamente ou atualize os pontos no painel.';
+    return null;
+  }
+  const points=stops.map(p=>byGps?validCoords(p.mapCoordinates):(p.endereco||p.nome));
   const ids=stops.map(p=>validPlaceId(p.googlePlaceId));
   const url=new URL('https://www.google.com/maps/dir/?api=1');
   url.searchParams.set('origin',origin);
@@ -252,7 +258,7 @@
   if(points.length)url.searchParams.set('waypoints',points.join('|'));
   // O Google exige uma identificação para cada waypoint quando esta opção
   // é usada; coordenadas continuam sendo preferidas a IDs de local.
-  if(points.length&&ids.every(Boolean)&&stops.every(p=>!validCoords(p.mapCoordinates)))
+  if(points.length&&!byGps&&byPlaceId)
     url.searchParams.set('waypoint_place_ids',ids.join('|'));
   safeStore('asphalt-boys-ultima-origem',origin);
   return url.href;
