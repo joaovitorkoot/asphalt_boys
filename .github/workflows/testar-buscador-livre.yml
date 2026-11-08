@@ -62,6 +62,7 @@ jobs:
               thumbnail:'https://api.openverse.org/v1/images/08921d6e-d44d-415e-97b9-a559d564d34c/thumb/',
               license:'by',license_version:'4.0',creator:'Open photographer',foreign_landing_url:'https://www.flickr.com/photos/example'}
            ]});
+           if(u.includes('/thumb/'))return new Response(img,{status:200,headers:{'Content-Type':'image/jpeg'}});
            if(u.includes('api.openverse.org/v1/images/08921d6e-')&&u.endsWith('/'))return Response.json({
              id:'08921d6e-d44d-415e-97b9-a559d564d34c',license:'by',
              thumbnail:'https://api.openverse.org/v1/images/08921d6e-d44d-415e-97b9-a559d564d34c/thumb/'});
