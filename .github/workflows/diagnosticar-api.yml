@@ -19,7 +19,8 @@ jobs:
           urls = {
             'google_places_producao': 'https://asphalt-boys.pages.dev/api/place?stop=pico-alto-parada',
             'google_places_preview': 'https://515fba76.asphalt-boys.pages.dev/api/place?stop=pico-alto-parada',
-            'cloudflare_d1': 'https://asphalt-boys.pages.dev/api/content'
+            'cloudflare_d1': 'https://asphalt-boys.pages.dev/api/content',
+            'admin_status': 'https://asphalt-boys.pages.dev/api/health'
           }
           for name,url in urls.items():
             try:
@@ -36,6 +37,8 @@ jobs:
               payload=json.loads(raw)
               # Never print returned secret or raw HTTP body.
               print(name,'HTTP',status,'available:',payload.get('available','n/a'),'code:',payload.get('code','n/a'),'message:',str(payload.get('message',payload.get('error','ok')))[:260])
+              if name=='admin_status' and status==200:
+                print('admin_status readiness:', {k:bool(payload.get(k)) for k in ('databaseReady','adminReady','googleReady')})
               if name=='cloudflare_d1' and status==200:
                 print(name,'counts',{k:len(payload.get(k,[])) for k in ('destinos','paradas','rotas')})
             except Exception:
