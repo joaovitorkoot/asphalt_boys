@@ -384,7 +384,7 @@ function listHtml(){
  const heading=tab==='paradas'?category+' · '+items.length+' local(is)':tab==='rotas'?'Rotas cadastradas · '+items.length:'Dados do card · '+items.length;
  return '<section class="mb-5 rounded-xl border border-zinc-700 p-4 bg-[#14171c]" id="existingRecords">'+
    '<div class="flex flex-wrap gap-2 justify-between items-center mb-3"><div><h3 class="font-black text-lg">'+esc(heading)+'</h3>'+
-   '<p class="tiny mt-1">'+(tab==='paradas'?'Abra um local já existente para editar seus dados, foto, categoria ou link.':'Abra um cadastro existente para editar sem criar outro.')+'</p></div>'+
+   '<p class="tiny mt-1">'+(tab==='paradas'?'Somente paradas publicadas aparecem no site. Para divulgar uma parada, clique em Publicar no site.':'Abra um cadastro existente para editar sem criar outro.')+'</p></div>'+
    (tab==='paradas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova parada</button>':tab==='rotas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova rota</button>':'')+
    '</div>'+
    (items.length?items.map(x=>{
