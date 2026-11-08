@@ -36,10 +36,10 @@ function cleanRecord(kind,r){
   }
   if(kind==='paradas'){
     // Compatível com os registros antigos, sem duplicar paradas nem fotos.
-    const allowed=['cafe','almoco','turismo','descanso'];
+    const allowed=['cafe','almoco','cafe_tarde','jantar','turismo','descanso'];
     const raw=Array.isArray(r.categorias)?r.categorias:
       (typeof r.categorias==='string'&&r.categorias.trim()?r.categorias.split(','):[r.categoria||'turismo']);
-    if(raw.length>8)throw Error('Selecione no máximo quatro categorias válidas.');
+    if(raw.length>10)throw Error('Selecione no máximo seis categorias válidas.');
     const selected=[...new Set(raw.map(x=>String(x).trim().toLowerCase()))];
     if(!selected.length||selected.some(x=>!allowed.includes(x)))throw Error('Selecione ao menos uma categoria válida.');
     // Campo antigo preservado para integrações e rascunhos anteriores.
