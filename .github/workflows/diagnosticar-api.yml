@@ -17,7 +17,8 @@ jobs:
           python3 - <<'PY'
           import urllib.request, urllib.error, json
           urls = {
-            'google_places': 'https://asphalt-boys.pages.dev/api/place?stop=pico-alto-parada',
+            'google_places_producao': 'https://asphalt-boys.pages.dev/api/place?stop=pico-alto-parada',
+            'google_places_preview': 'https://515fba76.asphalt-boys.pages.dev/api/place?stop=pico-alto-parada',
             'cloudflare_d1': 'https://asphalt-boys.pages.dev/api/content'
           }
           for name,url in urls.items():
