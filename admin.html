@@ -506,6 +506,7 @@ function listHtml(){
      const autoGoogle=tab==='paradas'&&!photo;
      const badge=origin==='default'?'Padrão do site':origin==='local'?'Somente no navegador':x.status==='publicado'?'Publicado no site':'Rascunho — não aparece no site';
      const canPublish=tab==='paradas'&&!system&&remote&&(origin==='local'||x.status!=='publicado');
+     const canPublishDestination=tab==='destinos'&&remote&&x.status!=='publicado';
      const icon=photo?'<img src="'+esc(photo)+'" class="w-20 h-16 object-cover rounded-md flex-none" alt="" loading="lazy">':
        autoGoogle?'<div class="w-20 flex-none" data-admin-google-photo="'+esc(x.id)+'"><div class="w-20 h-16 bg-zinc-800 rounded-md flex items-center justify-center text-2xl" data-google-photo-frame>📍</div><span class="tiny text-center block mt-1" data-google-photo-credit></span></div>':
        '<div class="w-14 h-14 rounded-md bg-zinc-800 flex items-center justify-center flex-none text-2xl">🏍️</div>';
@@ -523,6 +524,7 @@ function listHtml(){
        '</div></div><div class="flex flex-wrap gap-2 mt-3">'+
        '<button type="button" class="subbtn text-sm" data-edit="'+esc(x.id)+'">✏️ Editar</button>'+
        (canPublish?'<button type="button" class="btn text-sm" data-publish-stop="'+esc(x.id)+'">🚀 Publicar no site</button>':'')+
+       (canPublishDestination?'<button type="button" class="btn text-sm" data-publish-destination="'+esc(x.id)+'">🚀 Publicar card com foto</button>':'')+
        (system?'':'<button type="button" class="subbtn text-sm text-red-300" data-delete="'+esc(x.id)+'">Excluir</button>')+
        (tab==='rotas'?'<a class="subbtn text-sm" target="_blank" rel="noopener noreferrer" href="./?dest='+encodeURIComponent(x.destinoId)+'&rota='+encodeURIComponent(x.id)+(remote&&origin!=='local'?'':'&preview=local')+'">Ver rota</a>':'')+
        '</div></article>';
@@ -743,6 +745,7 @@ function render(resetPicker=true){
  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;render();$('#recordForm')?.scrollIntoView({behavior:'smooth',block:'start'})});
  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>removeRecord(b.dataset.delete));
  document.querySelectorAll('[data-publish-stop]').forEach(b=>b.onclick=()=>publishExistingStop(b.dataset.publishStop));
+ document.querySelectorAll('[data-publish-destination]').forEach(b=>b.onclick=()=>publishExistingDestination(b.dataset.publishDestination));
  loadAutoGoogleCardPhotos();
 }
 async function call(method,body,admin=true){
@@ -796,6 +799,31 @@ $('#checkPublicSync').onclick=async()=>{
  catch(e){note.textContent='⚠️ Não consegui confirmar a integração: '+String(e.message||e)}
  finally{btn.disabled=false}
 };
+async function publishExistingDestination(id){
+ if(!remote||!token){alert('Conecte ao banco primeiro.');return}
+ if(busy||id!==selectedDestId)return;
+ const record=data.destinos.find(p=>p.id===id);
+ if(!record)return;
+ const name=id==='guaramiranga'?'Guaramiranga':id==='canoa-quebrada'?'Canoa Quebrada':record.nome;
+ if(!confirm('Publicar o card "'+name+'" com a foto que está no cadastro?'))return;
+ const payload={...record,id,nome:name,status:'publicado'};
+ if(id==='guaramiranga')payload.mapa='Guaramiranga, CE';
+ busy=true;
+ const button=document.querySelector('[data-publish-destination="'+id+'"]');
+ if(button){button.disabled=true;button.textContent='Publicando...'}
+ try{
+  const result=await call('POST',{kind:'destinos',record:payload});
+  const visible=await call('GET',undefined,false);
+  const published=visible.destinos?.find(d=>d.id===id&&d.status==='publicado');
+  if(!published||published.nome!==name||published.foto!==result.record.foto)
+   throw Error('O card foi enviado, mas a confirmação pública não corresponde ao cadastro.');
+  data.destinos=data.destinos.map(p=>p.id===id?result.record:p);
+  draft.destinos=draft.destinos.map(p=>p.id===id?result.record:p);
+  saveLocal();render();
+  announce('✅ '+name+' publicado com a foto cadastrada. Atualize o site público para conferir.');
+ }catch(e){alert('Não foi possível confirmar a publicação: '+String(e.message||e));render()}
+ finally{busy=false}
+}
 async function publishExistingStop(id){
  if(!remote||!token){alert('Conecte ao banco com sua senha de administrador.');return}
  if(busy)return;
