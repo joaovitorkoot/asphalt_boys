@@ -1,0 +1,96 @@
+name: Testar rascunhos ao trocar categoria
+on:
+  push:
+    branches: [main]
+    paths:
+      - admin.html
+      - '.github/workflows/testar-rascunho-categorias.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar foto e campos preservados, categorias e isolamento de rascunhos
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const html=fs.readFileSync('admin.html','utf8');
+          new vm.Script(html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>')));
+          const start=html.indexOf('const FORM_DRAFT_PREFIX=');
+          const end=html.indexOf('function render(resetPicker=true)',start);
+          assert(start>=0&&end>start);
+          const helperSource=html.slice(start,end);
+          assert(html.includes("b.onclick=()=>switchStopCategory(b.dataset.stopQuick)"));
+          assert(html.includes("b.onclick=()=>switchStopCategory(b.dataset.stopCategory)"));
+          assert(html.includes("photoSourceKey=unfinishedFormKey()"));
+          assert(html.includes("clearUnfinishedForm();"));
+          const storage=new Map(), alerts=[];
+          const createForm=(cat='cafe',photo='')=>({
+            elements:[
+              {name:'nome',type:'text',value:'Canaã Pães e Lanches'},
+              {name:'categoria',type:'select-one',value:cat},
+              {name:'maps',type:'url',value:'https://maps.app.goo.gl/CCQuEH8HfXjQT5gG8'},
+              {name:'foto',type:'url',value:photo},
+              {name:'fotoEnquadramento',type:'radio',value:'zoom',checked:true},
+              {name:'fotoEnquadramento',type:'radio',value:'blur',checked:false},
+              {name:'horario',type:'text',value:'8h às 17h'},
+              {name:'status',type:'select-one',value:'rascunho'}
+            ]
+          });
+          let form=createForm('cafe','https://asphalt-boys.pages.dev/api/image?id=1234');
+          const preview={src:'',hidden:true},notice={textContent:''};
+          const dom={
+            '#recordForm':()=>form,
+            '#autoDraftNotice':()=>notice,
+            '#f_foto':()=>form.elements.find(x=>x.name==='foto'),
+            '#f_categoria':()=>form.elements.find(x=>x.name==='categoria'),
+            '#photoPreview':()=>preview,
+            '#stopCategoryBar':()=>({scrollIntoView(){}})
+          };
+          const context={
+            tab:'paradas',selectedDestId:'guaramiranga',editing:'item-123',
+            creatingNewDestination:false,photoSourceFile:{name:'foto.jpg'},
+            photoUploading:false,localStorage:{
+              setItem(k,v){storage.set(k,v)},getItem(k){return storage.get(k)||null},removeItem(k){storage.delete(k)}
+            },
+            stopCategories:[['cafe','Café da manhã'],['almoco','Almoço']],
+            categoryLabel:x=>x==='almoco'?'Almoço':'Café da manhã',
+            safeUrl:x=>x.startsWith('https://')?x:'',
+            $:key=>dom[key]?.()||null,
+            alert:message=>alerts.push(message)
+          };
+          const helpers=vm.runInNewContext(helperSource+'\n({unfinishedFormKey,storeUnfinishedForm,restoreUnfinishedForm,clearUnfinishedForm,switchStopCategory})',context);
+          context.render=()=>{
+            form=createForm('cafe','');
+            helpers.restoreUnfinishedForm();
+          };
+          assert(helpers.storeUnfinishedForm());
+          const storedKey=helpers.unfinishedFormKey();
+          assert(storage.has(storedKey));
+          helpers.switchStopCategory('almoco');
+          assert.equal(context.editing,'item-123','Existing record must not be cleared');
+          assert.equal(context.selectedStopCategory,'almoco');
+          assert.equal(form.elements.find(x=>x.name==='categoria').value,'almoco');
+          assert.equal(form.elements.find(x=>x.name==='foto').value,'https://asphalt-boys.pages.dev/api/image?id=1234');
+          assert.equal(form.elements.find(x=>x.name==='horario').value,'8h às 17h');
+          assert.equal(form.elements.find(x=>x.name==='fotoEnquadramento'&&x.value==='zoom').checked,true);
+          assert.equal(preview.hidden,false);
+          assert(notice.textContent.includes('preservad'));
+          context.editing='other-id';
+          form=createForm('cafe','');
+          assert.equal(helpers.restoreUnfinishedForm(),false,'Draft must not bleed into another stop');
+          context.editing='item-123';
+          assert.equal(helpers.restoreUnfinishedForm(),true,'Draft must survive navigation/reload');
+          helpers.clearUnfinishedForm();
+          assert.equal(storage.has(storedKey),false,'Saved form draft should be removed');
+          context.photoUploading=true;
+          helpers.switchStopCategory('cafe');
+          assert.equal(context.selectedStopCategory,'almoco','Do not change category while uploading');
+          assert.equal(alerts.length,1);
+          console.log('PASS: category change preserves unsaved image, fields, frame mode and independent local drafts');
+          NODE
