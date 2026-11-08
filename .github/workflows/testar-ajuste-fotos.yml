@@ -65,22 +65,32 @@ jobs:
             }};
             return {url,document,MockImage,shapes,encoded,calls};
           }
-          async function check(mode,kind,expectedMime,pixelRead=true){
+          async function check(mode,kind,expectedMime,pixelRead=true,frameMode='blur'){
             const m=mock(mode,pixelRead);
             const context={URL:m.url,document:m.document,Image:m.MockImage,tab:kind,Error,Math,Promise,Uint8ClampedArray};
             const prepare=vm.runInNewContext(code+'\npreparePhoto',context);
-            const result=await prepare({type:'image/jpeg',size:15000000},kind);
+            const result=await prepare({type:'image/jpeg',size:15000000},kind,frameMode);
             assert.equal(result.type,expectedMime);
             assert(result.size<=200000);
-            assert(m.calls.overlay>0,'Must darken the blurred backdrop');
-            assert(m.calls.pixelRead>0,'Must attempt real pixel blur for Safari');
-            assert(pixelRead?m.calls.putImage>0:m.calls.putImage===0,'Must use pixel blur when available');
-            assert(m.shapes.some(x=>!x.original&&x.cw>=240),'Must upscale blurred miniature, never unblurred source');
             const foreground=m.shapes.filter(x=>x.original&&x.cw>=240);
             assert(foreground.length>0,'Foreground photo missing');
-            for(const image of foreground){
-              assert(image.w<=image.cw&&image.h<=image.ch,'Main photo cropped');
-              assert(image.x>=0&&image.y>=0,'Main photo cropped');
+            if(frameMode==='zoom'){
+              assert.equal(m.calls.overlay,0,'Zoom mode must not paint blurred background');
+              assert.equal(m.calls.pixelRead,0,'Zoom mode should not invoke pixel blur');
+              for(const image of foreground){
+                assert(image.w>=image.cw&&image.h>=image.ch,'Zoom must fill frame');
+                assert(image.x<=0&&image.y<=0,'Zoom must center crop');
+                assert(Math.abs(image.w/2400-image.h/1600)<.001,'Zoom must preserve source aspect ratio');
+              }
+            }else{
+              assert(m.calls.overlay>0,'Must darken the blurred backdrop');
+              assert(m.calls.pixelRead>0,'Must attempt real pixel blur for Safari');
+              assert(pixelRead?m.calls.putImage>0:m.calls.putImage===0,'Must use pixel blur when available');
+              assert(m.shapes.some(x=>!x.original&&x.cw>=240),'Must upscale blurred miniature, never unblurred source');
+              for(const image of foreground){
+                assert(image.w<=image.cw&&image.h<=image.ch,'Main photo cropped');
+                assert(image.x>=0&&image.y>=0,'Main photo cropped');
+              }
             }
             if(kind==='paradas')assert(m.encoded.every(x=>x.width===x.height));
             else assert(m.encoded.every(x=>Math.abs(x.width/x.height-16/9)<.02));
@@ -93,5 +103,12 @@ jobs:
           assert(large.some(x=>x.width<900),'Must reduce dimensions for large outputs');
           await check('safari','destinos','image/jpeg');
           await check('safari','paradas','image/jpeg',false);
-          console.log('PASS: blurred/dark background on iOS, fallback, no crop, 1:1 + 16:9, JPEG, compression');
+          await check('safari','paradas','image/jpeg',true,'zoom');
+          await check('large','destinos','image/webp',true,'zoom');
+          assert(html.includes('name="fotoEnquadramento" value="blur"'));
+          assert(html.includes('name="fotoEnquadramento" value="zoom"'));
+          assert(html.includes('photoSourceFile&&photoSourceForm'));
+          const backend=fs.readFileSync('functions/api/content.js','utf8');
+          assert(backend.includes('fotoEnquadramento:12'),'Frame mode must be persisted in D1');
+          console.log('PASS: both photo modes, blur/zoom, correct crop, iOS Safari, quality and per-record setting');
           NODE
