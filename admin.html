@@ -165,18 +165,20 @@ function googlePhotoAttribution(place,photo){
 function showGooglePhotoCredit(parent,place,photo,compact=false){
  if(!parent)return;
  parent.textContent='';
- const attribution=googlePhotoAttribution(place,photo);
- const text=document.createElement('span');
- text.textContent=compact?'Google Maps':attribution.label;
- parent.appendChild(text);
- const people=Array.isArray(photo?.attributions)?photo.attributions:[];
- if(compact&&people.length){parent.title=attribution.label}
- else for(const a of people){
-  const link=safeUrl(a.url);
-  if(link&&a.name){const el=document.createElement('a');el.href=link;el.target='_blank';el.rel='noopener noreferrer';el.textContent=' · '+a.name;el.className='underline';parent.appendChild(el)}
- }
- const maps=attribution.mapsUrl;
- if(maps){const el=document.createElement('a');el.href=maps;el.target='_blank';el.rel='noopener noreferrer';el.textContent=compact?' ↗':' · Ver no Maps';el.className='underline';parent.appendChild(el)}
+ const attributions=Array.isArray(photo?.attributions)?photo.attributions.filter(x=>x?.name):[];
+ const intro=document.createElement('span');intro.textContent=compact?'Foto: ':'Foto do Google: ';parent.appendChild(intro);
+ if(attributions.length){
+  attributions.forEach((a,i)=>{
+   if(i){const sep=document.createElement('span');sep.textContent=', ';parent.appendChild(sep)}
+   const link=safeUrl(a.url);
+   const el=document.createElement(link?'a':'span');
+   el.textContent=String(a.name).slice(0,120);
+   if(link){el.href=link;el.target='_blank';el.rel='noopener noreferrer';el.className='underline'}
+   parent.appendChild(el);
+  });
+ }else{const el=document.createElement('span');el.textContent='Google Maps';parent.appendChild(el)}
+ const maps=safeUrl(place?.mapsUrl);
+ if(maps){const el=document.createElement('a');el.href=maps;el.target='_blank';el.rel='noopener noreferrer';el.textContent=' · Google Maps';el.className='underline';parent.appendChild(el)}
 }
 function adminStopPhotoRequest(stop,mode='single'){
  const dest=currentDestination();
@@ -193,7 +195,7 @@ function adminStopPhotoRequest(stop,mode='single'){
 }
 function loadAutoGoogleCardPhotos(){
  if(tab!=='paradas'||!remote||!token)return;
- const nodes=[...document.querySelectorAll('[data-admin-google-photo]')];
+ const nodes=[...document.querySelectorAll('[data-admin-google-photo]')].slice(0,10);
  if(!nodes.length)return;
  let next=0,active=0;
  const max=nodes.length;
