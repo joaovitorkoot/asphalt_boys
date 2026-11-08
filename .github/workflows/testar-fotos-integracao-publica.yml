@@ -10,7 +10,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Teste de integracao local: admin, publicacao, imagem e proporcoes
+      - name: "Teste de integracao local: admin, publicacao, imagem e proporcoes"
         shell: bash
         run: |
           node --input-type=module <<'NODE'
