@@ -29,6 +29,7 @@
  };
  const categoryLabels=p=>stopCategories(p).map(id=>categories.find(([c])=>c===id)[1]).join(' · ');
  // O D1 é a fonte de verdade. Não há paradas fixas no código que possam reaparecer após exclusão.
+ let reviewRequestEpoch=0;
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
@@ -163,6 +164,18 @@
   const savedHours=String(p.horario||'').trim();
   hoursDetails.hidden=!savedHours;
   q('tripPreviewHours').textContent=savedHours?'Horário informado pelo grupo: '+savedHours:'';
+  // O resumo não é consultado automaticamente: evita custo por miniatura/visita.
+  reviewRequestEpoch++;
+  const reviewDetails=q('tripReviewDetails');
+  reviewDetails.open=false;
+  reviewDetails.hidden=localPreview;
+  reviewDetails.dataset.loaded='';
+  reviewDetails.dataset.loading='';
+  q('tripReviewStatus').textContent='Abra para consultar o resumo das avaliações do Google.';
+  q('tripReviewStatus').hidden=false;
+  q('tripReviewResult').hidden=true;
+  q('tripReviewFallback').hidden=true;
+  q('tripReviewFallback').href=mapLink(p);
   q('tripGoogleRating').hidden=true;
   q('tripGoogleSource').hidden=true;
   q('tripGoogleInfo').textContent=localPreview?'Prévia local. Publique esta parada para consultar os dados do Google.':'Consultando o Google Maps…';
@@ -308,6 +321,45 @@
    loaded=true;
   }catch(e){q('tripDataStatus').textContent='Exibindo paradas iniciais. Rotas novas aparecerão quando o banco for configurado.'}
  }
+ // Busca o conteúdo de IA somente com interação explícita do visitante.
+ q('tripReviewDetails').addEventListener('toggle',async()=>{
+   const details=q('tripReviewDetails'),id=previewId,epoch=reviewRequestEpoch;
+   if(!details.open||details.hidden||!id||details.dataset.loading===id||details.dataset.loaded===id)return;
+   details.dataset.loading=id;
+   q('tripReviewStatus').hidden=false;
+   q('tripReviewStatus').textContent='Consultando resumo das avaliações…';
+   try{
+     const response=await fetch('/api/reviews?stop='+encodeURIComponent(id),{cache:'no-store'});
+     const result=await response.json();
+     if(previewId!==id||epoch!==reviewRequestEpoch||!details.open)return;
+     details.dataset.loaded=id;
+     const summary=typeof result.summary==='string'?result.summary:'';
+     if(response.ok&&result.available&&summary){
+       q('tripReviewText').textContent=summary; // Nunca cortar ou modificar o texto da API.
+       q('tripReviewDisclosure').textContent=result.disclosure||'';
+       q('tripReviewSee').href=httpsUrl(result.reviewsUrl)||q('tripPreviewMap').href;
+       const flag=httpsUrl(result.flagUrl);
+       q('tripReviewFlag').hidden=!flag;
+       if(flag)q('tripReviewFlag').href=flag;
+       q('tripReviewResult').hidden=false;
+       q('tripReviewFallback').hidden=true;
+       q('tripReviewStatus').hidden=true;
+     }else{
+       q('tripReviewResult').hidden=true;
+       q('tripReviewStatus').textContent=String(result.message||'Resumo não disponível para esta parada.');
+       q('tripReviewFallback').hidden=false;
+       q('tripReviewFallback').href=q('tripPreviewMap').href;
+     }
+   }catch{
+     if(previewId===id&&epoch===reviewRequestEpoch&&details.open){
+       q('tripReviewStatus').textContent='Não foi possível consultar o resumo agora.';
+       q('tripReviewFallback').hidden=false;
+       q('tripReviewFallback').href=q('tripPreviewMap').href;
+     }
+   }finally{
+     if(details.dataset.loading===id)details.dataset.loading='';
+   }
+ });
  q('tripClose').onclick=close;q('tripPreviewBack').onclick=previewBack;
  q('tripPreviewAdd').onclick=()=>{addStop(previewId);previewBack();showTab('mine')};
  q('tripModal').addEventListener('click',e=>{if(e.target===modal)close()});
