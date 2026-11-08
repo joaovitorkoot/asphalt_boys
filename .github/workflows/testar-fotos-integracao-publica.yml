@@ -1,0 +1,131 @@
+name: Testar fotos e sincronizacao admin-publico
+on:
+  push:
+    branches: [fix/photos-proportion-public-sync]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Teste de integracao local: admin, publicacao, imagem e proporcoes
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const admin=fs.readFileSync('admin.html','utf8');
+          const site=fs.readFileSync('index.html','utf8');
+          const planner=fs.readFileSync('planejador.js','utf8');
+          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          new vm.Script(planner);
+          assert(admin.includes("const ratio=kind==='destinos'?16/9:1"));
+          assert(admin.includes('ctx.filter='));
+          assert(admin.includes('Math.min((cw-padding*2)/img.naturalWidth,(ch-padding*2)/img.naturalHeight)'));
+          assert(admin.includes('const uploadedUrl=new URL(result.url,location.origin).href;'));
+          assert(admin.includes('async function checkPublishedContent()'));
+          assert(admin.includes('id="checkPublicSync"'));
+          assert(site.includes('.cardpic{height:230px;object-fit:contain'));
+          assert(site.includes('height:88px;object-fit:contain'));
+          assert(site.includes('.tripPreviewPhoto,.tripPreviewPlaceholder{width:100%;height:100%;object-fit:contain'));
+          assert(planner.includes('if(httpsUrl(result.photo)&&!photo)'));
+          const importFunction=async(path)=>await import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync(path,'utf8')).toString('base64'));
+          const content=await importFunction('functions/api/content.js');
+          const upload=await importFunction('functions/api/image-upload.js');
+          const image=await importFunction('functions/api/image.js');
+          const token='fake-strong-admin-secret-more-than-20-characters';
+          const records=new Map(),images=new Map();
+          const db={prepare(sql){
+            const obj={args:[],bind(...args){this.args=args;return this},async run(){
+              if(sql.includes('INSERT INTO site_content')){
+                const [id,kind,destId,status,payload]=this.args;
+                records.set(id,{id,kind,destino_id:destId,status,payload});
+              }else if(sql.includes('DELETE FROM site_content')){
+                records.delete(this.args[0]);
+              }else if(sql.includes('INSERT INTO site_images')){
+                const [id,mime,data]=this.args;images.set(id,{mime,data:Array.from(data)});
+              }
+              return {success:true,meta:{changes:1}};
+            },async all(){
+              const adminMode=!sql.includes('WHERE status = ?');
+              const results=[...records.values()].filter(r=>adminMode||r.status===this.args[0]).map(r=>({kind:r.kind,payload:r.payload}));
+              return {results};
+            },async first(){
+              if(sql.includes('site_images'))return images.get(this.args[0])||null;
+              return null;
+            }};return obj;
+          }};
+          const env={ADMIN_TOKEN:token,DB:db};
+          const uri='https://asphalt-boys.pages.dev';
+          const adminGet=()=>content.onRequestGet({request:new Request(uri+'/api/content?admin=1',{headers:{Authorization:'Bearer '+token}}),env});
+          const publicGet=()=>content.onRequestGet({request:new Request(uri+'/api/content'),env});
+          const publish=(kind,record)=>content.onRequestPost({request:new Request(uri+'/api/content',{method:'POST',
+            headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+            body:JSON.stringify({kind,record})}),env});
+          let r=await content.onRequestGet({request:new Request(uri+'/api/content?admin=1'),env});
+          assert.equal(r.status,401);
+          const photoBytes=new Uint8Array(140);photoBytes[0]=255;photoBytes[1]=216;photoBytes[138]=255;photoBytes[139]=217;
+          r=await upload.onRequestPost({request:new Request(uri+'/api/image-upload',{method:'POST',
+            headers:{Authorization:'Bearer '+token,'Content-Type':'image/jpeg'},body:photoBytes}),env});
+          assert.equal(r.status,200);
+          const photoUrl=(await r.json()).url;assert(photoUrl.startsWith('/api/image?id='));
+          r=await image.onRequestGet({request:new Request(uri+photoUrl),env});
+          assert.equal(r.status,200);assert.equal(r.headers.get('Content-Type'),'image/jpeg');
+          assert.equal((await r.arrayBuffer()).byteLength,140);
+          r=await publish('destinos',{id:'guaramiranga',nome:'Guaramiranga',status:'publicado'});
+          assert.equal(r.status,200);
+          const id='quiosque-foto-teste';
+          r=await publish('paradas',{id,destinoId:'guaramiranga',nome:'Quiosque Pico Alto',categoria:'cafe',
+            endereco:'Pernambuquinho, Guaramiranga, Ceará',foto:uri+photoUrl,status:'rascunho'});
+          assert.equal(r.status,200);
+          let visible=await (await publicGet()).json();
+          assert.equal(visible.destinos.length,1);assert.equal(visible.paradas.length,0);
+          let adminData=await (await adminGet()).json();
+          assert.equal(adminData.paradas[0].nome,'Quiosque Pico Alto');
+          r=await publish('paradas',{id,destinoId:'guaramiranga',nome:'Quiosque Pico Alto',categoria:'cafe',
+            endereco:'Pernambuquinho, Guaramiranga, Ceará',foto:uri+photoUrl,status:'publicado'});
+          assert.equal(r.status,200);
+          visible=await (await publicGet()).json();
+          assert.equal(visible.paradas.length,1);
+          assert.equal(visible.paradas[0].foto,uri+photoUrl);
+          assert.equal(visible.paradas[0].destinoId,'guaramiranga');
+          assert.equal(visible.paradas[0].categoria,'cafe');
+          assert.equal(visible.paradas[0].status,'publicado');
+          console.log('PASS: sem cortes (CSS/canvas), D1 admin e publico, fotos no D1, rascunho invisivel, publicacao fiel');
+          NODE
+      - name: Diagnostico somente leitura do ambiente publico atual
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error,json
+          base='https://asphalt-boys.pages.dev'
+          def get(path,limit=100000):
+            req=urllib.request.Request(base+path,headers={'User-Agent':'AsphaltBoys-ReadOnlySmokeTest/1.0','Cache-Control':'no-cache'})
+            with urllib.request.urlopen(req,timeout=22) as r:return r.status,r.headers,r.read(limit)
+          status,headers,raw=get('/api/health')
+          health=json.loads(raw)
+          print('health HTTP',status,'DB ready',health.get('databaseReady'),'ADMIN ready',health.get('adminReady'))
+          if status!=200 or not health.get('databaseReady') or not health.get('adminReady'):raise SystemExit('Cloudflare D1 or ADMIN_TOKEN not ready')
+          status,headers,raw=get('/api/content')
+          data=json.loads(raw)
+          counts={k:len(data.get(k,[])) for k in ('destinos','paradas','rotas')}
+          print('Public D1 HTTP',status,'counts',counts)
+          for k in counts:
+            if not isinstance(data.get(k),list):raise SystemExit('Invalid public response')
+            for p in data[k]:
+              if p.get('status')!='publicado':raise SystemExit('Draft appeared in public D1: '+k)
+              if k!='destinos' and not p.get('destinoId'):raise SystemExit('Missing destination association')
+          own=[p.get('foto','') for k in ('destinos','paradas') for p in data[k] if '/api/image?id=' in p.get('foto','')]
+          checked=0
+          for url in own[:8]:
+            path=url.replace(base,'')
+            if not path.startswith('/api/image?id='):continue
+            status,headers,raw=get(path,300000)
+            if status!=200 or not headers.get('content-type','').startswith('image/') or len(raw)<100:raise SystemExit('Public photo failed')
+            checked+=1
+          print('Public image URLs checked:',checked)
+          print('PASS: read-only production API, D1 public status and uploaded images')
+          PY
