@@ -30,7 +30,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 <section class="box p-4 sm:p-5 mb-6" aria-label="Conexão administrativa">
 <div class="flex flex-wrap items-center justify-between gap-3"><div><strong class="text-base">Status da publicação</strong><p id="connection" class="tiny mt-1" role="status">Verificando conexão com o servidor...</p></div><span id="mode" class="pill">Rascunhos locais</span></div>
 <div class="grid sm:grid-cols-[1fr_auto] gap-3 items-end mt-3"><div><label class="lbl" for="secret">Token de administrador (somente após configurar na Cloudflare)</label><input class="field" id="secret" type="password" autocomplete="off" placeholder="Digite o valor do ADMIN_TOKEN (não o nome da variável)"><div class="flex items-center justify-between gap-2 mt-2"><span class="tiny">Use a senha configurada na produção da Cloudflare (mínimo 20 caracteres).</span><button id="showAdminPassword" type="button" class="text-orange-300 text-xs font-bold underline whitespace-nowrap">Mostrar senha</button></div></div><button id="connect" type="button" class="subbtn">Conectar ao banco</button></div>
-<div id="syncArea" class="mt-3" hidden><button type="button" id="sync" class="subbtn">Enviar meus rascunhos locais para o banco</button><p class="tiny mt-1">Enviar não publica automaticamente: cadastros continuam com o status definido em cada formulário.</p></div>
+<div id="syncArea" class="mt-3" hidden><div class="flex flex-wrap gap-2"><button type="button" id="sync" class="subbtn">Enviar meus rascunhos locais para o banco</button><button type="button" id="checkPublicSync" class="subbtn">🔎 Verificar site público</button></div><p class="tiny mt-1">Enviar não publica automaticamente: cadastros continuam com o status definido em cada formulário.</p><p id="publicSyncStatus" role="status" class="tiny mt-2"></p></div>
 </section>
 <div class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-5">
 <nav class="box p-3 h-fit grid sm:grid-cols-4 lg:grid-cols-1 gap-2" aria-label="Seções administrativas">
@@ -606,6 +606,51 @@ async function call(method,body,admin=true){
  if(!res.ok)throw Error(payload.error||'Falha ao salvar no servidor');
  return payload;
 }
+async function checkPublishedContent(){
+ const [adminData,publicData]=await Promise.all([call('GET'),call('GET',undefined,false)]);
+ if(!types.every(t=>Array.isArray(adminData[t])&&Array.isArray(publicData[t])))throw Error('Resposta incompleta de um dos bancos.');
+ const problems=[],counts={};
+ for(const kind of types){
+  const expected=adminData[kind].filter(p=>p.status==='publicado');
+  const current=publicData[kind];counts[kind]=current.length;
+  const byId=new Map(current.map(p=>[p.id,p]));
+  for(const item of expected){
+   const received=byId.get(item.id);
+   if(!received){problems.push(kind+': '+item.nome+' não aparece no site');continue}
+   if(received.nome!==item.nome||String(received.foto||'')!==String(item.foto||'')||
+      (kind!=='destinos'&&received.destinoId!==item.destinoId)||
+      (kind==='paradas'&&received.categoria!==item.categoria))
+     problems.push(kind+': dados diferentes para '+item.nome);
+  }
+  for(const item of current)if(!expected.some(p=>p.id===item.id))problems.push(kind+': cadastro publicado inesperado');
+ }
+ const savedImages=publicData.destinos.concat(publicData.paradas)
+  .map(x=>x.foto||'').filter(u=>{
+   try{const url=new URL(u,location.origin);return url.origin===location.origin&&url.pathname==='/api/image'&&url.searchParams.has('id')}
+   catch{return false}
+  }).slice(0,8);
+ for(const url of savedImages){
+  try{const response=await fetch(url,{cache:'no-store'});
+   if(!response.ok||!(response.headers.get('Content-Type')||'').startsWith('image/'))
+    problems.push('Uma foto enviada não está abrindo no site público');
+  }catch{problems.push('Falha ao carregar uma foto enviada')}
+ }
+ return {counts,problems,verifiedImages:savedImages.length};
+}
+function syncSummary(check){
+ const c=check.counts;
+ if(check.problems.length)return '⚠️ Banco e site responderam, mas encontrei: '+check.problems.slice(0,4).join('; ')+'.';
+ return '✅ Painel e site público sincronizados: '+c.destinos+' destino(s), '+c.paradas+' parada(s), '+c.rotas+' rota(s) publicada(s).'+
+  (check.verifiedImages?' Fotos verificadas: '+check.verifiedImages+'.':'');
+}
+$('#checkPublicSync').onclick=async()=>{
+ const note=$('#publicSyncStatus'),btn=$('#checkPublicSync');
+ if(!remote||!token){note.textContent='Conecte ao banco para verificar.';return}
+ btn.disabled=true;note.textContent='Conferindo registros e fotos no site público...';
+ try{note.textContent=syncSummary(await checkPublishedContent())}
+ catch(e){note.textContent='⚠️ Não consegui confirmar a integração: '+String(e.message||e)}
+ finally{btn.disabled=false}
+};
 async function saveRecord(e){
  e.preventDefault();if(busy)return;
  if(photoUploading){alert('Aguarde a foto terminar de enviar antes de salvar.');return}
@@ -618,7 +663,12 @@ async function saveRecord(e){
    v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
  }
  const old=data[tab].find(x=>x.id===v.id);
- if(tab==='rotas'){v.paradas=[...picked];if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}}
+ if(tab==='rotas'){
+  v.paradas=[...picked];
+  if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}
+  const unpub=v.paradas.filter(id=>id!=='pico-alto-parada'&&!data.paradas.some(p=>p.id===id&&p.destinoId===v.destinoId&&p.status==='publicado'));
+  if(v.status==='publicado'&&unpub.length){alert('Publique primeiro as '+unpub.length+' parada(s) desta rota, para elas aparecerem no site.');return}
+ }
  if(v.maps&&!safeUrl(v.maps)){alert('Digite um link https do Google Maps.');return}
  if(v.foto&&!safeUrl(v.foto)){alert('A URL da foto precisa começar com https.');return}
  if(remote){busy=true;try{const x=await call('POST',{kind:tab,record:v});v.status=x.record.status;Object.assign(v,x.record);announce('Salvo no banco com sucesso.');}catch(e){alert('Não foi publicado: '+e.message);busy=false;return}busy=false}
@@ -627,6 +677,17 @@ async function saveRecord(e){
  if(tab==='paradas')selectedStopCategory=normalize(v.categoria);
  if(!remote){draft=copy(data);saveLocal();announce('Rascunho salvo apenas neste navegador; não foi publicado para outros visitantes.')}
  editing=null;render();
+ if(remote){
+  const note=$('#publicSyncStatus');
+  if(note)note.textContent='Verificando o cadastro no site público...';
+  try{
+   const result=await checkPublishedContent(),message=syncSummary(result);
+   if(note)note.textContent=message;
+   announce((v.status==='publicado'?'Cadastro publicado. ':'Rascunho salvo no banco, ainda não público. ')+message);
+  }catch(e){
+   announce('Cadastro salvo no banco, mas não consegui confirmar no site público: '+String(e.message||e));
+  }
+ }
 }
 async function removeRecord(id){
  if(tab==='paradas'&&builtInStop(id)){alert('Este local é padrão do site. Você pode editá-lo, mas não excluí-lo pelo painel.');return}
