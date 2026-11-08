@@ -21,12 +21,13 @@ body{background:#0b0d10;color:#f5f5f4;font:15px/1.5 system-ui,-apple-system,Sego
 .pick{display:flex;gap:9px;align-items:center;padding:10px;border:1px solid #454b56;border-radius:9px}
 .pick input{width:18px;height:18px;accent-color:#fb923c}.tiny{font-size:12px;color:#aaafb9}
 button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
-.photoFrameChoice{display:flex;gap:9px;align-items:flex-start;border:1px solid #505660;border-radius:11px;padding:12px;cursor:pointer;background:#222730;min-height:84px}
+.photoFrameChoice{display:flex;gap:9px;align-items:center;border:1px solid #505660;border-radius:11px;padding:12px;cursor:pointer;background:#222730;min-height:56px}
 .photoFrameChoice:has(input:checked){border-color:#fb923c;background:#fb923c1a}
-.photoFrameChoice input{accent-color:#fb923c;width:18px;height:18px;margin-top:3px;flex-shrink:0}
+.photoFrameChoice input{accent-color:#fb923c;width:18px;height:18px;flex-shrink:0}
 .photoFrameChoice:focus-within{outline:2px solid #fb923c;outline-offset:2px}
 .photoFrameChoice strong{font-size:13px;line-height:1.45}
 .photoFrameChoice small{font-size:12px;line-height:1.45}
+#photoModeHint:empty,#openPhotosStatus:empty,#photoUploadStatus:empty{display:none}
 [hidden]{display:none!important}
 </style>
 </head><body>
@@ -216,21 +217,21 @@ function photoPickerMarkup(record={}){
  const frameMode=record.fotoEnquadramento==='zoom'?'zoom':'blur';
  return '<div class="rounded-lg border border-zinc-600 p-3 mt-3">'+
   '<p class="font-bold text-sm">📸 Foto do '+tabName+'</p>'+
-  '<p class="tiny mt-1">Fotos adaptadas automaticamente para '+(tab==='destinos'?'16:9':'1:1')+'. Escolha como preencher o quadro.</p>'+
-  '<fieldset id="photoModeBox" class="mt-3"><legend class="lbl">Como deseja enquadrar a foto?</legend>'+
+
+  '<fieldset id="photoModeBox" class="mt-2"><legend class="lbl">Enquadramento</legend>'+
   '<div class="grid sm:grid-cols-2 gap-2">'+
-  '<label class="photoFrameChoice"><input type="radio" name="fotoEnquadramento" value="blur" '+(frameMode==='blur'?'checked':'')+'><span><strong class="block">🌄 Inteira + desfoque</strong><small class="block text-zinc-400 mt-1">Mantém tudo visível, com fundo desfocado.</small></span></label>'+
-  '<label class="photoFrameChoice"><input type="radio" name="fotoEnquadramento" value="zoom" '+(frameMode==='zoom'?'checked':'')+'><span><strong class="block">🔍 Zoom para preencher</strong><small class="block text-zinc-400 mt-1">Preenche sem fundo, mas pode cortar as bordas.</small></span></label>'+
-  '</div><p id="photoModeHint" class="tiny mt-2">Escolha uma opção e envie a foto. Depois você pode trocar e visualizar a diferença antes de salvar.</p></fieldset>'+
+  '<label class="photoFrameChoice"><input type="radio" name="fotoEnquadramento" value="blur" '+(frameMode==='blur'?'checked':'')+'><strong class="block">🌄 Inteira + desfoque</strong></label>'+
+  '<label class="photoFrameChoice"><input type="radio" name="fotoEnquadramento" value="zoom" '+(frameMode==='zoom'?'checked':'')+'><strong class="block">🔍 Zoom para preencher</strong></label>'+
+  '</div><p id="photoModeHint" class="tiny mt-2" role="status"></p></fieldset>'+
   '<section class="border border-orange-500/35 rounded-lg bg-orange-500/5 p-3 mt-3">'+
-   '<h4 class="font-bold text-sm">🔎 Buscar fotos gratuitas — sem Google Places</h4>'+
-   '<p class="tiny mt-1">Buscamos no Wikimedia Commons e Openverse. Confira se a foto realmente representa o local e veja a licença antes de escolher.</p>'+
-   '<label class="lbl" for="openPhotoQuery">Nome do local ou região</label>'+
+   '<h4 class="font-bold text-sm">🔎 Fotos gratuitas</h4>'+
+
+   '<label class="lbl" for="openPhotoQuery">Local ou região</label>'+
    '<div class="grid sm:grid-cols-[1fr_auto] gap-2"><input class="field" id="openPhotoQuery" type="search" autocomplete="off" maxlength="160" placeholder="Ex.: Pico Alto" value="'+esc($('#f_nome')?.value||'')+'">'+
    '<button type="button" id="searchOpenPhotos" class="btn" '+(enabled?'':'disabled')+'>Buscar fotos</button></div>'+
-   '<p class="tiny mt-2">Para fotos da região (sem garantir que sejam do estabelecimento), use Buscar por região.</p>'+
+
    '<button type="button" id="searchRegionPhotos" class="subbtn mt-2" '+(enabled?'':'disabled')+'>🌄 Buscar por região</button>'+
-   '<p id="openPhotosStatus" role="status" class="tiny mt-3">'+(enabled?'Busque pelo nome e selecione uma imagem licenciada.':'Conecte ao banco antes de buscar fotos.')+'</p>'+
+   '<p id="openPhotosStatus" role="status" class="tiny mt-2">'+(enabled?'':'Conecte ao banco para buscar fotos.')+'</p>'+
    '<div id="openPhotosGallery" class="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3"></div>'+
   '</section>'+
   '<label class="subbtn inline-flex items-center cursor-pointer mt-3" for="photoFile">📷 Enviar foto do dispositivo</label>'+
@@ -239,7 +240,7 @@ function photoPickerMarkup(record={}){
   (tab==='paradas'?'<details class="mt-3 border-t border-zinc-600 pt-3"><summary class="tiny cursor-pointer">Busca antiga pelo Google Maps (opcional)</summary>'+
     '<button type="button" id="browseGooglePhotos" class="subbtn text-sm mt-2" '+(enabled?'':'disabled')+'>Escolher foto do Google Maps</button>'+
     '<div id="googlePhotoGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3"></div><p id="googlePhotoGalleryStatus" class="tiny mt-2" role="status"></p></details>':'')+
-  '<p id="photoUploadStatus" role="status" class="tiny mt-2">'+(enabled?'Selecione e salve a foto no cadastro.':'Conecte ao banco antes de enviar uma imagem.')+'</p>'+
+  '<p id="photoUploadStatus" role="status" class="tiny mt-2">'+(enabled?'':'Conecte ao banco para enviar foto.')+'</p>'+
   '<img id="photoPreview" alt="Prévia da foto selecionada" hidden class="rounded-lg w-full max-w-sm mt-3 object-contain bg-zinc-800 '+(tab==='destinos'?'aspect-video':'aspect-square')+'">'+
  '</div>';
 }
