@@ -166,11 +166,8 @@ function chooseRouteFromGoogle(route){
  if(desc&&!desc.value.trim())desc.value='Origem: '+(route.origin||'a definir')+' · Destino final: '+(route.destination||'a definir');
  // Determine o destino principal somente quando uma correspondência é inequívoca.
  const routeText=normalizedPlaceName([route.destination,route.origin,...(route.waypoints||[])].join(' '));
- const candidates=data.destinos.filter(d=>{
-   const n=normalizedPlaceName(d.nome);
-   return n.length>=5&&routeText.includes(n);
- });
- if(candidates.length===1)select.value=candidates[0].id;
+ // A escolha feita pelo administrador é a única fonte do destino da rota.
+ // Não altere automaticamente o card selecionado com base no link do Maps.
  const destId=select.value;
  const names=[...(route.waypoints||[]),route.destination].filter(Boolean);
  let unmatched=[],matched=[],seen=new Set();
@@ -321,12 +318,21 @@ async function call(method,body,admin=true){
 }
 async function saveRecord(e){
  e.preventDefault();if(busy)return;
- const v=Object.fromEntries(new FormData(e.target)),old=data[tab].find(x=>x.id===editing);v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
+ const v=Object.fromEntries(new FormData(e.target));
+ if(tab==='destinos'){
+   v.id=creatingNewDestination?slugForDestination(v.nome):selectedDestId;
+ }else{
+   if(!selectedDestId||!destinationsForPicker().some(d=>d.id===selectedDestId)){alert('Selecione um card de viagem antes de salvar.');return}
+   v.destinoId=selectedDestId;
+   v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
+ }
+ const old=data[tab].find(x=>x.id===v.id);
  if(tab==='rotas'){v.paradas=[...picked];if(v.paradas.some(id=>data.paradas.find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}}
- if(tab==='paradas'&&v.maps&&!safeUrl(v.maps)){alert('Digite um link https do Google Maps.');return}
- if(tab==='paradas'&&v.foto&&!safeUrl(v.foto)){alert('A URL da foto precisa começar com https.');return}
+ if(v.maps&&!safeUrl(v.maps)){alert('Digite um link https do Google Maps.');return}
+ if(v.foto&&!safeUrl(v.foto)){alert('A URL da foto precisa começar com https.');return}
  if(remote){busy=true;try{const x=await call('POST',{kind:tab,record:v});v.status=x.record.status;Object.assign(v,x.record);announce('Salvo no banco com sucesso.');}catch(e){alert('Não foi publicado: '+e.message);busy=false;return}busy=false}
- data[tab]=old?data[tab].map(x=>x.id===editing?v:x):[...data[tab],v];
+ data[tab]=old?data[tab].map(x=>x.id===v.id?v:x):[...data[tab],v];
+ if(tab==='destinos'){selectedDestId=v.id;creatingNewDestination=false;}
  if(!remote){draft=copy(data);saveLocal();announce('Rascunho salvo apenas neste navegador; não foi publicado para outros visitantes.')}
  editing=null;render();
 }
@@ -360,7 +366,7 @@ $('#sync').onclick=async()=>{
  let done=0;for(const kind of types)for(const record of draft[kind]){try{await call('POST',{kind,record});done++}catch(e){announce('Foram enviados '+done+' de '+total+'. Falha: '+e.message);return}}
  try{data=await call('GET');render();announce(done+' cadastros enviados ao banco. Confira o status de cada cadastro.')}catch(e){announce('Envio concluído, mas não foi possível atualizar a lista.')}
 };
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;editing=null;render()});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;editing=null;creatingNewDestination=false;render()});
 (async()=>{
  try{const r=await fetch(API,{cache:'no-store'});if(r.ok)announce('API disponível. Para administrar o banco, informe o token configurado na Cloudflare.');else announce('Modo rascunho: banco ainda não ativado. Você pode preparar os cadastros e exportar backup.')}
  catch{announce('Modo rascunho local. O painel continua disponível para testes.')}
