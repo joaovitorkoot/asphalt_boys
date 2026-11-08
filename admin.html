@@ -21,6 +21,12 @@ body{background:#0b0d10;color:#f5f5f4;font:15px/1.5 system-ui,-apple-system,Sego
 .pick{display:flex;gap:9px;align-items:center;padding:10px;border:1px solid #454b56;border-radius:9px}
 .pick input{width:18px;height:18px;accent-color:#fb923c}.tiny{font-size:12px;color:#aaafb9}
 button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
+.photoFrameChoice{display:flex;gap:9px;align-items:flex-start;border:1px solid #505660;border-radius:11px;padding:12px;cursor:pointer;background:#222730;min-height:84px}
+.photoFrameChoice:has(input:checked){border-color:#fb923c;background:#fb923c1a}
+.photoFrameChoice input{accent-color:#fb923c;width:18px;height:18px;margin-top:3px;flex-shrink:0}
+.photoFrameChoice:focus-within{outline:2px solid #fb923c;outline-offset:2px}
+.photoFrameChoice strong{font-size:13px;line-height:1.45}
+.photoFrameChoice small{font-size:12px;line-height:1.45}
 [hidden]{display:none!important}
 </style>
 </head><body>
@@ -73,6 +79,7 @@ function copy(d){return JSON.parse(JSON.stringify(d))}
 function local(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&types.every(t=>Array.isArray(d[t]))?d:copy(seed)}catch{return copy(seed)}}
 let draft=local(),data=copy(draft),remote=false,token='',sessionReady=false,tab='destinos',editing=null,picked=[],busy=false,photoUploading=false,selectedDestId='',creatingNewDestination=false,selectedStopCategory='turismo';
 let placeMatches=[],placeSearchSeq=0,importMatches=[],mapsImportSeq=0,adminPhotoObserver=null,mapsLinkDraft={destinos:'',paradas:'',rotas:''};
+let photoSourceFile=null,photoSourceMeta=null,photoSourceForm=null,photoAppliedMode='';
 function announce(msg){$('#connection').textContent=msg}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(draft))}catch{alert('Não foi possível salvar no navegador. Exporte um backup.')}}
 function status(){ $('#mode').textContent=remote?'Banco conectado':'Rascunhos locais';$('#mode').className=remote?'pill published':'pill';$('#syncArea').hidden=!remote}
@@ -168,11 +175,17 @@ function photoCreditFields(record={}){
  const keys=['fotoAutor','fotoLicenca','fotoLicencaUrl','fotoFonteUrl','fotoOrigem','fotoAdaptada'];
  return keys.map(key=>'<input type="hidden" name="'+key+'" id="f_'+key+'" value="'+esc(record[key]||'')+'">').join('');
 }
-function photoPickerMarkup(){
+function photoPickerMarkup(record={}){
  const enabled=remote&&(!!token||sessionReady),tabName=tab==='destinos'?'destino':'parada';
+ const frameMode=record.fotoEnquadramento==='zoom'?'zoom':'blur';
  return '<div class="rounded-lg border border-zinc-600 p-3 mt-3">'+
   '<p class="font-bold text-sm">📸 Foto do '+tabName+'</p>'+
-  '<p class="tiny mt-1">Fotos adaptadas automaticamente para '+(tab==='destinos'?'16:9':'1:1')+' sem cortar a imagem original.</p>'+
+  '<p class="tiny mt-1">Fotos adaptadas automaticamente para '+(tab==='destinos'?'16:9':'1:1')+'. Escolha como preencher o quadro.</p>'+
+  '<fieldset id="photoModeBox" class="mt-3"><legend class="lbl">Como deseja enquadrar a foto?</legend>'+
+  '<div class="grid sm:grid-cols-2 gap-2">'+
+  '<label class="photoFrameChoice"><input type="radio" name="fotoEnquadramento" value="blur" '+(frameMode==='blur'?'checked':'')+'><span><strong class="block">🌄 Inteira + desfoque</strong><small class="block text-zinc-400 mt-1">Mantém tudo visível, com fundo desfocado.</small></span></label>'+
+  '<label class="photoFrameChoice"><input type="radio" name="fotoEnquadramento" value="zoom" '+(frameMode==='zoom'?'checked':'')+'><span><strong class="block">🔍 Zoom para preencher</strong><small class="block text-zinc-400 mt-1">Preenche sem fundo, mas pode cortar as bordas.</small></span></label>'+
+  '</div><p id="photoModeHint" class="tiny mt-2">Escolha uma opção e envie a foto. Depois você pode trocar e visualizar a diferença antes de salvar.</p></fieldset>'+
   '<section class="border border-orange-500/35 rounded-lg bg-orange-500/5 p-3 mt-3">'+
    '<h4 class="font-bold text-sm">🔎 Buscar fotos gratuitas — sem Google Places</h4>'+
    '<p class="tiny mt-1">Buscamos no Wikimedia Commons e Openverse. Confira se a foto realmente representa o local e veja a licença antes de escolher.</p>'+
@@ -373,7 +386,7 @@ function drawSoftPhotoBackground(img,canvas,ctx,cw,ch){
   soft.width=0;soft.height=0;
  }
 }
-async function preparePhoto(file,kind=tab){
+async function preparePhoto(file,kind=tab,frameMode='blur'){
  if(!file||!file.type.startsWith('image/'))throw Error('Selecione uma imagem da galeria.');
  if(file.size>30000000)throw Error('A imagem original ultrapassa 30 MB.');
  const source=URL.createObjectURL(file);
@@ -395,17 +408,24 @@ async function preparePhoto(file,kind=tab){
     const ctx=canvas.getContext('2d',{alpha:false});
     if(!ctx)throw Error('O navegador não conseguiu preparar a imagem.');
     ctx.fillStyle='#161b23';ctx.fillRect(0,0,cw,ch);
-    drawSoftPhotoBackground(img,canvas,ctx,cw,ch);
-    // Foto principal sem cortes, mesmo quando vertical ou panorâmica.
-    const padding=Math.max(8,Math.round(cw*0.022));
-    const scale=Math.min((cw-padding*2)/img.naturalWidth,(ch-padding*2)/img.naturalHeight);
-    const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
-    ctx.save();
-    ctx.shadowColor='rgba(0,0,0,0.5)';
-    ctx.shadowBlur=Math.max(12,Math.round(cw/36));
-    ctx.shadowOffsetY=Math.max(2,Math.round(ch/130));
-    ctx.drawImage(img,(cw-w)/2,(ch-h)/2,w,h);
-    ctx.restore();
+    if(frameMode==='zoom'){
+     // Proporção original preservada; só as bordas são cortadas para preencher.
+     const scale=Math.max(cw/img.naturalWidth,ch/img.naturalHeight);
+     const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
+     ctx.drawImage(img,(cw-w)/2,(ch-h)/2,w,h);
+    }else{
+     drawSoftPhotoBackground(img,canvas,ctx,cw,ch);
+     // Foto inteira sobre fundo escuro e suavemente desfocado.
+     const padding=Math.max(8,Math.round(cw*0.022));
+     const scale=Math.min((cw-padding*2)/img.naturalWidth,(ch-padding*2)/img.naturalHeight);
+     const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
+     ctx.save();
+     ctx.shadowColor='rgba(0,0,0,0.5)';
+     ctx.shadowBlur=Math.max(12,Math.round(cw/36));
+     ctx.shadowOffsetY=Math.max(2,Math.round(ch/130));
+     ctx.drawImage(img,(cw-w)/2,(ch-h)/2,w,h);
+     ctx.restore();
+    }
     for(const mime of codecs){
      for(const quality of qualities){
       const blob=await new Promise(resolve=>{
@@ -452,10 +472,15 @@ async function uploadCardPhoto(file,meta=null){
  if(!remote||!(token||sessionReady)){note.textContent='Conecte ao banco antes de enviar a foto.';return false}
  if(photoUploading){note.textContent='Aguarde o envio anterior terminar.';return false}
  photoUploading=true;
- note.textContent='Adaptando a foto e salvando no banco…';
+ const selectedMode=$('input[name="fotoEnquadramento"]:checked')?.value==='zoom'?'zoom':'blur';
+ const modeInputs=[...document.querySelectorAll('input[name="fotoEnquadramento"]')];
+ modeInputs.forEach(input=>{input.disabled=true});
+ const sourceInput=$('#photoFile');if(sourceInput)sourceInput.disabled=true;
+ const hint=$('#photoModeHint');
+ note.textContent='Adaptando ('+(selectedMode==='zoom'?'com zoom':'com desfoque')+') e salvando a foto…';
  const inputAtStart=field,tabAtStart=tab;
  try{
-  const blob=await preparePhoto(file,tabAtStart);
+  const blob=await preparePhoto(file,tabAtStart,selectedMode);
   const response=await fetch('./api/image-upload',{method:'POST',
    headers:{...(token?{'Authorization':'Bearer '+token}:{}),'Content-Type':blob.type},body:blob,cache:'no-store'});
   const payload=await response.json();
@@ -468,13 +493,21 @@ async function uploadCardPhoto(file,meta=null){
   });
   if(!inputAtStart.isConnected||inputAtStart!==$('#f_foto'))throw Error('Você mudou de cadastro durante o envio. Volte e selecione a foto novamente.');
   inputAtStart.value=uploadedUrl;
+  photoSourceFile=file;photoSourceMeta=meta;photoSourceForm=$('#recordForm');photoAppliedMode=selectedMode;
+  if(hint?.isConnected)hint.textContent=selectedMode==='zoom'?
+   '✓ Zoom aplicado sem distorção. As bordas podem ter sido cortadas.':
+   '✓ Foto inteira com fundo desfocado. Você pode experimentar o zoom.';
   setPhotoCredits(meta);
   const googleIndex=$('#f_googlePhotoIndex');if(googleIndex)googleIndex.value='0';
   if(preview){preview.src=uploadedUrl;preview.hidden=false}
   note.textContent='✓ Foto adaptada e armazenada! '+(meta?'Créditos preservados. ':'')+'Agora clique em Salvar no banco.';
   return true;
  }catch(err){if(note.isConnected)note.textContent='Não consegui salvar a foto: '+String(err.message||err);return false}
- finally{photoUploading=false}
+ finally{
+  photoUploading=false;
+  modeInputs.forEach(input=>{if(input.isConnected)input.disabled=false});
+  if(sourceInput?.isConnected)sourceInput.disabled=false;
+ }
 }
 async function onPhotoChosen(event){
  const file=event.target.files?.[0];
@@ -573,8 +606,8 @@ function form(){
  const d=tab==='destinos'?(creatingNewDestination?{}:(currentDestination()||data.destinos.find(x=>x.id===selectedDestId)||{})):(tab==='paradas'?editableStops(selectedDestId).find(x=>x.id===editing):editableRoutes(selectedDestId).find(x=>x.id===editing))||{};
  const f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
  let fields='';
- if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup();
- if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Link exato do Google Maps (será respeitado no site)','url')+'<div class="flex gap-2 items-center flex-wrap mt-2"><button type="button" id="testExactMapsLink" class="subbtn text-sm">📍 Testar ponto compartilhado</button><span id="coordinatesStatus" class="tiny">'+(d.mapCoordinates?'GPS confirmado: '+esc(d.mapCoordinates):'O link original será aberto sem substituição.')+'</span></div><input type="hidden" id="f_mapCoordinates" name="mapCoordinates" value="'+esc(d.mapCoordinates||'')+'"><p class="tiny mt-1">O botão acima abre o link exatamente como foi colado. Ao salvar, o site tenta usar as coordenadas exatas também no roteiro, sem buscar um ponto com nome parecido.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup()+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
+ if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup(d);
+ if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+drop('categoria','Categoria',[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['turismo','📸 Ponto turístico'],['descanso','🏍️ Descanso']],normalize(d.categoria||selectedStopCategory))+f('maps','Link exato do Google Maps (será respeitado no site)','url')+'<div class="flex gap-2 items-center flex-wrap mt-2"><button type="button" id="testExactMapsLink" class="subbtn text-sm">📍 Testar ponto compartilhado</button><span id="coordinatesStatus" class="tiny">'+(d.mapCoordinates?'GPS confirmado: '+esc(d.mapCoordinates):'O link original será aberto sem substituição.')+'</span></div><input type="hidden" id="f_mapCoordinates" name="mapCoordinates" value="'+esc(d.mapCoordinates||'')+'"><p class="tiny mt-1">O botão acima abre o link exatamente como foi colado. Ao salvar, o site tenta usar as coordenadas exatas também no roteiro, sem buscar um ponto com nome parecido.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup(d)+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
  if(tab==='rotas'){const dest=selectedDestId;fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(dest)+'"><p class="tiny text-orange-300">Essa rota será adicionada somente a '+esc(currentDestination()?.nome||dest)+'.</p>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+f('maps','Link do trajeto no Google Maps','url')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
  return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
@@ -796,6 +829,7 @@ function render(resetPicker=true){
  $('#sectionHelp').textContent={destinos:'Importe um destino pelo link do Google Maps ou pesquise pelo nome. Depois você pode editar e publicar.',paradas:'Busque locais no Google Maps, escolha a categoria e publique as paradas para os visitantes.',rotas:'Cole um link de trajeto do Google Maps para identificar paradas cadastradas, organizar e publicar uma rota.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
  if(resetPicker&&tab==='rotas')picked=[...(editableRoutes(selectedDestId).find(x=>x.id===editing)?.paradas||[])];
  placeSearchSeq++;placeMatches=[];mapsImportSeq++;importMatches=[];
+ photoSourceFile=null;photoSourceMeta=null;photoSourceForm=null;photoAppliedMode='';
  $('#editor').innerHTML=form();$('#listing').innerHTML='';
  document.querySelectorAll('[data-select-dest]').forEach(b=>b.onclick=()=>{
    selectedDestId=b.dataset.selectDest;creatingNewDestination=false;editing=null;picked=[];
@@ -841,6 +875,23 @@ function render(resetPicker=true){
  if(tab==='paradas'||tab==='destinos'){
    initPlacesLookup();
    const photoInput=$('#photoFile');if(photoInput)photoInput.onchange=onPhotoChosen;
+   document.querySelectorAll('input[name="fotoEnquadramento"]').forEach(option=>{
+    option.onchange=async()=>{
+     if(!option.checked)return;
+     const hint=$('#photoModeHint');
+     if(photoSourceFile&&photoSourceForm===$('#recordForm')){
+      if(hint)hint.textContent='Preparando novo enquadramento...';
+      const ok=await uploadCardPhoto(photoSourceFile,photoSourceMeta);
+      if(!ok&&photoAppliedMode){
+       const previous=$('input[name="fotoEnquadramento"][value="'+photoAppliedMode+'"]');
+       if(previous)previous.checked=true;
+       if(hint)hint.textContent='Não foi possível trocar o enquadramento; o anterior foi mantido.';
+      }
+     }else if(hint){
+      hint.textContent='Para alterar uma foto já salva, envie novamente a imagem original. A opção escolhida valerá para o próximo envio.';
+     }
+    };
+   });
    const searchButton=$('#searchOpenPhotos');if(searchButton)searchButton.onclick=()=>searchFreePhotos('place');
    const regionButton=$('#searchRegionPhotos');if(regionButton)regionButton.onclick=()=>searchFreePhotos('region');
    const query=$('#openPhotoQuery');if(query){
