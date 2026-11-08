@@ -18,18 +18,18 @@ O site usa **Cloudflare Pages** conectado ao GitHub (`main`). O código do paine
 5. Em **Settings → Variables and Secrets**, adicione um **secret criptografado** chamado **ADMIN_TOKEN**. Defina um valor aleatório forte, com pelo menos 20 caracteres. **Nunca envie ou publique essa senha no GitHub**.
 6. Salve os dois bindings e faça um novo deploy da versão `main` (ou um redeploy) para os bindings passarem a valer. Se usar prévias do GitHub, configure bindings específicos também para Preview.
 
-O formulário do painel pede o valor de `ADMIN_TOKEN` **somente ao conectar**. O token não é salvo no navegador por este código. Não compartilhe esse token com visitantes.
+O formulário do painel pede o valor de `ADMIN_TOKEN` **somente ao conectar**. O token não é salvo no navegador por este código. Não compartilhe esse token com visitantes. Se substituir o Secret, salve as alterações, publique novamente a versão `main` e abra o painel com o **novo** token; se aparecer 'Acesso administrativo não autorizado', confirme que ele está no ambiente de produção e possui pelo menos 20 caracteres.
 
 ## Primeiro cadastro público
 
 1. Abra `https://asphalt-boys.pages.dev/admin.html`.
 2. Informe o token da Cloudflare e clique **Conectar ao banco**. A mensagem deve informar **Banco conectado**.
 3. Na aba **Destinos**, salve/publicar os destinos que aparecerão no site (por exemplo Guaramiranga, id `guaramiranga`). Se você já criou rascunhos antes, pode enviá-los ao banco pelo botão específico, depois conferir os status.
-4. Em **Paradas**, escolha o destino, a categoria, cole o link do Google Maps, informe o endereço para navegação e marque **Publicado**. Não precisa cadastrar o link do Maps novamente em cada rota.
+4. Em **Paradas**, use **Buscar local no Google Maps**, escolha o resultado correto e confira nome, endereço, link e Place ID preenchidos automaticamente. Escolha o destino e a categoria e marque **Publicado**. Não precisa cadastrar o link do Maps novamente em cada rota.
 5. Em **Rotas prontas**, escolha o destino, selecione as paradas na ordem correta, marque **Publicado** e salve.
 6. Abra `https://asphalt-boys.pages.dev/` e confira as abas do planejador. Em **Meu roteiro → Compartilhar**, o link preserva as paradas selecionadas. A pessoa pode alterar sua cidade de origem.
 
-**Atenção:** links para mapas e ordenação não dependem de Google Maps API. Contudo, obter automaticamente *fotos, avaliações, avaliações em estrelas, horários e miniaturas de mapa do Google dentro da prévia* exige integração com Google Maps Platform / Places e configuração de faturamento. **Esta etapa NÃO está ativa**, e não deve ser simulada com informações inventadas. Até lá, a prévia mostra fotos autorizadas cadastradas pelo administrador e um botão **Ver no Google Maps** para consultar a ficha oficial do local.
+**Atenção:** links para mapas e ordenação não dependem de Google Maps API. Contudo, obter automaticamente *fotos, avaliações, avaliações em estrelas, horários e miniaturas de mapa do Google dentro da prévia* exige integração com Google Maps Platform / Places e configuração de faturamento. **A integração Google Places (New) está implementada:** a prévia de uma parada publicada consulta dados do Google sob demanda, usando o Secret `GOOGLE_PLACES_API_KEY` no ambiente de produção. O painel administrativo também oferece pesquisa por locais do Google Maps para preencher nome, endereço, link e Place ID; essa busca exige conexão com `ADMIN_TOKEN`. A foto já cadastrada do Pico Alto tem preferência sobre a do Google. Não armazene fotos e avaliações da API como dados permanentes.
 
 ## Limitações e segurança
 
