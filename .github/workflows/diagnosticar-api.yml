@@ -38,7 +38,7 @@ jobs:
               # Never print returned secret or raw HTTP body.
               print(name,'HTTP',status,'available:',payload.get('available','n/a'),'code:',payload.get('code','n/a'),'message:',str(payload.get('message',payload.get('error','ok')))[:260])
               if name=='admin_status' and status==200:
-                print('admin_status readiness:', {k:bool(payload.get(k)) for k in ('databaseReady','adminReady','googleReady')})
+                print('admin_status readiness:', {k:bool(payload.get(k)) for k in ('databaseReady','adminSecretPresent','adminReady','googleReady')})
               if name=='cloudflare_d1' and status==200:
                 print(name,'counts',{k:len(payload.get(k,[])) for k in ('destinos','paradas','rotas')})
             except Exception:
