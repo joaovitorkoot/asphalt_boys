@@ -71,6 +71,7 @@ jobs:
           let res=await search({request:req('photo-search',{query:'Pico Alto',region:'Guaramiranga'}),env});
           assert.equal(res.status,200);
           let response=await res.json();
+          console.log('MOCK search:',JSON.stringify(response));
           assert.equal(response.results.length,2);
           assert(response.results.some(p=>p.source==='commons'&&p.license==='Domínio público'));
           assert(response.results.some(p=>p.source==='openverse'&&p.license.includes('CC BY')));
