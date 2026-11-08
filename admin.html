@@ -1386,6 +1386,21 @@ async function saveRecord(e){
    v.id=editing||('item-'+Date.now()+'-'+Math.random().toString(36).slice(2,7));
  }
  const old=data[tab].find(x=>x.id===v.id);
+ if(tab==='rotas'){
+  v.paradas=[...picked];
+  if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}
+  const unpub=v.paradas.filter(id=>id!=='pico-alto-parada'&&!data.paradas.some(p=>p.id===id&&p.destinoId===v.destinoId&&p.status==='publicado'));
+  if(v.status==='publicado'&&unpub.length){alert('Publique primeiro as '+unpub.length+' parada(s) desta rota, para elas aparecerem no site.');return}
+ }
+ if(v.maps&&!safeUrl(v.maps)){alert('Digite um link https do Google Maps.');return}
+ if(v.foto&&!safeUrl(v.foto)){alert('A URL da foto precisa começar com https.');return}
+
+ // Travar imediatamente antes da primeira operação assíncrona: sem clique duplo.
+ const saveButton=e.submitter||e.target.querySelector('button[type="submit"]');
+ const saveLabel=saveButton?.textContent||'Salvar no banco';
+ busy=true;
+ if(saveButton){saveButton.disabled=true;saveButton.textContent='Salvando...'}
+ try{
  // Se a pessoa colou o link manualmente, pegar o ponto via redirecionamento
  // oficial do Google, sem nova consulta por nome que pode encontrar outra cidade.
  if(tab==='paradas'&&remote&&v.maps&&!v.mapCoordinates){
@@ -1399,15 +1414,10 @@ async function saveRecord(e){
    }
   }catch{}
  }
- if(tab==='rotas'){
-  v.paradas=[...picked];
-  if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}
-  const unpub=v.paradas.filter(id=>id!=='pico-alto-parada'&&!data.paradas.some(p=>p.id===id&&p.destinoId===v.destinoId&&p.status==='publicado'));
-  if(v.status==='publicado'&&unpub.length){alert('Publique primeiro as '+unpub.length+' parada(s) desta rota, para elas aparecerem no site.');return}
+ if(remote){
+  try{const x=await call('POST',{kind:tab,record:v});v.status=x.record.status;Object.assign(v,x.record);announce('Salvo no banco com sucesso.');}
+  catch(e){alert('Não foi possível salvar: '+e.message);return}
  }
- if(v.maps&&!safeUrl(v.maps)){alert('Digite um link https do Google Maps.');return}
- if(v.foto&&!safeUrl(v.foto)){alert('A URL da foto precisa começar com https.');return}
- if(remote){busy=true;try{const x=await call('POST',{kind:tab,record:v});v.status=x.record.status;Object.assign(v,x.record);announce('Salvo no banco com sucesso.');}catch(e){alert('Não foi publicado: '+e.message);busy=false;return}busy=false}
  data[tab]=old?data[tab].map(x=>x.id===v.id?v:x):[...data[tab],v];
  if(tab==='destinos'){selectedDestId=v.id;creatingNewDestination=false;}
  if(tab==='paradas')selectedStopCategory=normalize(v.categoria);
@@ -1438,6 +1448,10 @@ async function saveRecord(e){
   }catch(e){
    announce('Cadastro salvo no banco, mas não consegui confirmar no site público: '+String(e.message||e));
   }
+ }
+ finally{
+  busy=false;
+  if(saveButton?.isConnected){saveButton.disabled=false;saveButton.textContent=saveLabel}
  }
 }
 async function removeRecord(id){
