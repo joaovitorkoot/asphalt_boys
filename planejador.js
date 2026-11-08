@@ -57,6 +57,29 @@
  const localPreview=urlParams.get('preview')==='local';
  function safeStore(k,v){try{localStorage.setItem(k,v)}catch{}}
  function safeRead(k){try{return localStorage.getItem(k)}catch{return null}}
+
+ const OPEN_MODAL_KEY='asphalt-boys-rota-aberta-v1';
+ const draftKey=id=>'asphalt-boys-roteiro-v1-'+(localPreview?'preview-':'')+mapping(id);
+ function saveRoute(){
+  if(!destination)return;
+  safeStore(draftKey(destination.id),JSON.stringify({v:1,stops:selected.slice(0,MAX_ROUTE_STOPS),originMode,
+   origin:q('tripOrigin').value.trim().slice(0,150),presetId,tab,category}));
+ }
+ function restoreRoute(){
+  if(!destination)return false;
+  let saved;try{saved=JSON.parse(safeRead(draftKey(destination.id))||'null')}catch{return false}
+  if(!saved||saved.v!==1||!Array.isArray(saved.stops))return false;
+  selected=[...new Set(saved.stops.filter(id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{3,120}$/.test(id)&&stopById(id)))].slice(0,MAX_ROUTE_STOPS);
+  presetId=typeof saved.presetId==='string'&&currentRoutes().some(r=>r.id===saved.presetId)?saved.presetId:'';
+  category=categories.some(([id])=>id===saved.category)?saved.category:category;
+  q('tripOrigin').value=typeof saved.origin==='string'?saved.origin.slice(0,150):'';
+  setOriginMode(saved.originMode==='manual'&&q('tripOrigin').value.trim()?'manual':'gps');
+  tab=selected.length?'mine':['mine','custom','preset'].includes(saved.tab)?saved.tab:'custom';
+  return true;
+ }
+ function rememberOpen(id){try{sessionStorage.setItem(OPEN_MODAL_KEY,id)}catch{}}
+ function forgetOpen(){try{sessionStorage.removeItem(OPEN_MODAL_KEY)}catch{}}
+ function readOpen(){try{return sessionStorage.getItem(OPEN_MODAL_KEY)||''}catch{return ''}}
  function originLabel(){return originMode==='gps'?'Minha localização atual':(q('tripOrigin').value.trim()||'Cidade a definir')}
  function routeSummaryText(){
   const ending=selected.length?stopById(selected[selected.length-1])?.nome:destination?.nome;
@@ -84,6 +107,7 @@
    tab=next;for(const name of ['custom','preset','mine'])q('trip'+name.charAt(0).toUpperCase()+name.slice(1)+'Section').hidden=next!==name;
    document.querySelectorAll('#tripTabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===next)));
    q('tripShareBox').hidden=true;
+   saveRoute();
    panel.scrollTop=0;
  }
  function renderAvailable(){
@@ -184,6 +208,7 @@
     :'Confira todas as paradas no Maps antes de iniciar.';
   q('tripRouteSegments').hidden=true;
   q('tripRouteSegments').replaceChildren();
+  saveRoute();
  }
  function render(){if(!destination)return;renderAvailable();renderPresets();renderChosen();showTab(tab);}
  function open(id,share){
@@ -198,11 +223,12 @@
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
    q('tripOrigin').value=(share&&share.origin)||safeRead('asphalt-boys-ultima-origem')||'';
   setOriginMode(share&&share.origin?'manual':'gps');
+   if(!(share&&(share.route||share.stops||share.origin)))restoreRoute();
    if(share&&share.route){const r=currentRoutes().find(x=>x.id===share.route);if(r){selected=(r.paradas||[]).filter(id=>stopById(id)).slice(0,MAX_ROUTE_STOPS);presetId=r.id;tab='mine'}}
    else if(share&&share.stops){selected=[...new Set(share.stops.split(',').filter(id=>/^[a-z0-9_-]{3,120}$/i.test(id)&&stopById(id)))].slice(0,MAX_ROUTE_STOPS);if(selected.length)tab='mine'}
-   modal.hidden=false;q('tripStopPreview').hidden=true;q('tripMain').hidden=false;q('tripModalHero').hidden=false;document.body.style.overflow='hidden';render();panel.scrollTop=0;panel.focus();return true;
+   modal.hidden=false;q('tripStopPreview').hidden=true;q('tripMain').hidden=false;q('tripModalHero').hidden=false;document.body.style.overflow='hidden';render();rememberOpen(id);panel.scrollTop=0;panel.focus();return true;
  }
- function close(){modal.hidden=true;document.body.style.overflow='';if(focusBefore&&focusBefore.focus)focusBefore.focus()}
+ function close(){saveRoute();forgetOpen();modal.hidden=true;document.body.style.overflow='';if(focusBefore&&focusBefore.focus)focusBefore.focus()}
 
  function preview(id){
   const p=stopById(id);if(!p)return;
@@ -508,8 +534,8 @@
  q('tripPreviewAdd').onclick=()=>{addStop(previewId);previewBack();showTab('mine')};
  q('tripModal').addEventListener('click',e=>{if(e.target===modal)close()});
  document.addEventListener('keydown',e=>{if(modal.hidden)return;if(e.key==='Escape'){if(!q('tripStopPreview').hidden)previewBack();else close()}if(e.key==='Tab'){const visible=[...panel.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(x=>x.offsetParent!==null);if(!visible.length)return;const f=visible[0],l=visible[visible.length-1];if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}}});
- q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);if(originMode==='manual')q('tripOrigin').focus()});
- q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=routeSummaryText()});
+ q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);saveRoute();if(originMode==='manual')q('tripOrigin').focus()});
+ q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=routeSummaryText();saveRoute()});
  q('tripTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
  q('tripCategories').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b){category=b.dataset.cat;renderAvailable()}});
  q('tripAvailable').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preview)preview(b.dataset.preview);else if(b.dataset.addStop)addStop(b.dataset.addStop)});
@@ -534,5 +560,6 @@
   await fetchPublic();
   const id=urlParams.get('dest');
   if(id){open(id,{origin:urlParams.get('origem')||'',route:urlParams.get('rota'),stops:urlParams.get('stops')})}
+  else {const wasOpen=readOpen();if(wasOpen)open(wasOpen)}
  })();
 })();
