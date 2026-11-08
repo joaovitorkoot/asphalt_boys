@@ -71,6 +71,16 @@ export async function onRequestDelete({request,env}){
   if(!adminReady(env))return reply({error:'ADMIN_TOKEN não configurado na produção ou com menos de 20 caracteres.',code:'ADMIN_NOT_READY'},503);
   if(!(await authorized(request,env)))return reply({error:'Senha do administrador incorreta.',code:'ADMIN_INVALID_TOKEN'},401);
   try{const b=await request.json();if(!TYPES.includes(b.kind)||!/^[a-zA-Z0-9_-]{3,120}$/.test(String(b.id||'')))return reply({error:'Registro inválido.'},400);
+    if(b.kind==='paradas'){
+      const routes=(await env.DB.prepare("SELECT payload FROM site_content WHERE kind = 'rotas'").all()).results||[];
+      for(const row of routes){
+        try{
+          const route=JSON.parse(row.payload);
+          if(Array.isArray(route.paradas)&&route.paradas.includes(b.id))
+            return reply({error:'Esta parada faz parte de uma rota pronta. Remova-a da rota antes de excluir.'},409);
+        }catch{}
+      }
+    }
     await env.DB.prepare('DELETE FROM site_content WHERE id = ? AND kind = ?').bind(b.id,b.kind).run();
     return reply({ok:true});
   }catch(e){return reply({error:'Não foi possível excluir.'},400)}
