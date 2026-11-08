@@ -35,8 +35,17 @@ function cleanRecord(kind,r){
     catch{throw Error('Fonte ou licença da foto precisa ser um link https válido.')}
   }
   if(kind==='paradas'){
-    out.categoria=String(r.categoria||'turismo').toLowerCase();
-    if(!['cafe','almoco','turismo','descanso'].includes(out.categoria))throw Error('Categoria inválida.');
+    // Compatível com os registros antigos, sem duplicar paradas nem fotos.
+    const allowed=['cafe','almoco','turismo','descanso'];
+    const raw=Array.isArray(r.categorias)?r.categorias:
+      (typeof r.categorias==='string'&&r.categorias.trim()?r.categorias.split(','):[r.categoria||'turismo']);
+    if(raw.length>8)throw Error('Selecione no máximo quatro categorias válidas.');
+    const selected=[...new Set(raw.map(x=>String(x).trim().toLowerCase()))];
+    if(!selected.length||selected.some(x=>!allowed.includes(x)))throw Error('Selecione ao menos uma categoria válida.');
+    // Campo antigo preservado para integrações e rascunhos anteriores.
+    const primary=String(r.categoria||'').trim().toLowerCase();
+    out.categorias=selected;
+    out.categoria=selected.includes(primary)?primary:selected[0];
     out.horario=String(r.horario||'').slice(0,200);
     out.googlePhotoIndex=String(Math.max(0,Math.min(9,parseInt(r.googlePhotoIndex,10)||0)));
 
