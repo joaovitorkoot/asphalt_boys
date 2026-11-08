@@ -264,8 +264,9 @@
  // Encadear trechos com o mesmo destino e origem, sempre na ordem original.
  function routePoint(stop){
   const id=validPlaceId(stop.googlePlaceId),gps=validCoords(stop.mapCoordinates);
-  if(id)return {type:'place',id,value:String(stop.endereco||stop.nome),name:String(stop.nome)};
+  // O GPS extraído do link compartilhado tem prioridade sobre IDs sugeridos.
   if(gps)return {type:'gps',value:gps,name:String(stop.nome)};
+  if(id)return {type:'place',id,value:String(stop.endereco||stop.nome),name:String(stop.nome)};
   return null;
  }
  function oneGoogleSegment(origin,targets){
