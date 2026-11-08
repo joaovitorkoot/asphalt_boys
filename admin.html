@@ -311,6 +311,68 @@ async function browseGooglePhotos(){
 }
 // Monta imagem com a proporção do card, mantendo toda a foto visível.
 // 16:9 para destino; 1:1 para paradas, com fundo suave nas sobras.
+// O Canvas 2D do Safari/iPhone nem sempre aplica ctx.filter. O fundo usa
+// desfoque calculado em miniatura, que funciona também sem suporte a filtros.
+function drawSoftPhotoBackground(img,canvas,ctx,cw,ch){
+ const soft=document.createElement('canvas');
+ const sw=Math.max(24,Math.min(104,Math.round(cw/8)));
+ const sh=Math.max(18,Math.round(sw*ch/cw));
+ soft.width=sw;soft.height=sh;
+ try{
+  const sctx=soft.getContext('2d',{willReadFrequently:true});
+  if(!sctx)throw Error('Canvas auxiliar indisponível');
+  const scale=Math.max(sw/img.naturalWidth,sh/img.naturalHeight)*1.2;
+  const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
+  sctx.imageSmoothingEnabled=true;sctx.imageSmoothingQuality='high';
+  sctx.drawImage(img,(sw-w)/2,(sh-h)/2,w,h);
+  try{
+   const frame=sctx.getImageData(0,0,sw,sh);
+   const src=frame.data,work=new Uint8ClampedArray(src.length);
+   const radius=Math.max(4,Math.round(sw/15));
+   // Dois passes horizontais e verticais: desfoque real, independente de ctx.filter.
+   for(let pass=0;pass<2;pass++){
+    for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){
+     const base=(y*sw+x)*4;
+     let rr=0,gg=0,bb=0,count=0;
+     for(let delta=-radius;delta<=radius;delta++){
+      const xx=Math.max(0,Math.min(sw-1,x+delta));
+      const index=(y*sw+xx)*4;
+      rr+=src[index];gg+=src[index+1];bb+=src[index+2];count++;
+     }
+     work[base]=rr/count;work[base+1]=gg/count;work[base+2]=bb/count;work[base+3]=255;
+    }
+    for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){
+     const base=(y*sw+x)*4;
+     let rr=0,gg=0,bb=0,count=0;
+     for(let delta=-radius;delta<=radius;delta++){
+      const yy=Math.max(0,Math.min(sh-1,y+delta));
+      const index=(yy*sw+x)*4;
+      rr+=work[index];gg+=work[index+1];bb+=work[index+2];count++;
+     }
+     src[base]=rr/count;src[base+1]=gg/count;src[base+2]=bb/count;src[base+3]=255;
+    }
+   }
+   sctx.putImageData(frame,0,0);
+  }catch{
+   // Fallback para navegadores que não permitem ler pixels: reduzir ainda mais
+   // a definição antes de ampliar. Nunca usar o fundo nítido sem desfoque.
+   soft.width=18;soft.height=Math.max(10,Math.round(18*ch/cw));
+   const fallback=soft.getContext('2d');
+   if(!fallback)throw Error('Canvas de foto indisponível');
+   const fit=Math.max(soft.width/img.naturalWidth,soft.height/img.naturalHeight)*1.2;
+   const fw=img.naturalWidth*fit,fh=img.naturalHeight*fit;
+   fallback.imageSmoothingEnabled=true;fallback.imageSmoothingQuality='high';
+   fallback.drawImage(img,(soft.width-fw)/2,(soft.height-fh)/2,fw,fh);
+  }
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.drawImage(soft,0,0,cw,ch);
+  // Disfarça formas reconhecíveis da foto de fundo e valoriza a principal.
+  ctx.fillStyle='rgba(9, 12, 19, 0.48)';
+  ctx.fillRect(0,0,cw,ch);
+ }finally{
+  soft.width=0;soft.height=0;
+ }
+}
 async function preparePhoto(file,kind=tab){
  if(!file||!file.type.startsWith('image/'))throw Error('Selecione uma imagem da galeria.');
  if(file.size>30000000)throw Error('A imagem original ultrapassa 30 MB.');
@@ -321,31 +383,29 @@ async function preparePhoto(file,kind=tab){
   if(!img.naturalWidth||!img.naturalHeight)throw Error('A foto não tem dimensões válidas.');
   const ratio=kind==='destinos'?16/9:1;
   const maxBytes=200000; // O banco aceita até 220 KB; manter uma margem segura.
-  // Começar com resolução alta, reduzindo somente o necessário.
   const sizes=kind==='destinos'?[1100,960,800,720,640,520,440,360,300,240]:
    [900,800,720,640,560,480,400,340,280,240];
-  // Safari/iOS pode não exportar canvas como WebP e retornar PNG sem avisar.
-  // Nesse caso, tentar JPEG em vez de rejeitar todas as resoluções.
   const codecs=['image/webp','image/jpeg'];
   const qualities=[0.86,0.75,0.64,0.53,0.43,0.34,0.25];
   let lastProblem='';
   for(const cw of sizes){
    const ch=Math.round(cw/ratio);
    const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;
-   const ctx=canvas.getContext('2d',{alpha:false});
-   if(!ctx)throw Error('O navegador não conseguiu preparar a imagem.');
-   ctx.fillStyle='#222833';ctx.fillRect(0,0,cw,ch);
-   // Fundo preenchido sem barras brancas; imagem original inteira sobreposta.
-   const cover=Math.max(cw/img.naturalWidth,ch/img.naturalHeight);
-   const bw=img.naturalWidth*cover,bh=img.naturalHeight*cover;
-   ctx.save();ctx.filter='blur('+Math.max(12,Math.round(cw/32))+'px) brightness(0.6)';
-   ctx.drawImage(img,(cw-bw)/2,(ch-bh)/2,bw,bh);
-   ctx.restore();
-   const padding=Math.max(5,Math.round(cw*0.018));
-   const scale=Math.min((cw-padding*2)/img.naturalWidth,(ch-padding*2)/img.naturalHeight);
-   const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
-   ctx.drawImage(img,(cw-w)/2,(ch-h)/2,w,h);
    try{
+    const ctx=canvas.getContext('2d',{alpha:false});
+    if(!ctx)throw Error('O navegador não conseguiu preparar a imagem.');
+    ctx.fillStyle='#161b23';ctx.fillRect(0,0,cw,ch);
+    drawSoftPhotoBackground(img,canvas,ctx,cw,ch);
+    // Foto principal sem cortes, mesmo quando vertical ou panorâmica.
+    const padding=Math.max(8,Math.round(cw*0.022));
+    const scale=Math.min((cw-padding*2)/img.naturalWidth,(ch-padding*2)/img.naturalHeight);
+    const w=img.naturalWidth*scale,h=img.naturalHeight*scale;
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,0.5)';
+    ctx.shadowBlur=Math.max(12,Math.round(cw/36));
+    ctx.shadowOffsetY=Math.max(2,Math.round(ch/130));
+    ctx.drawImage(img,(cw-w)/2,(ch-h)/2,w,h);
+    ctx.restore();
     for(const mime of codecs){
      for(const quality of qualities){
       const blob=await new Promise(resolve=>{
@@ -356,11 +416,10 @@ async function preparePhoto(file,kind=tab){
      }
     }
    }finally{
-    // Evitar acumular memória de canvas no iPhone.
     canvas.width=0;canvas.height=0;
    }
   }
-  throw Error('Não consegui otimizar esta imagem automaticamente. Experimente uma foto JPEG ou outra imagem. '+lastProblem);
+  throw Error('Não consegui otimizar esta imagem automaticamente. Experimente outra foto JPEG. '+lastProblem);
  }finally{URL.revokeObjectURL(source)}
 }
 function setPhotoCredits(meta){
