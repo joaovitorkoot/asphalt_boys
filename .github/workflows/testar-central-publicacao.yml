@@ -38,7 +38,7 @@ jobs:
             'Never erase the Maps link before server confirms successful save');
           assert(save.includes("button.dataset.queuePublish===v.id"),'Jump to saved pending item');
           assert(html.includes('renderPublicationQueue();'),'Must refresh queue when form renders');
-          const start=html.indexOf('function publicationQueueItems(){');
+          const start=html.indexOf('function isSameStopLocation(a,b){');
           const end=html.indexOf('function render(resetPicker=true){',start);
           assert(start>0&&end>start,'Queue functions missing');
           const source=html.slice(start,end);
@@ -86,13 +86,14 @@ jobs:
             categoryLabelsForStop:p=>(p.categorias||[p.categoria]).join(' / '),
             categoriesForStop:p=>p.categorias||[p.categoria],
             safeUrl:v=>String(v||'').startsWith('https://')?v:'',
+            normalizedPlaceName:v=>String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(),
             esc:v=>String(v),$:q=>ui[q]||null,
             alert:x=>errors.push(x),confirm:()=>approved,
             announce:x=>messages.push(x),saveLocal:()=>{},storeUnfinishedForm:()=>true,
             clearUnfinishedForm:()=>{draftCleared++},
           };
           const handlers=vm.runInNewContext(source+
-            '\n({publicationQueueItems,renderPublicationQueue,publishQueuedRecord,openQueuedRecord})',ctx);
+            '\n({isSameStopLocation,originalForDuplicate,publicationQueueItems,renderPublicationQueue,publishQueuedRecord,openQueuedRecord,discardDuplicateStop})',ctx);
           ctx.render=()=>{renders++;handlers.renderPublicationQueue()};
           ctx.call=async (method,body,admin=true)=>{
             requests.push({method,body,admin});
@@ -102,6 +103,7 @@ jobs:
               return {record};
             }
             if(method==='GET'&&!admin)return published;
+            if(method==='DELETE')return {ok:true};
             throw Error('Unexpected operation '+method);
           };
           const pending=handlers.publicationQueueItems();
@@ -144,5 +146,16 @@ jobs:
           assert(ui['#publicationQueueList'].innerHTML.includes('Nenhum cadastro'));
           assert(renders>=4);
           assert(messages.some(x=>x.includes('Publicado')));
+          const original=data.paradas.find(x=>x.id==='canaa');
+          const copy={...original,id:'canaa-copy',status:'rascunho'};
+          data.paradas.push(copy);
+          assert.equal(handlers.originalForDuplicate(copy).id,'canaa');
+          handlers.renderPublicationQueue();
+          assert(ui['#publicationQueueList'].innerHTML.includes('Remover cópia'));
+          await handlers.discardDuplicateStop('canaa-copy');
+          assert(!data.paradas.some(x=>x.id==='canaa-copy'));
+          assert(data.paradas.some(x=>x.id==='canaa'),'Must keep original photo and entry');
+          assert(requests.some(x=>x.method==='DELETE'&&x.body.id==='canaa-copy'));
+          assert.equal(handlers.publicationQueueItems().length,0);
           console.log('PASS: pending queue across tabs, no duplicates, no seed ghosts, confirm, D1 public verification, dependency safety');
           NODE
