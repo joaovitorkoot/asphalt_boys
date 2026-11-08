@@ -13,7 +13,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Testar redimensionamento, WebP e fallback JPEG no iPhone
+      - name: Validar blur real, Safari, JPEG, enquadramento e compressao
         shell: bash
         run: |
           node --input-type=module <<'NODE'
@@ -22,12 +22,12 @@ jobs:
           import vm from 'node:vm';
           const html=fs.readFileSync('admin.html','utf8');
           new vm.Script(html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>')));
-          const first=html.indexOf('async function preparePhoto(file,kind=tab){');
+          const first=html.indexOf('function drawSoftPhotoBackground(');
           const last=html.indexOf('function setPhotoCredits(meta)',first);
-          assert(first>0&&last>first,'Photo preparation not found');
-          const fn=html.slice(first,last);
-          function mock(mode){
-            const shapes=[],encoded=[];
+          assert(first>0&&last>first,'Image blur + resizing not found');
+          const code=html.slice(first,last);
+          function mock(mode,pixelRead=true){
+            const shapes=[],encoded=[],calls={putImage:0,pixelRead:0,overlay:0};
             class MockImage{
               naturalWidth=2400;naturalHeight=1600;
               set src(url){if(this.onload)this.onload()}
@@ -36,15 +36,21 @@ jobs:
             const document={createElement(kind){
               assert.equal(kind,'canvas');
               const canvas={width:0,height:0};
-              const ctx={filter:'',fillStyle:'',save(){},restore(){},fillRect(){},
+              const ctx={fillStyle:'',save(){},restore(){},
+                fillRect(){if(this.fillStyle.startsWith('rgba('))calls.overlay++},
                 drawImage(img,x,y,w,h){
-                  shapes.push({cw:canvas.width,ch:canvas.height,x,y,w,h})
-                }
+                  shapes.push({cw:canvas.width,ch:canvas.height,x,y,w,h,original:img instanceof MockImage});
+                },
+                getImageData(){
+                  calls.pixelRead++;
+                  if(!pixelRead)throw Error('No pixel access');
+                  return {data:new Uint8ClampedArray(canvas.width*canvas.height*4).fill(100)};
+                },
+                putImageData(){calls.putImage++}
               };
               canvas.getContext=()=>ctx;
               canvas.toBlob=(callback,type,quality)=>{
                 encoded.push({type,quality,width:canvas.width,height:canvas.height});
-                // Safari/iOS may silently substitute PNG when requesting WebP.
                 if(mode==='safari'&&type==='image/webp')
                   return callback({type:'image/png',size:450000});
                 if(mode==='safari'&&type==='image/jpeg')
@@ -57,20 +63,24 @@ jobs:
               };
               return canvas;
             }};
-            return {url,document,MockImage,shapes,encoded};
+            return {url,document,MockImage,shapes,encoded,calls};
           }
-          async function check(mode,kind,expectedMime){
-            const m=mock(mode);
-            const context={URL:m.url,document:m.document,Image:m.MockImage,tab:kind,Error,Math,Promise};
-            const prepare=vm.runInNewContext(fn+'\npreparePhoto',context);
+          async function check(mode,kind,expectedMime,pixelRead=true){
+            const m=mock(mode,pixelRead);
+            const context={URL:m.url,document:m.document,Image:m.MockImage,tab:kind,Error,Math,Promise,Uint8ClampedArray};
+            const prepare=vm.runInNewContext(code+'\npreparePhoto',context);
             const result=await prepare({type:'image/jpeg',size:15000000},kind);
             assert.equal(result.type,expectedMime);
             assert(result.size<=200000);
-            assert(m.shapes.length>=2,'Must draw background and original image');
-            for(let i=1;i<m.shapes.length;i+=2){
-              const image=m.shapes[i];
-              assert(image.w<=image.cw&&image.h<=image.ch,'Image was cropped');
-              assert(image.x>=0&&image.y>=0,'Original photo was cropped');
+            assert(m.calls.overlay>0,'Must darken the blurred backdrop');
+            assert(m.calls.pixelRead>0,'Must attempt real pixel blur for Safari');
+            assert(pixelRead?m.calls.putImage>0:m.calls.putImage===0,'Must use pixel blur when available');
+            assert(m.shapes.some(x=>!x.original&&x.cw>=240),'Must upscale blurred miniature, never unblurred source');
+            const foreground=m.shapes.filter(x=>x.original&&x.cw>=240);
+            assert(foreground.length>0,'Foreground photo missing');
+            for(const image of foreground){
+              assert(image.w<=image.cw&&image.h<=image.ch,'Main photo cropped');
+              assert(image.x>=0&&image.y>=0,'Main photo cropped');
             }
             if(kind==='paradas')assert(m.encoded.every(x=>x.width===x.height));
             else assert(m.encoded.every(x=>Math.abs(x.width/x.height-16/9)<.02));
@@ -82,5 +92,6 @@ jobs:
           const large=await check('large','paradas','image/webp');
           assert(large.some(x=>x.width<900),'Must reduce dimensions for large outputs');
           await check('safari','destinos','image/jpeg');
-          console.log('PASS: iPhone JPEG fallback, 1:1 and 16:9, full image preserved, auto compression');
+          await check('safari','paradas','image/jpeg',false);
+          console.log('PASS: blurred/dark background on iOS, fallback, no crop, 1:1 + 16:9, JPEG, compression');
           NODE
