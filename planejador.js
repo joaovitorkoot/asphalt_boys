@@ -51,8 +51,10 @@
  }
  // O D1 é a fonte de verdade. Não há paradas fixas no código que possam reaparecer após exclusão.
  let reviewRequestEpoch=0;
+ const categorySearches=Object.create(null);
+ const searchText=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
  let originMode='gps',activeLegIndex=0;
- let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null;
+ let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null,previewReturnScroll=0;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
  function safeStore(k,v){try{localStorage.setItem(k,v)}catch{}}
@@ -104,15 +106,23 @@
  }
  function currentRoutes(){return destination?data.rotas.filter(r=>r.destinoId===mapping(destination.id)):[]}
  function stopById(id){return currentStops().find(p=>p.id===id)}
- function showTab(next){
-   tab=next;for(const name of ['custom','preset','mine'])q('trip'+name.charAt(0).toUpperCase()+name.slice(1)+'Section').hidden=next!==name;
-   document.querySelectorAll('#tripTabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===next)));
-   q('tripShareBox').hidden=true;
-   saveRoute();
-   panel.scrollTop=0;
+ function showTab(next,scrollOnTabClick=false){
+  const changed=tab!==next;
+  tab=next;
+  for(const name of ['custom','preset','mine'])q('trip'+name.charAt(0).toUpperCase()+name.slice(1)+'Section').hidden=next!==name;
+  document.querySelectorAll('#tripTabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===next)));
+  q('tripShareBox').hidden=true;
+  saveRoute();
+  // Só rolar ao topo em uma troca de aba solicitada pelo visitante.
+  if(scrollOnTabClick&&changed)panel.scrollTop=0;
  }
  function renderAvailable(){
-   const stops=currentStops().filter(p=>stopCategories(p).includes(category));
+   const term=searchText(categorySearches[category]||'').trim();
+   const categoryStops=currentStops().filter(p=>stopCategories(p).includes(category));
+   const stops=term?categoryStops.filter(p=>searchText([p.nome,p.descricao,p.endereco,categoryLabels(p)].join(' ')).includes(term)):categoryStops;
+   const name=categories.find(([id])=>id===category)?.[1]||'categoria';
+   q('tripSearch').placeholder='Pesquisar em '+name.replace(/^[^a-zA-ZÀ-ÿ]+/,'').trim()+'…';
+   q('tripSearchCount').textContent=stops.length+' local'+(stops.length===1?'':'is')+(term?' encontrado'+(stops.length===1?'':'s'):'')+' nesta categoria';
    q('tripCategories').innerHTML=categories.map(([id,label])=>'<button type="button" class="tripCat" data-cat="'+id+'" aria-pressed="'+(category===id)+'">'+label+'</button>').join('');
    q('tripAvailable').innerHTML=stops.length?stops.map(p=>{
      const pic=httpsUrl(p.foto),dis=selected.includes(p.id),full=selected.length>=MAX_ROUTE_STOPS,loc=String(p.endereco||'').trim();
@@ -121,7 +131,7 @@
   (httpsUrl(p.fotoLicencaUrl)?' · <a href="'+esc(httpsUrl(p.fotoLicencaUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Licença</a>':'')+
   '</p></details>':'';
      return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categoryLabels(p))+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p>'+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Limite de 20 paradas':'+ Adicionar')+'</button></div></div></article>';
-   }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.</p>';
+   }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">'+(term?'Nenhuma parada encontrada nesta categoria. Tente outra pesquisa.':'Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.')+'</p>';
    loadPublicStopPhotos();
  }
  async function loadPublicStopPhoto(node){
@@ -210,13 +220,20 @@
   q('tripRouteSegments').replaceChildren();
   saveRoute();
  }
- function render(){if(!destination)return;renderAvailable();renderPresets();renderChosen();showTab(tab);}
+ function render(){
+   if(!destination)return;
+   const offset=panel.scrollTop;
+   renderAvailable();renderPresets();renderChosen();showTab(tab);
+   panel.scrollTop=offset;
+  }
  function open(id,share){
    destination=typeof lugares!=='undefined'?lugares.find(l=>l.id===id):null;
    if(!destination)return false;
    focusBefore=document.activeElement;tab='custom';
    const requestedCategory=urlParams.get('dest')===id?urlParams.get('categoria'):'';
    category=categories.some(([cat])=>cat===requestedCategory)?requestedCategory:'turismo';
+   Object.keys(categorySearches).forEach(k=>delete categorySearches[k]);
+   q('tripSearch').value='';
    selected=[];presetId='';activeLegIndex=0;
    q('tripTitle').textContent=destination.nome;
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
@@ -232,6 +249,7 @@
 
  function preview(id){
   const p=stopById(id);if(!p)return;
+  previewReturnScroll=panel.scrollTop;
   previewId=id;
   q('tripMain').hidden=true;
   q('tripModalHero').hidden=true;
@@ -331,7 +349,7 @@
   panel.scrollTop=0;
   q('tripPreviewBack').focus();
  }
- function previewBack(){q('tripStopPreview').hidden=true;q('tripMain').hidden=false;q('tripModalHero').hidden=false;render();panel.scrollTop=0}
+ function previewBack(){q('tripStopPreview').hidden=true;q('tripMain').hidden=false;q('tripModalHero').hidden=false;render();panel.scrollTop=previewReturnScroll}
  function addStop(id){
   if(!stopById(id)?.endereco||selected.length>=MAX_ROUTE_STOPS||selected.includes(id))return;
   selected.push(id);presetId='';activeLegIndex=0;render();
@@ -585,8 +603,10 @@
  document.addEventListener('keydown',e=>{if(modal.hidden)return;if(e.key==='Escape'){if(!q('tripStopPreview').hidden)previewBack();else close()}if(e.key==='Tab'){const visible=[...panel.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(x=>x.offsetParent!==null);if(!visible.length)return;const f=visible[0],l=visible[visible.length-1];if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}}});
  q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);activeLegIndex=0;saveRoute();if(originMode==='manual')q('tripOrigin').focus()});
  q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=routeSummaryText();activeLegIndex=0;saveRoute()});
- q('tripTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
- q('tripCategories').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b){category=b.dataset.cat;renderAvailable()}});
+ q('tripTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab,true)});
+ q('tripCategories').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b){category=b.dataset.cat;q('tripSearch').value=categorySearches[category]||'';renderAvailable()}});
+ q('tripSearch').addEventListener('input',e=>{categorySearches[category]=e.target.value;renderAvailable()});
+ q('tripSearchClear').addEventListener('click',()=>{categorySearches[category]='';q('tripSearch').value='';renderAvailable();q('tripSearch').focus()});
  q('tripAvailable').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preview)preview(b.dataset.preview);else if(b.dataset.addStop)addStop(b.dataset.addStop)});
  q('tripPresets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.viewRoute){const li=document.getElementById('tripRoute-'+b.dataset.viewRoute);if(li)li.hidden=!li.hidden}
