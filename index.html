@@ -87,6 +87,20 @@ renderAsphaltCards();
 .tripLegNext{border-color:#fb923c;color:#ffbb86}
 .tripLegAll summary{cursor:pointer;color:#ffb37d;font-size:12px;font-weight:700;margin:13px 0}
 .tripLegListLink{display:block;text-decoration:none;margin:7px 0;font-size:12px;padding:10px}
+.tripDayCard{border:1px solid #464b55;border-radius:13px;background:#1d222b;padding:12px}
+.tripDayHeader{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tripDayExpand{flex:1 1 150px;text-align:left;min-height:44px;min-width:0}
+.tripDayTitle{display:block;font-size:14px;font-weight:800;color:#f4f4f5;overflow-wrap:anywhere}
+.tripDaySub{font-size:12px;color:#adb5c3}
+.tripDayCard .tripNavBtn{min-height:39px}
+.tripDayBody{border-top:1px solid #424750;padding-top:11px;margin-top:9px}
+.tripDayList{margin:8px 0 12px 20px;list-style:decimal;color:#d1d5db;font-size:13px}
+.tripDayList li{padding:3px 0}
+.tripDayRename{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}
+.tripDayRename input{flex:1 1 175px;min-width:100px;font-size:16px}
+.tripDayEditor{border:1px solid #fb923c6b;border-radius:13px;padding:13px;background:#33261e4d}
+.tripDayAdd{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;border:1px dashed #f5a76a;border-radius:12px;min-height:48px;font-weight:800;color:#ffbc86;background:#2b2523}
+.tripDayAdd:disabled{opacity:.5;cursor:not-allowed}
 .tripPresetCard{border:1px solid #434953;padding:16px;background:#1b2028;border-radius:13px}
 .tripPresetStops{margin:13px 0 0 20px;list-style:decimal;color:#c5cbd4;font-size:13px}
 .tripPresetStops li{margin:5px 0}
@@ -196,7 +210,22 @@ renderAsphaltCards();
 </div>
 <div id="tripMineSection" hidden>
 <div class="flex flex-wrap gap-2 justify-between items-center"><h3 class="font-black text-lg">Meu roteiro</h3><span id="tripCount" class="tripTiny">0 paradas</span></div>
-<p class="tripTiny mt-1 mb-3">Use ↑ ↓ para ordenar. Roteiro salvo automaticamente.</p><div id="tripChosen" class="space-y-2"></div>
+<p class="tripTiny mt-1 mb-3">Use ↑ ↓ para ordenar. Roteiro salvo automaticamente.</p>
+<div id="tripDayGroups" class="space-y-2 mb-3" hidden aria-label="Dias planejados da viagem"></div>
+<div id="tripDayEditor" class="tripDayEditor mb-3" hidden>
+ <div class="flex gap-2 flex-wrap justify-between items-center">
+  <strong id="tripActiveDayName" class="font-bold text-sm">Dia atual</strong>
+  <button id="tripRenameActiveDay" type="button" class="tripNavBtn text-xs">✎ Renomear dia</button>
+ </div>
+ <div id="tripActiveDayRename" class="tripDayRename" hidden>
+  <input id="tripActiveDayInput" type="text" class="tripField" maxlength="55" placeholder="Ex.: Dia 2 — Retorno" aria-label="Nome deste dia">
+  <button id="tripActiveDaySave" class="tripNavBtn" type="button">Salvar</button>
+  <button id="tripActiveDayCancel" class="tripNavBtn" type="button">Cancelar</button>
+ </div>
+</div>
+<div id="tripChosen" class="space-y-2"></div>
+<button id="tripCreateDay" type="button" class="tripDayAdd mt-3">＋ Criar próximo dia</button>
+<p id="tripDayMessage" class="tripTiny mt-2" role="status" aria-live="polite"></p>
 <p id="tripRouteSummary" class="font-bold text-sm mt-4"></p>
 <div class="flex gap-2 flex-wrap mt-4">
 <button id="tripOpenMaps" type="button" class="tripBtn">Google Maps ↗</button>
@@ -281,5 +310,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261109-clean-ui"></script>
+<script src="planejador.js?v=20261109-multiday"></script>
 </body></html>
