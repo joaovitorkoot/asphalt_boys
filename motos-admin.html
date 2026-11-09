@@ -1,0 +1,146 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Administrar motos | Asphalt Boys</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;color:#f3f4f6;background:#15191f;font-family:system-ui,-apple-system,sans-serif}main{max-width:930px;margin:auto;padding:20px 12px 40px}
+h1{font-size:23px;margin:0 0 7px}h2{font-size:19px;margin:0 0 10px}p{font-size:13px;color:#b9c1cd;line-height:1.6}
+.panel{background:#1d232c;border:1px solid #424956;border-radius:14px;padding:18px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:12px;color:#cad1dd;font-weight:700}
+input,select,textarea{width:100%;font-size:16px;background:#111820;border:1px solid #525b69;border-radius:9px;color:#fff;padding:12px;min-height:44px}
+textarea{resize:vertical;min-height:78px}
+button{font:inherit;cursor:pointer;border-radius:9px;min-height:43px;padding:10px 14px;background:#2c333d;border:1px solid #626a76;color:#fff;font-size:13px;font-weight:750}
+button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity:.5;cursor:not-allowed}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.line{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.list{display:grid;gap:9px}.item{background:#202833;border:1px solid #414b57;border-radius:11px;padding:13px}
+.item strong{font-size:14px}.item p{margin:4px 0;color:#adb6c4;font-size:12px}
+.tag{font-size:11px;color:#ffc08a;background:#473126;padding:4px 8px;border-radius:99px;white-space:nowrap}
+.preview{width:100%;max-width:160px;height:105px;object-fit:contain;background:#242b33;border-radius:9px}
+.hint{font-size:11px;color:#b3bdc9}.status{font-size:12px;color:#ffbd83;min-height:22px}
+[hidden]{display:none!important}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.panel{padding:13px}.actions button{flex:1}}
+</style></head><body><main>
+<div class="line"><div><h1>🏍️ Motos e afiliados</h1><p>Cadastre motos, versões dos acessórios, fotos e links da Shopee e Mercado Livre.</p></div><a href="./motos.html" target="_blank" rel="noopener noreferrer" style="color:#ffb377;font-size:13px">Ver site público ↗</a></div>
+<p id="notice" class="status" role="status">Conferindo sessão administrativa...</p>
+<div id="content" hidden>
+<section class="panel">
+ <div class="line"><h2>Motos cadastradas</h2><button type="button" id="newBike">＋ Nova moto</button></div>
+ <div id="bikes" class="list"></div>
+ <form id="bikeForm" hidden>
+  <h2 id="bikeFormHeading" style="margin-top:19px">Cadastrar moto</h2>
+  <div class="grid">
+   <div class="field"><label for="bikeName">Nome da moto</label><input id="bikeName" maxlength="120" required placeholder="Honda CG Titan 150"></div>
+   <div class="field"><label for="bikeDescription">Descrição curta</label><input id="bikeDescription" maxlength="320" placeholder="Moto urbana"></div>
+   <div class="field"><label for="bikeImage">Foto (link HTTPS ou /api/image)</label><input id="bikeImage" placeholder="https://..."></div>
+   <div class="field"><label for="bikeStatus">Visibilidade</label><select id="bikeStatus"><option value="publicado">Publicado</option><option value="rascunho">Rascunho</option></select></div>
+  </div>
+  <div class="actions"><button type="submit" class="primary">Salvar moto</button><button id="cancelBike" type="button">Cancelar</button></div>
+ </form>
+</section>
+<section class="panel">
+ <div class="line"><h2>Modelos de acessórios</h2><button type="button" id="newProduct">＋ Novo modelo</button></div>
+ <div class="grid">
+  <div class="field"><label for="filterBike">Ver acessórios da moto</label><select id="filterBike"></select></div>
+  <div class="field"><label for="filterCategory">Filtrar categoria</label><select id="filterCategory"><option value="">Todas as categorias</option><option value="viagem">Viagem</option><option value="protecao">Proteção</option><option value="estilo">Estilo</option></select></div>
+ </div>
+ <div id="products" class="list" style="margin-top:12px"></div>
+ <form id="productForm" hidden style="margin-top:20px">
+  <h2 id="productFormHeading">Cadastrar modelo</h2>
+  <div class="grid">
+   <div class="field"><label for="productBike">Moto compatível</label><select id="productBike" required></select></div>
+   <div class="field"><label for="productGroup">Tipo de acessório</label><select id="productGroup" required>
+    <option value="suporte">Suporte para celular</option><option value="bau">Baú traseiro</option><option value="bolsa">Bolsa de tanque</option><option value="protetor">Protetor de motor</option><option value="manoplas">Manoplas</option><option value="bolha">Bolha esportiva</option>
+   </select></div>
+   <div class="field"><label for="productName">Nome do modelo</label><input id="productName" required maxlength="120" placeholder="Suporte antivibração modelo X"></div>
+   <div class="field"><label for="productImage">Foto do produto</label><input id="productImage" placeholder="https://..."></div>
+   <div class="field"><label for="productShopee">Link afiliado Shopee</label><input id="productShopee" placeholder="https://shopee.com.br/..."></div>
+   <div class="field"><label for="productMercado">Link afiliado Mercado Livre</label><input id="productMercado" placeholder="https://mercadolivre.com.br/..."></div>
+   <div class="field"><label for="productStatus">Visibilidade no site</label><select id="productStatus"><option value="rascunho">Rascunho</option><option value="publicado">Publicado</option></select></div>
+  </div>
+  <div class="field" style="margin-top:13px"><label for="productDescription">Descrição</label><textarea id="productDescription" maxlength="500"></textarea></div>
+  <p class="hint">Use o link de afiliado gerado na conta da plataforma, não o link comum do anúncio. Só publique acessórios com compatibilidade verificada para a moto selecionada.</p>
+  <div class="actions"><button type="submit" class="primary">Salvar acessório</button><button id="cancelProduct" type="button">Cancelar</button></div>
+ </form>
+</section>
+</div>
+</main><script>
+(()=>{
+'use strict';
+const q=id=>document.getElementById(id),api='./api/motos';
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let catalog={motos:[],acessorios:[],grupos:{}},bikeEditing='',productEditing='';
+const groups=[['suporte','Suporte para celular','viagem'],['bau','Baú traseiro','viagem'],['bolsa','Bolsa de tanque','viagem'],['protetor','Protetor de motor','protecao'],['manoplas','Manoplas','estilo'],['bolha','Bolha esportiva','estilo']];
+async function request(method='GET',body){
+ const res=await fetch(api+(method==='GET'?'?admin=1':''),{method,credentials:'same-origin',cache:'no-store',headers:{...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
+ const data=await res.json();
+ if(!res.ok)throw Error(data.error||'Falha de comunicação com o servidor');
+ return data;
+}
+const note=s=>{q('notice').textContent=s};
+function options(){
+ const arr=catalog.motos;
+ const html=arr.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.nome)+'</option>').join('');
+ for(const id of ['filterBike','productBike']){
+  const el=q(id),prev=el.value;el.innerHTML=html;
+  if(arr.some(m=>m.id===prev))el.value=prev;
+ }
+}
+function render(){
+ options();
+ q('bikes').innerHTML=catalog.motos.map(m=>'<div class="item"><div class="line"><div><strong>'+esc(m.nome)+'</strong> <span class="tag">'+esc(m.status)+'</span><p>'+esc(m.descricao||'Sem descrição')+'</p></div><button type="button" data-bike-edit="'+esc(m.id)+'">Editar</button></div></div>').join('');
+ const bikeId=q('filterBike').value,cat=q('filterCategory').value;
+ const rows=(catalog.acessorios||[]).filter(a=>(!bikeId||a.bikeId===bikeId)&&(!cat||a.categoria===cat));
+ q('products').innerHTML=rows.length?rows.map(a=>'<article class="item"><div class="line"><div><strong>'+esc(a.nome)+'</strong> <span class="tag">'+esc(a.status)+'</span><p>'+esc(groups.find(g=>g[0]===a.grupoId)?.[1]||a.grupoId)+' · '+(a.shopee?'Shopee ✓ ':'')+(a.mercadolivre?'Mercado Livre ✓':'')+'</p></div><div class="actions" style="margin:0"><button type="button" data-edit="'+esc(a.id)+'">Editar</button><button type="button" data-delete="'+esc(a.id)+'">Excluir</button></div></div></article>').join(''):'<p>Nenhum acessório cadastrado nesta seleção. Os modelos de exemplo permanecem visíveis até você cadastrar os reais.</p>';
+}
+async function reload(){
+ catalog=await request();render();q('content').hidden=false;note('Conectado ao banco. Cadastros publicados aparecem na página Motos.');
+}
+q('newBike').onclick=()=>{bikeEditing='';q('bikeForm').reset();q('bikeForm').hidden=false;q('bikeFormHeading').textContent='Cadastrar moto';q('bikeForm').scrollIntoView({behavior:'smooth',block:'nearest'})};
+q('cancelBike').onclick=()=>q('bikeForm').hidden=true;
+q('newProduct').onclick=()=>{productEditing='';q('productForm').reset();q('productStatus').value='rascunho';q('productBike').value=q('filterBike').value;q('productFormHeading').textContent='Cadastrar modelo';q('productForm').hidden=false;q('productForm').scrollIntoView({behavior:'smooth',block:'nearest'})};
+q('cancelProduct').onclick=()=>q('productForm').hidden=true;
+q('filterBike').onchange=render;
+q('filterCategory').onchange=render;
+q('bikes').onclick=e=>{
+ const b=e.target.closest('[data-bike-edit]');if(!b)return;
+ const item=catalog.motos.find(x=>x.id===b.dataset.bikeEdit);if(!item)return;
+ bikeEditing=item.id;q('bikeFormHeading').textContent='Editar '+item.nome;
+ q('bikeName').value=item.nome;q('bikeDescription').value=item.descricao||'';q('bikeImage').value=item.foto||'';q('bikeStatus').value=item.status;
+ q('bikeForm').hidden=false;q('bikeForm').scrollIntoView({behavior:'smooth',block:'nearest'});
+};
+q('products').onclick=async e=>{
+ const b=e.target.closest('[data-edit], [data-delete]');if(!b)return;
+ const id=b.dataset.edit||b.dataset.delete,item=catalog.acessorios.find(x=>x.id===id);if(!item)return;
+ if(b.dataset.delete){
+  if(!confirm('Excluir o modelo '+item.nome+'?'))return;
+  try{await request('DELETE',{kind:'acessorio',id});await reload()}catch(err){note(err.message)}
+  return;
+ }
+ productEditing=id;
+ q('productBike').value=item.bikeId;q('productGroup').value=item.grupoId;q('productName').value=item.nome;
+ q('productDescription').value=item.descricao||'';q('productImage').value=item.foto||'';
+ q('productShopee').value=item.shopee||'';q('productMercado').value=item.mercadolivre||'';q('productStatus').value=item.status;
+ q('productFormHeading').textContent='Editar '+item.nome;q('productForm').hidden=false;q('productForm').scrollIntoView({behavior:'smooth',block:'nearest'});
+};
+function groupCategory(id){return groups.find(g=>g[0]===id)?.[2]||'viagem'}
+function newId(prefix){return prefix+'-'+crypto.randomUUID().replace(/-/g,'').slice(0,19)}
+q('bikeForm').onsubmit=async e=>{
+ e.preventDefault();
+ const button=e.target.querySelector('[type=submit]');button.disabled=true;
+ try{
+  await request('POST',{kind:'moto',record:{id:bikeEditing||newId('bike'),nome:q('bikeName').value,descricao:q('bikeDescription').value,foto:q('bikeImage').value,status:q('bikeStatus').value,order:bikeEditing?(catalog.motos.find(m=>m.id===bikeEditing)?.order||0):catalog.motos.length}});
+  q('bikeForm').hidden=true;await reload();
+ }catch(err){note(err.message)}finally{button.disabled=false}
+};
+q('productForm').onsubmit=async e=>{
+ e.preventDefault();
+ const button=e.target.querySelector('[type=submit]');button.disabled=true;
+ try{
+  const group=q('productGroup').value;
+  await request('POST',{kind:'acessorio',record:{id:productEditing||newId('part'),bikeId:q('productBike').value,grupoId:group,categoria:groupCategory(group),nome:q('productName').value,descricao:q('productDescription').value,foto:q('productImage').value,shopee:q('productShopee').value,mercadolivre:q('productMercado').value,status:q('productStatus').value}});
+  q('productForm').hidden=true;await reload();
+ }catch(err){note(err.message)}finally{button.disabled=false}
+};
+reload().catch(e=>{note('Não foi possível carregar a administração: '+e.message)});
+})();
+</script></body></html>
