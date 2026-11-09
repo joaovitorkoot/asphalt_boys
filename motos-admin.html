@@ -75,14 +75,14 @@ button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity
     <option value="suporte">Suporte para celular</option><option value="bau">Baú traseiro</option><option value="bolsa">Bolsa de tanque</option><option value="protetor">Protetor de motor</option><option value="manoplas">Manoplas</option><option value="bolha">Bolha esportiva</option>
    </select></div>
    <div class="field"><label for="productName">Nome do modelo</label><input id="productName" required maxlength="120" placeholder="Suporte antivibração modelo X"></div>
-   <div class="field"><label for="productImage">Foto do produto (link HTTPS)</label><input id="productImage" placeholder="https://..."><div class="image-check" id="productImageCheck" data-state="empty" aria-live="polite"><img id="productImagePreview" alt="Prévia da imagem" hidden><span id="productImageMessage">Cole um link ou envie uma foto para ver a prévia.</span></div><label for="productUpload">Ou enviar foto do aparelho</label><input id="productUpload" type="file" accept="image/*"></div>
+   <div class="field" hidden><label for="productImage">Foto principal (controle interno)</label><input id="productImage" placeholder="https://..."><div class="image-check" id="productImageCheck" data-state="empty" aria-live="polite"><img id="productImagePreview" alt="Prévia da imagem" hidden><span id="productImageMessage">Cole um link ou envie uma foto para ver a prévia.</span></div><label for="productUpload">Ou enviar foto do aparelho</label><input id="productUpload" type="file" accept="image/*"></div>
    <div class="field" style="grid-column:1/-1">
     <label>Galeria do produto (até 5 fotos)</label>
     <div id="productGallery" class="gallery-list" aria-live="polite"></div>
     <div class="gallery-controls">
-     <div class="field"><label for="galleryUrl">Adicionar imagem por link HTTPS</label><input id="galleryUrl" placeholder="https://..."></div>
-     <button id="galleryAddUrl" type="button">＋ Adicionar link</button>
-     <div class="field"><label for="galleryFiles">Ou enviar mais fotos</label><input id="galleryFiles" type="file" accept="image/*" multiple></div>
+     <div class="field"><label for="galleryUrl">Link da imagem (HTTPS)</label><input id="galleryUrl" placeholder="https://..."></div>
+     <button id="galleryAddUrl" type="button">＋ Adicionar foto</button>
+     <div class="field"><label for="galleryFiles">Ou enviar fotos do computador</label><input id="galleryFiles" type="file" accept="image/*" multiple></div>
     </div>
    </div>
    <div class="field"><label for="productShopee">Link afiliado Shopee</label><input id="productShopee" placeholder="https://shopee.com.br/..."></div>
