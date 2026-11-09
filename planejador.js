@@ -720,6 +720,52 @@
    loaded=true;
   }catch(e){q('tripDataStatus').textContent='Exibindo paradas iniciais. Rotas novas aparecerão quando o banco for configurado.'}
  }
+ // Os dias são rascunhos locais por destino. O dia ativo é a lista aberta no editor.
+ function makeNextDay(){
+  if(!selected.length){
+   q('tripDayMessage').textContent='Adicione pelo menos uma parada antes de criar o próximo dia.';
+   return;
+  }
+  if(tripDays.length>=MAX_TRIP_DAYS)return;
+  syncCurrentDay();
+  const index=tripDays.length+1;
+  let id='dia-'+index;
+  while(tripDays.some(d=>d.id===id))id='dia-'+(index+Math.floor(Math.random()*100000));
+  tripDays.push({id,title:'Dia '+index,stops:[],legIndex:0});
+  activeDayId=id;selected=[];activeLegIndex=0;presetId='';tab='mine';
+  q('tripDayMessage').textContent='Dia '+index+' pronto para receber novas paradas.';
+  render();
+ }
+ function editDay(id){
+  const target=tripDays.find(d=>d.id===id);
+  if(!target||target.id===activeDayId)return;
+  syncCurrentDay();
+  activeDayId=id;selected=[...target.stops];activeLegIndex=target.legIndex||0;
+  presetId='';tab='mine';
+  q('tripDayMessage').textContent='Editando '+target.title+'. As outras paradas continuam salvas.';
+  render();
+ }
+ function renameDay(id,value){
+  const day=tripDays.find(d=>d.id===id);
+  const title=String(value||'').trim().slice(0,55);
+  if(!day||!title){
+   q('tripDayMessage').textContent='Escolha um nome para o dia.';
+   return false;
+  }
+  day.title=title;saveRoute();renderDayGroups();
+  q('tripDayMessage').textContent='Nome atualizado: '+title+'.';
+  return true;
+ }
+ function removeDay(id){
+  if(tripDays.length<2||id===activeDayId)return;
+  const day=tripDays.find(d=>d.id===id);
+  if(!day)return;
+  if(!window.confirm('Excluir "'+day.title+'" e suas '+day.stops.length+' paradas deste roteiro?'))return;
+  tripDays=tripDays.filter(d=>d.id!==id);
+  expandedDayIds.delete(id);
+  q('tripDayMessage').textContent='Dia excluído. Os outros dias foram preservados.';
+  saveRoute();render();
+ }
  // Busca o conteúdo de IA somente com interação explícita do visitante.
  q('tripReviewDetails').addEventListener('toggle',async()=>{
    const details=q('tripReviewDetails'),id=previewId,epoch=reviewRequestEpoch;
@@ -765,6 +811,55 @@
  document.addEventListener('keydown',e=>{if(modal.hidden)return;if(e.key==='Escape'){if(!q('tripStopPreview').hidden)previewBack();else close()}if(e.key==='Tab'){const visible=[...panel.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(x=>x.offsetParent!==null);if(!visible.length)return;const f=visible[0],l=visible[visible.length-1];if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}}});
  q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);activeLegIndex=0;saveRoute();if(originMode==='manual')q('tripOrigin').focus()});
  q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=routeSummaryText();activeLegIndex=0;saveRoute()});
+ q('tripCreateDay').onclick=makeNextDay;
+ q('tripRenameActiveDay').onclick=()=>{
+  const day=currentDay();if(!day)return;
+  q('tripActiveDayRename').hidden=false;
+  q('tripActiveDayInput').value=day.title;q('tripActiveDayInput').focus();
+ };
+ q('tripActiveDaySave').onclick=()=>{if(renameDay(activeDayId,q('tripActiveDayInput').value))q('tripActiveDayRename').hidden=true};
+ q('tripActiveDayCancel').onclick=()=>{q('tripActiveDayRename').hidden=true};
+ q('tripActiveDayInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();q('tripActiveDaySave').click()}
+  if(e.key==='Escape'){e.stopPropagation();q('tripActiveDayCancel').click()}
+ });
+ q('tripDayGroups').addEventListener('click',e=>{
+  const button=e.target.closest('button');if(!button)return;
+  const d=button.dataset;
+  if(d.dayExpand){
+   const isOpen=!expandedDayIds.has(d.dayExpand);
+   if(isOpen)expandedDayIds.add(d.dayExpand);else expandedDayIds.delete(d.dayExpand);
+   const card=button.closest('[data-day-card]');
+   const body=card?.querySelector('[data-day-content]');
+   if(body)body.hidden=!isOpen;
+   button.setAttribute('aria-expanded',String(isOpen));
+   const title=button.querySelector('.tripDayTitle');
+   const day=tripDays.find(x=>x.id===d.dayExpand);
+   if(title&&day)title.textContent=(isOpen?'▾ ':'▸ ')+day.title;
+  }else if(d.dayRoute){
+   prepareGoogleRoute(d.dayRoute).catch(()=>{
+    q('tripDayMessage').textContent='Não foi possível preparar o Maps. Tente novamente.';
+   });
+  }else if(d.dayRename){
+   const box=button.closest('[data-day-card]')?.querySelector('[data-day-rename-box]');
+   if(box){box.hidden=false;box.querySelector('input')?.focus()}
+  }else if(d.dayCancel){
+   const box=button.closest('[data-day-card]')?.querySelector('[data-day-rename-box]');
+   if(box)box.hidden=true;
+  }else if(d.daySave){
+   const input=button.closest('[data-day-card]')?.querySelector('[data-day-title]');
+   if(input)renameDay(d.daySave,input.value);
+  }else if(d.dayEdit)editDay(d.dayEdit);
+  else if(d.dayDelete)removeDay(d.dayDelete);
+ });
+ q('tripDayGroups').addEventListener('keydown',e=>{
+  if(e.target.matches('[data-day-title]')&&e.key==='Enter'){
+   e.preventDefault();
+   e.target.closest('[data-day-card]')?.querySelector('[data-day-save]')?.click();
+  }else if(e.target.matches('[data-day-title]')&&e.key==='Escape'){
+   e.stopPropagation();e.target.closest('[data-day-card]')?.querySelector('[data-day-cancel]')?.click();
+  }
+ });
  q('tripTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab,true)});
  q('tripCategories').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b){category=b.dataset.cat;q('tripSearch').value=categorySearches[category]||'';renderAvailable()}});
  q('tripSearch').addEventListener('input',e=>{categorySearches[category]=e.target.value;renderAvailable()});
