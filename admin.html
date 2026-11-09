@@ -619,6 +619,7 @@ async function searchFreePhotos(scope='place'){
  finally{if(button.isConnected)button.disabled=false;if(regionButton.isConnected)regionButton.disabled=false}
 }
 function placeLookupMarkup(){
+ if(tab==='rotas')return ''; // Usar link do proprio Asphalt Boys.
  const enabled=remote&&(!!token||sessionReady);
  const label=tab==='rotas'?'Cole um link de trajeto ou rota do Google Maps.':'Cole o link de um destino ou lugar no Google Maps.';
  return '<section id="googlePlaceLookup" class="rounded-xl border border-orange-500/35 bg-orange-500/5 p-4 mb-4">'+
@@ -640,14 +641,81 @@ function form(){
  let fields='';
  if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup(d);
  if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+stopCategoriesMarkup(d)+f('maps','Link exato do Google Maps (será respeitado no site)','url')+'<div class="flex gap-2 items-center flex-wrap mt-2"><button type="button" id="testExactMapsLink" class="subbtn text-sm">📍 Testar ponto compartilhado</button><span id="coordinatesStatus" class="tiny">'+(d.mapCoordinates?'GPS confirmado: '+esc(d.mapCoordinates):'O link original será aberto sem substituição.')+'</span></div><input type="hidden" id="f_mapCoordinates" name="mapCoordinates" value="'+esc(d.mapCoordinates||'')+'"><p class="tiny mt-1">O botão acima abre o link exatamente como foi colado. Ao salvar, o site tenta usar as coordenadas exatas também no roteiro, sem buscar um ponto com nome parecido.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup(d)+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
- if(tab==='rotas'){const dest=selectedDestId;fields='<input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(dest)+'"><p class="tiny text-orange-300">Essa rota será adicionada somente a '+esc(currentDestination()?.nome||dest)+'.</p>'+f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição da viagem','textarea')+f('maps','Link do trajeto no Google Maps','url')+'<p class="lbl">Escolha as paradas e organize a ordem</p><div id="routePicker" class="space-y-2"></div><p class="tiny mt-2">No Google Maps, roteiros com mais de três paradas podem ter limitações em celulares.</p>'}
+ if(tab==='rotas'){
+  const dest=selectedDestId;
+  const previous=String(d.maps||'');
+  const share=previous.includes('asphalt-boys.pages.dev/?dest=')?previous:
+   (Array.isArray(d.paradas)&&d.paradas.length?
+    'https://asphalt-boys.pages.dev/?dest='+encodeURIComponent(dest)+'&stops='+encodeURIComponent(d.paradas.join(',')):'');
+  fields='<input type="hidden" name="destinoId" id="f_destinoId" value="'+esc(dest)+'">'+
+   '<p class="tiny text-orange-300">Rota para '+esc(currentDestination()?.nome||dest)+'</p>'+
+   '<h3 class="font-bold mt-3">🏍️ Importar roteiro do Asphalt Boys</h3>'+
+   '<p class="tiny mb-3">Monte a viagem no site público, toque em Compartilhar e cole aqui o link (ou a mensagem do WhatsApp). As paradas serão recuperadas automaticamente, sem precisar selecioná-las.</p>'+
+   makeField('maps','Link compartilhado pelo Asphalt Boys',share,'textarea',true)+
+   '<button type="button" id="routeImportButton" class="subbtn text-sm mt-2">✓ Conferir roteiro</button>'+
+   '<p id="routeShareStatus" class="tiny mt-2" role="status" aria-live="polite">Cole o link para recuperar as paradas.</p>'+
+   '<div id="routePicker" class="mt-3"></div>'+
+   f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição opcional','textarea');
+ }
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
  return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3><p id="autoDraftNotice" class="tiny text-orange-300 mt-2" role="status">Seus campos são preservados neste aparelho durante a edição.</p>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
 }
-function renderPicker(){
- const el=$('#routePicker');if(!el)return;
- const dest=$('#f_destinoId').value;
- el.innerHTML=listForDest(dest).map(p=>'<div class="pick"><input aria-label="Selecionar '+esc(p.nome)+'" type="checkbox" data-pick="'+esc(p.id)+'" '+(picked.includes(p.id)?'checked':'')+'><span class="text-sm flex-1">'+esc(p.nome)+' <span class="tiny">('+esc(categoryLabel(p.categoria))+')</span></span></div>').join('')+'<div class="mt-3">'+picked.map((id,i)=>{const p=routeStops(dest).find(x=>x.id===id);return p?'<div class="flex gap-2 items-center border-b border-zinc-700 py-2 text-sm"><span class="flex-1">'+(i+1)+'. '+esc(p.nome)+'</span><button type="button" class="subbtn" data-up="'+i+'" '+(i===0?'disabled':'')+'>↑</button><button type="button" class="subbtn" data-down="'+i+'" '+(i===picked.length-1?'disabled':'')+'>↓</button></div>':''}).join('')+'</div>';
+function parseAsphaltRouteLink(text){
+ const links=String(text||'').match(/https:\/\/[^\s<>"']+/gi)||[];
+ let url=null;
+ for(const value of links){
+  try{
+   const u=new URL(value.replace(/[),.;]+$/,''));
+   if(u.protocol==='https:'&&u.hostname==='asphalt-boys.pages.dev'&&
+      (u.pathname==='/'||u.pathname==='/index.html')){url=u;break}
+  }catch{}
+ }
+ if(!url)throw Error('Cole o link compartilhado pelo Asphalt Boys (asphalt-boys.pages.dev).');
+ const dest=String(url.searchParams.get('dest')||'').trim();
+ const raw=url.searchParams.get('stops');
+ if(!/^[a-zA-Z0-9_-]{3,120}$/.test(dest))throw Error('O link não informa um destino válido.');
+ if(!raw)throw Error('O link não contém paradas. Em Meu roteiro, toque em Compartilhar depois de adicionar os locais.');
+ const ids=raw.split(',');
+ if(ids.length<1||ids.length>20||ids.some(id=>!/^[a-zA-Z0-9_-]{3,120}$/.test(id)))
+  throw Error('O link contém IDs de paradas inválidos ou acima do limite de 20.');
+ if(new Set(ids).size!==ids.length)throw Error('O link repete uma parada. Gere outro link no planejador.');
+ const cleaned=new URL('https://asphalt-boys.pages.dev/');
+ cleaned.searchParams.set('dest',dest);
+ cleaned.searchParams.set('stops',ids.join(','));
+ return {dest,ids,url:cleaned.href};
+}
+function readSharedRoute(){
+ const input=$('#f_maps'),status=$('#routeShareStatus'),list=$('#routePicker');
+ if(!input||!status||!list)return null;
+ if(!input.value.trim()){picked=[];list.innerHTML='';status.textContent='Cole o link compartilhado para recuperar as paradas.';return null}
+ try{
+  const route=parseAsphaltRouteLink(input.value);
+  if(route.dest!==selectedDestId)
+   throw Error('O link pertence ao destino '+route.dest+'. Selecione esse destino no painel primeiro.');
+  const records=routeStops(route.dest),byId=new Map(records.map(p=>[p.id,p]));
+  const missing=route.ids.filter(id=>!byId.has(id));
+  if(missing.length)throw Error('O link tem '+missing.length+' parada(s) que não estão cadastradas neste destino. Confira se estão salvas no banco.');
+  picked=[...route.ids];
+  list.innerHTML='<section class="rounded-xl border border-orange-500/40 bg-[#1d262e] p-3">'+
+   '<strong class="text-orange-200">✓ '+picked.length+' paradas recuperadas</strong>'+
+   '<ol class="list-decimal ml-6 mt-2 space-y-1 text-sm">'+picked.map(id=>'<li>'+esc(byId.get(id).nome)+'</li>').join('')+'</ol>'+
+   '<p class="tiny mt-2">Para mudar as paradas, edite a viagem no planejador e cole um novo link.</p></section>';
+  const pending=route.ids.filter(id=>byId.get(id).status!=='publicado');
+  status.textContent=pending.length?'✓ Link reconhecido. '+pending.length+' parada(s) ainda não foram publicadas.':
+   '✓ Link reconhecido! Destino e ordem das paradas confirmados.';
+  return route;
+ }catch(e){picked=[];list.innerHTML='';status.textContent='⚠️ '+String(e.message||e);return null}
+}
+function initSharedRouteLink(){
+ const field=$('#f_maps'),button=$('#routeImportButton');
+ if(!field||!button)return;
+ field.addEventListener('input',readSharedRoute);
+ button.addEventListener('click',()=>{
+  const result=readSharedRoute();
+  if(result){field.value=result.url;storeUnfinishedForm();$('#f_nome')?.focus()}
+  else field.focus();
+ });
+ readSharedRoute();
 }
 function listHtml(){
  if(tab==='backup'||!selectedDestId||creatingNewDestination)return '';
@@ -684,7 +752,7 @@ function listHtml(){
        (tab==='rotas'?'<p class="tiny mt-1">'+(x.paradas||[]).length+' paradas</p>':'')+
        (origin==='local'&&remote?'<p class="text-xs text-amber-300 mt-1">Salvo apenas neste navegador. Abra e salve no banco para sincronizar.</p>':'')+
        (origin==='default'?'<p class="tiny mt-1">Já aparece no site. Você pode personalizar e salvar no banco.</p>':'')+
-       (safeUrl(x.maps)?'<a class="text-xs text-orange-300 underline mt-2 block" target="_blank" rel="noopener noreferrer" href="'+esc(safeUrl(x.maps))+'">Google Maps</a>':'')+
+       (safeUrl(x.maps)?'<a class="text-xs text-orange-300 underline mt-2 block" target="_blank" rel="noopener noreferrer" href="'+esc(safeUrl(x.maps))+'">'+(tab==='rotas'?'Roteiro Asphalt Boys':'Google Maps')+'</a>':'')+
        '</div></div><div class="flex flex-wrap gap-2 mt-3">'+
        '<button type="button" class="subbtn text-sm" data-edit="'+esc(x.id)+'">✏️ Editar</button>'+
        (canPublish?'<button type="button" class="btn text-sm" data-publish-stop="'+esc(x.id)+'">🚀 Publicar no site</button>':'')+
@@ -1204,7 +1272,7 @@ function render(resetPicker=true){
  categorySuggestionSeq++;categoryUserEdited=false;
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
  $('#sectionTitle').textContent=titles[tab];
- $('#sectionHelp').textContent={destinos:'Importe um destino pelo link do Google Maps ou pesquise pelo nome. Depois você pode editar e publicar.',paradas:'Busque locais no Google Maps, escolha a categoria e publique as paradas para os visitantes.',rotas:'Cole um link de trajeto do Google Maps para identificar paradas cadastradas, organizar e publicar uma rota.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
+ $('#sectionHelp').textContent={destinos:'Importe um destino pelo link do Google Maps ou pesquise pelo nome. Depois você pode editar e publicar.',paradas:'Busque locais no Google Maps, escolha a categoria e publique as paradas para os visitantes.',rotas:'Monte a viagem no Asphalt Boys e cole o link compartilhado. O sistema importa automaticamente as paradas e sua ordem.',backup:'Exporte seus rascunhos antes de mudanças importantes.'}[tab];
  if(resetPicker&&tab==='rotas')picked=[...(editableRoutes(selectedDestId).find(x=>x.id===editing)?.paradas||[])];
  placeSearchSeq++;placeMatches=[];mapsImportSeq++;importMatches=[];
  const keepPhoto=!!photoSourceFile&&photoSourceKey===unfinishedFormKey();
@@ -1300,7 +1368,7 @@ function render(resetPicker=true){
    const currentPhoto=safeUrl($('#f_foto')?.value);
    const photoPreview=$('#photoPreview');if(photoPreview&&currentPhoto){photoPreview.src=currentPhoto;photoPreview.hidden=false}
  }
- if(tab==='rotas'){renderPicker();$('#routePicker').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let i;if(b.dataset.up!==undefined){i=+b.dataset.up;if(i>0)[picked[i],picked[i-1]]=[picked[i-1],picked[i]]}if(b.dataset.down!==undefined){i=+b.dataset.down;if(i<picked.length-1)[picked[i],picked[i+1]]=[picked[i+1],picked[i]]}renderPicker()});$('#routePicker').addEventListener('change',e=>{const el=e.target;if(!el.matches('[data-pick]'))return;const p=el.dataset.pick;if(el.checked){if(!picked.includes(p))picked.push(p)}else picked=picked.filter(x=>x!==p);renderPicker()});}
+ if(tab==='rotas')initSharedRouteLink();
  $('#cancel').onclick=()=>{clearUnfinishedForm();editing=null;if(tab==='destinos'&&creatingNewDestination){creatingNewDestination=false;selectedDestId=''}render()};
  const editorForm=$('#recordForm');
  if(editorForm){
@@ -1453,10 +1521,11 @@ async function saveRecord(e){
   }
  }
  if(tab==='rotas'){
-  v.paradas=[...picked];
-  if(v.paradas.some(id=>routeStops(v.destinoId).find(p=>p.id===id)?.destinoId!==v.destinoId)){alert('Selecione apenas paradas do mesmo destino.');return}
-  const unpub=v.paradas.filter(id=>id!=='pico-alto-parada'&&!data.paradas.some(p=>p.id===id&&p.destinoId===v.destinoId&&p.status==='publicado'));
-  if(v.status==='publicado'&&unpub.length){alert('Publique primeiro as '+unpub.length+' parada(s) desta rota, para elas aparecerem no site.');return}
+  const imported=readSharedRoute();
+  if(!imported){alert('Cole o link compartilhado do Asphalt Boys e confira as paradas antes de salvar.');$('#f_maps')?.focus();return}
+  v.maps=imported.url;v.paradas=[...imported.ids];
+  const unpub=v.paradas.filter(id=>!data.paradas.some(p=>p.id===id&&p.destinoId===v.destinoId&&p.status==='publicado'));
+  if(v.status==='publicado'&&unpub.length){alert('Publique primeiro as '+unpub.length+' parada(s) desta rota.');return}
  }
  if(v.maps&&!safeUrl(v.maps)){alert('Digite um link https do Google Maps.');return}
  if(v.foto&&!safeUrl(v.foto)){alert('A URL da foto precisa começar com https.');return}
