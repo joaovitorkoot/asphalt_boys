@@ -101,6 +101,43 @@ renderAsphaltCards();
 .tripDayEditor{border:1px solid #fb923c6b;border-radius:13px;padding:13px;background:#33261e4d}
 .tripDayAdd{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;padding:7px 11px;border:1px dashed #f5a76a;border-radius:10px;min-height:37px;font-size:12px;font-weight:800;color:#ffbc86;background:#2b2523}
 .tripDayAdd:disabled{opacity:.5;cursor:not-allowed}
+/* Estados visuais do planejador: movimento sutil, sem alterar o layout ou os eventos. */
+.tripOriginChoice,.tripTab,.tripCat,.tripStop,.tripPicked,.tripNavBtn,.tripBtn,
+.tripPresetCard,.tripDayCard,.tripDayAdd{transition:transform .19s ease,box-shadow .19s ease,border-color .19s ease,background-color .19s ease,filter .19s ease}
+.tripOriginChoice[aria-pressed="true"],.tripTab[aria-selected="true"],.tripCat[aria-pressed="true"]{
+ background:linear-gradient(135deg,rgba(249,115,22,.29),rgba(74,39,26,.45) 70%,rgba(26,31,39,.9));
+ border-color:#fb923c;color:#ffd4b0;box-shadow:inset 0 1px 0 #ffcc9b18,0 0 0 1px #fb923c19,0 7px 23px #fb923c0b
+}
+.tripStop[data-selected="true"]{background:linear-gradient(115deg,rgba(253,142,53,.18),rgba(33,40,52,.97) 75%);border-color:#fa923b;box-shadow:0 0 0 1px #fb923c1a}
+.tripPicked{background:linear-gradient(120deg,#272c35,#29262a);border-color:#665045}
+.tripPicked:hover{border-color:#fbb77b}
+.tripDayCard,.tripPresetCard{background:linear-gradient(130deg,#222730,#1a1f27 88%)}
+.tripBtn{background:linear-gradient(120deg,#ffb25e,#f97316);box-shadow:0 3px 12px #fb923c19}
+.tripNavBtn[data-add-stop][aria-pressed="true"]{background:linear-gradient(120deg,#ffb25e,#f97316);border-color:#fb923c;color:#1b1714;font-weight:800;opacity:1;cursor:default}
+.tripNavBtn[data-add-stop][aria-pressed="true"]:disabled{opacity:1}
+.tripOriginLookup{border:1px solid #41464e;border-radius:13px;padding:13px;background:linear-gradient(135deg,#222730,#1a2027)}
+.tripOriginCheck{border-color:#bb753c;background:linear-gradient(110deg,#4b3325,#2b2a2a);font-weight:700;color:#ffd0a2}
+.tripOriginConfirmed{border:1px solid #ea9a55;border-radius:12px;padding:12px;background:linear-gradient(125deg,#4730229c,#252a32);box-shadow:0 5px 20px #0002}
+.tripOriginCandidate{display:flex;gap:10px;align-items:center;justify-content:space-between;width:100%;padding:11px;border:1px solid #454d57;background:linear-gradient(120deg,#292e37,#1f252e);border-radius:12px;text-align:left;color:#f3f4f6}
+.tripOriginCandidate strong{font-size:13px}
+.tripOriginCandidate span{display:block;color:#bbc0c8;font-size:12px;margin-top:3px}
+#tripOriginCandidates[hidden],#tripOriginConfirmed[hidden]{display:none!important}
+@media (hover:hover) and (pointer:fine){
+ .tripOriginChoice:hover,.tripTab:hover,.tripCat:hover,.tripStop:hover,.tripPresetCard:hover,.tripDayCard:hover{
+  transform:translateY(-2px) scale(1.008);border-color:#ffad70;box-shadow:0 9px 23px #0004,0 0 0 1px #fb923c19;
+  background-image:linear-gradient(120deg,#4a332a,#29252b 56%,#202630)
+ }
+ .tripNavBtn:not(:disabled):hover,.tripDayAdd:not(:disabled):hover,.tripOriginCandidate:hover{
+  transform:translateY(-1px) scale(1.025);border-color:#fb923c;background-image:linear-gradient(125deg,#62402b,#332a2a);color:#ffd1ac;box-shadow:0 6px 16px #0005
+ }
+ .tripBtn:not(:disabled):hover{transform:translateY(-2px) scale(1.02);filter:brightness(1.08);box-shadow:0 10px 22px #f9731640}
+ .tripNavBtn[data-add-stop][aria-pressed="true"]:hover{transform:none;background-image:linear-gradient(120deg,#ffb25e,#f97316);color:#1b1714}
+}
+@media (prefers-reduced-motion:reduce){
+ .tripOriginChoice,.tripTab,.tripCat,.tripStop,.tripPicked,.tripNavBtn,.tripBtn,
+ .tripPresetCard,.tripDayCard,.tripDayAdd,.tripOriginCandidate{transition:none!important;transform:none!important}
+}
+
 .tripPresetCard{border:1px solid #434953;padding:16px;background:#1b2028;border-radius:13px}
 .tripPresetStops{margin:13px 0 0 20px;list-style:decimal;color:#c5cbd4;font-size:13px}
 .tripPresetStops li{margin:5px 0}
@@ -182,9 +219,26 @@ renderAsphaltCards();
  <p class="font-bold text-sm">📍 Ponto de partida</p>
  <div id="tripOriginChoices" class="grid grid-cols-1 sm:grid-cols-2 gap-2" role="group" aria-label="Escolha de ponto de partida">
    <button type="button" id="tripUseGps" data-origin-mode="gps" class="tripOriginChoice" aria-pressed="true">📍 Minha localização atual</button>
-   <button type="button" id="tripUseManual" data-origin-mode="manual" class="tripOriginChoice" aria-pressed="false">🏙️ Escolher outra cidade</button>
+   <button type="button" id="tripUseManual" data-origin-mode="manual" class="tripOriginChoice" aria-pressed="false">📌 Ponto de saída fixo</button>
  </div>
- <div id="tripManualOrigin" hidden><label for="tripOrigin" class="font-bold text-sm block mb-2">Cidade ou endereço de origem</label><input id="tripOrigin" class="tripField" autocomplete="address-level2" placeholder="Ex.: Fortaleza, CE" value=""></div>
+ <div id="tripManualOrigin" hidden class="tripOriginLookup">
+ <label for="tripOrigin" class="font-bold text-sm block mb-2">Onde a viagem começa?</label>
+ <input id="tripOrigin" class="tripField" autocomplete="off" spellcheck="false" placeholder="Endereço, coordenadas ou link do Google Maps" value="">
+ <button id="tripOriginCheck" type="button" class="tripNavBtn tripOriginCheck mt-2">📍 Conferir ponto no Maps</button>
+ <p id="tripOriginStatus" class="tripTiny mt-2" role="status" aria-live="polite"></p>
+ <div id="tripOriginCandidates" class="space-y-2 mt-2" hidden aria-label="Resultados da busca do ponto de saída"></div>
+ <div id="tripOriginConfirmed" class="tripOriginConfirmed mt-3" hidden>
+  <div class="flex items-start gap-2">
+   <span aria-hidden="true">📍</span>
+   <div class="min-w-0 flex-1">
+    <strong id="tripOriginName" class="block text-sm"></strong>
+    <p id="tripOriginAddress" class="tripTiny mt-1"></p>
+    <a id="tripOriginMap" href="https://www.google.com/maps/" target="_blank" rel="noopener noreferrer" class="tripStopCheck mt-2">Conferir local no Google Maps ↗</a>
+   </div>
+   <button id="tripOriginClear" type="button" class="tripNavBtn text-xs" aria-label="Alterar ponto de saída">Alterar</button>
+  </div>
+ </div>
+</div>
  <p id="tripOriginHint" class="tripTiny" aria-live="polite">O Maps usa a localização do aparelho.</p>
  </div>
 <div id="tripTabs" role="tablist" aria-label="Etapas do planejador">
