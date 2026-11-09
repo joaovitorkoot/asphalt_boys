@@ -210,7 +210,7 @@
   const tentative=selected.length?routeSegmentsFor(selected.map(stopById).filter(Boolean),'',APP_MAX_STOPS):null;
   const stageCount=tentative&&!tentative.error&&!tentative.unresolved.length?
    tentative.segments.length:Math.ceil(selected.length/APP_MAX_STOPS);
-  const precisionSplit=stageCount>Math.ceil(selected.length/APP_MAX_STOPS);
+  
   q('tripOpenMaps').textContent=stageCount>1
    ?'🧭 Ver '+stageCount+' etapas da viagem'
    :'🗺️ Abrir rota no Maps'+(selected.length?' ('+selected.length+' paradas)':'');
@@ -218,9 +218,8 @@
    q('tripMapsHelp').textContent=suspicious.length
    ?'⚠️ Confira a localização de '+suspicious.map(p=>p.nome).join(', ')+' antes de navegar. O cadastro pode causar um desvio.'
    :stageCount>1
-   ?'As '+selected.length+' paradas serão organizadas em '+stageCount+' etapas, na ordem escolhida.'+
-     (precisionSplit?' Alguns trechos são menores para manter a precisão dos locais.':'')
-   :'O Google Maps receberá até '+APP_MAX_STOPS+' paradas, respeitando a ordem do roteiro.';
+   ?'As '+selected.length+' paradas serão organizadas em '+stageCount+' etapas de até nove locais, na ordem escolhida.'
+   :'O Google Maps receberá até nove locais. Confira cada ponto antes de iniciar a navegação.';
   q('tripRouteSegments').hidden=true;
   q('tripRouteSegments').replaceChildren();
   saveRoute();
@@ -416,14 +415,8 @@
    // Até 3 paradas intermediárias e 1 ponto final no Google Maps do celular.
    // Endereços e coordenadas podem coexistir no mesmo link.
    let take=Math.min(Math.max(1,Math.min(APP_MAX_STOPS,maxPointsPerLink)),points.length-offset);
-   // Preservar os IDs exatos do Google. Quando GPS e Place ID aparecem
-   // misturados como intermediários, o Maps descarta a lista de Place IDs.
-   // Dividir apenas nesse caso, mantendo até 9 paradas nos demais.
-   while(take>1){
-    const middle=points.slice(offset,offset+take-1);
-    if(middle.every(p=>p.type==='place')||middle.every(p=>p.type==='gps'))break;
-    take--;
-   }
+   // Manter ate nove locais por etapa. Antes da navegacao, os Place IDs
+   // serao resolvidos para GPS oficial pela API de verificacao.
    let chunk=points.slice(offset,offset+take);
    let url=oneGoogleSegment(from,chunk);
    while(url.length>1950&&take>1){
@@ -445,6 +438,11 @@
     ?'Alguns locais ainda precisam de localização exata. Confira seus links originais:'
     :'Suas '+selected.length+' paradas serão navegadas em '+result.segments.length+' etapas.');
   box.appendChild(heading);
+  if(Array.isArray(result.warnings)&&result.warnings.length){
+   const warning=document.createElement('p');warning.className='tripStopWarning mb-3';
+   warning.textContent='⚠️ '+result.warnings.join(' · ')+' Confira os pontos no Maps antes de navegar.';
+   box.appendChild(warning);
+  }
   if(result.unresolved?.length){
    for(const stop of result.unresolved){
     const link=document.createElement('a');
@@ -515,25 +513,59 @@
   if(originMode==='manual')safeStore('asphalt-boys-ultima-origem',origin);
   return {stops,origin,fallback};
  }
- function googleUrl(){
-  const plan=routeRequest();if(!plan)return null;
-  if(plan.stops.length>APP_MAX_STOPS){
-   q('tripNote').textContent='Roteiro organizado automaticamente em '+plan.fallback.segments.length+' etapas. Abra uma etapa por vez e avance ao concluir.';
-   showGoogleLegs(plan.fallback);
-   return null;
+  async function preparePreciseStops(stops){
+  if(localPreview||!stops.length)return {stops,warnings:localPreview?
+   ['Modo de rascunho: confira os pontos antes de navegar.']:[]};
+  try{
+   const res=await fetch('./api/route-points',{
+    method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ids:stops.map(p=>p.id)})
+   });
+   const payload=await res.json();
+   if(!res.ok||!Array.isArray(payload.positions))
+    throw Error(payload.error||'Verificação indisponível.');
+   const byId=new Map(payload.positions.map(p=>[p.id,p]));
+   const warnings=[],updated=stops.map(stop=>{
+    const point=byId.get(stop.id);
+    if(!point||point.missing){
+     warnings.push('Local não encontrado no banco: '+stop.nome);
+     return stop;
+    }
+    const gps=validCoords(point.coordinate);
+    if(gps&&point.source==='google-places')
+     return {...stop,mapCoordinates:gps,mapCoordinatesSource:'google-places'};
+    warnings.push('Local sem confirmação exata: '+stop.nome);
+    // O cadastro original continua disponível para conferência manual.
+    return stop;
+   });
+   return {stops:updated,warnings};
+  }catch{
+   return {stops,warnings:['Não foi possível conferir os pontos com o Google Places agora.']};
   }
-  // Tenta um URL único para o aplicativo Maps. O limite do navegador é menor.
-  const complete=routeSegmentsFor(plan.stops,plan.origin,APP_MAX_STOPS);
-  if(complete.error||complete.unresolved.length||complete.segments.length!==1){
-   q('tripNote').textContent='Dividimos automaticamente a rota para preservar a identificação exata de cada local. Abra as etapas na ordem.';
-   showGoogleLegs(plan.fallback);
-   return null;
+ }
+ async function prepareGoogleRoute(){
+  const plan=routeRequest();if(!plan)return;
+  const button=q('tripOpenMaps'),previousLabel=button.textContent;
+  if(button.disabled)return;
+  const plannedIds=selected.join(',');
+  button.disabled=true;button.textContent='📍 Conferindo locais…';
+  q('tripNote').textContent='Verificando a localização de cada ponto antes de montar o roteiro.';
+  try{
+   const prepared=await preparePreciseStops(plan.stops);
+   if(selected.join(',')!==plannedIds||!destination)return;
+   const result=routeSegmentsFor(prepared.stops,plan.origin,APP_MAX_STOPS);
+   result.warnings=prepared.warnings;
+   if(result.unresolved.length||result.error){
+    q('tripNote').textContent=result.error||'Alguns locais ainda precisam de GPS ou identificação exata para navegar.';
+   }else{
+    q('tripNote').textContent='Seu roteiro tem '+result.segments.length+' etapa'+(result.segments.length===1?'':'s')+
+     ', com até nove paradas por etapa. Abra no Google Maps e confira os pontos.';
+   }
+   showGoogleLegs(result);
+  }finally{
+   button.disabled=false;button.textContent=previousLabel;
   }
-  q('tripRouteSegments').hidden=true;
-  q('tripNote').textContent=plan.stops.length>4
-   ?'Confira as '+plan.stops.length+' paradas no Maps. Se alguma sumir, volte e toque em Abrir por trechos.'
-   :'Confira todas as paradas no Google Maps antes de iniciar.';
-  return complete.segments[0].url;
  }
  function share(){
   const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('dest',destination.id);
@@ -634,7 +666,7 @@
   else if(b.dataset.remove!==undefined)selected.splice(+b.dataset.remove,1);
   presetId='';activeLegIndex=0;render();showTab('mine');
  });
- q('tripOpenMaps').onclick=()=>{const u=googleUrl();if(u)window.open(u,'_blank','noopener,noreferrer')};
+ q('tripOpenMaps').onclick=()=>{prepareGoogleRoute().catch(()=>{q('tripNote').textContent='Erro ao preparar a rota. Confira sua conexão e tente novamente.';q('tripOpenMaps').disabled=false})};
  q('tripOpenWaze').onclick=()=>{window.open('https://www.waze.com/ul?q='+encodeURIComponent(destinationUrl())+'&navigate=yes','_blank','noopener,noreferrer');q('tripNote').textContent='O Waze abre somente o destino. Paradas intermediárias devem ser configuradas no aplicativo.'};
  q('tripShare').onclick=share;
  q('tripCopy').onclick=async()=>{const input=q('tripShareLink');try{await navigator.clipboard.writeText(input.value);q('tripNote').textContent='Link copiado!'}catch{input.focus();input.select();q('tripNote').textContent='Selecione o link e copie manualmente.'}};
