@@ -122,7 +122,7 @@
    const stops=term?categoryStops.filter(p=>searchText([p.nome,p.descricao,p.endereco,categoryLabels(p)].join(' ')).includes(term)):categoryStops;
    const name=categories.find(([id])=>id===category)?.[1]||'categoria';
    q('tripSearch').placeholder='Pesquisar em '+name.replace(/^[^a-zA-ZÀ-ÿ]+/,'').trim()+'…';
-   q('tripSearchCount').textContent=stops.length+' local'+(stops.length===1?'':'is')+(term?' encontrado'+(stops.length===1?'':'s'):'')+' nesta categoria';
+   q('tripSearchCount').textContent=stops.length+' '+(stops.length===1?'local':'locais')+(term?' encontrado'+(stops.length===1?'':'s'):'')+' nesta categoria';
    q('tripCategories').innerHTML=categories.map(([id,label])=>'<button type="button" class="tripCat" data-cat="'+id+'" aria-pressed="'+(category===id)+'">'+label+'</button>').join('');
    q('tripAvailable').innerHTML=stops.length?stops.map(p=>{
      const pic=httpsUrl(p.foto),dis=selected.includes(p.id),full=selected.length>=MAX_ROUTE_STOPS,loc=String(p.endereco||'').trim();
