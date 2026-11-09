@@ -16,6 +16,15 @@ button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity
 .item strong{font-size:15px}.item p{margin:4px 0;color:#adb6c4;font-size:14px}
 .tag{font-size:13px;color:#ffc08a;background:#473126;padding:4px 8px;border-radius:99px;white-space:nowrap}
 .preview{width:100%;max-width:160px;height:105px;object-fit:contain;background:#242b33;border-radius:9px}
+.gallery-list{display:flex;gap:10px;overflow-x:auto;padding:8px 0;align-items:start}
+.gallery-item{width:132px;flex:0 0 132px;border:1px solid #505b69;background:#151b24;border-radius:10px;padding:6px;display:grid;gap:5px}
+.gallery-item:first-child{border-color:#fb923c}
+.gallery-item img{width:100%;height:96px;object-fit:contain;background:#fff;border-radius:6px}
+.gallery-item small{font-size:12px;text-align:center;color:#ffbd83}
+.gallery-item .actions{display:flex;gap:3px;margin:0;flex-wrap:nowrap}
+.gallery-item button{min-height:31px;flex:1;padding:4px;font-size:13px}
+.gallery-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.gallery-controls .field{flex:1;min-width:180px}
 .image-check{display:flex;align-items:center;gap:12px;border:1px solid #414b57;background:#151b24;padding:10px;border-radius:10px;margin-top:6px;min-height:96px}
 .image-check img{width:116px;height:86px;object-fit:contain;border-radius:7px;background:#fff;flex-shrink:0}
 .image-check span{font-size:14px;line-height:1.4;color:#cbd5e1}
@@ -67,6 +76,15 @@ button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity
    </select></div>
    <div class="field"><label for="productName">Nome do modelo</label><input id="productName" required maxlength="120" placeholder="Suporte antivibração modelo X"></div>
    <div class="field"><label for="productImage">Foto do produto (link HTTPS)</label><input id="productImage" placeholder="https://..."><div class="image-check" id="productImageCheck" data-state="empty" aria-live="polite"><img id="productImagePreview" alt="Prévia da imagem" hidden><span id="productImageMessage">Cole um link ou envie uma foto para ver a prévia.</span></div><label for="productUpload">Ou enviar foto do aparelho</label><input id="productUpload" type="file" accept="image/*"></div>
+   <div class="field" style="grid-column:1/-1">
+    <label>Galeria do produto (até 5 fotos)</label>
+    <div id="productGallery" class="gallery-list" aria-live="polite"></div>
+    <div class="gallery-controls">
+     <div class="field"><label for="galleryUrl">Adicionar imagem por link HTTPS</label><input id="galleryUrl" placeholder="https://..."></div>
+     <button id="galleryAddUrl" type="button">＋ Adicionar link</button>
+     <div class="field"><label for="galleryFiles">Ou enviar mais fotos</label><input id="galleryFiles" type="file" accept="image/*" multiple></div>
+    </div>
+   </div>
    <div class="field"><label for="productShopee">Link afiliado Shopee</label><input id="productShopee" placeholder="https://shopee.com.br/..."></div>
    <div class="field"><label for="productMercado">Link afiliado Mercado Livre</label><input id="productMercado" placeholder="https://mercadolivre.com.br/..."></div>
    <div class="field"><label for="productStatus">Visibilidade no site</label><select id="productStatus"><option value="rascunho">Rascunho</option><option value="publicado">Publicado</option></select></div>
@@ -82,7 +100,7 @@ button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity
 'use strict';
 const q=id=>document.getElementById(id),api='./api/motos';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let catalog={motos:[],acessorios:[],grupos:{}},bikeEditing='',productEditing='',openedGroup='',editingGroup='';
+let catalog={motos:[],acessorios:[],grupos:{}},bikeEditing='',productEditing='',openedGroup='',editingGroup='',productPhotos=[];
 const photoFields=['bikeImage','productImage','groupImage'];
 function showImagePreview(id){
  const input=q(id),box=q(id+'Check'),img=q(id+'Preview'),message=q(id+'Message');
@@ -117,8 +135,8 @@ async function uploadPhoto(file,input){
  const response=await fetch('./api/image-upload',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':blob.type},body:blob});
  const json=await response.json();
  if(!response.ok||!json.url)throw Error(json.error||'Falha no upload.');
- input.value=json.url;showImagePreview(input.id);
- note('Foto enviada e vinculada ao formulário. Toque em Salvar para publicar.');
+ if(input){input.value=json.url;showImagePreview(input.id);if(input.id==='productImage')syncPrincipalGallery()}
+ note('Foto enviada. Salve o cadastro para publicar.');return json.url;
 }
 for(const [fileId,urlId] of [['bikeUpload','bikeImage'],['productUpload','productImage'],['groupUpload','groupImage']]){
  q(fileId).addEventListener('change',async event=>{
@@ -129,6 +147,44 @@ for(const [fileId,urlId] of [['bikeUpload','bikeImage'],['productUpload','produc
  });
 }
 
+function renderGallery(){
+ q('productGallery').innerHTML=productPhotos.map((src,i)=>'<div class="gallery-item"><img src="'+esc(src)+'" alt="Foto '+(i+1)+'"><small>'+(i===0?'Principal':'Foto '+(i+1))+'</small><div class="actions"><button type="button" data-photo-left="'+i+'" '+(i===0?'disabled':'')+' aria-label="Mover para esquerda">←</button><button type="button" data-photo-right="'+i+'" '+(i===productPhotos.length-1?'disabled':'')+' aria-label="Mover para direita">→</button><button type="button" data-photo-remove="'+i+'" aria-label="Excluir foto">×</button></div></div>').join('');
+ q('galleryAddUrl').disabled=productPhotos.length>=5;
+ q('galleryFiles').disabled=productPhotos.length>=5;
+}
+function syncPrincipalGallery(){
+ const url=q('productImage').value.trim();if(!url)return;
+ if(productPhotos.length)productPhotos[0]=url;else productPhotos.push(url);
+ productPhotos=[...new Set(productPhotos)].slice(0,5);renderGallery();
+}
+function setPrincipalPhoto(){
+ q('productImage').value=productPhotos[0]||'';showImagePreview('productImage');renderGallery();
+}
+q('galleryAddUrl').onclick=()=>{
+ const url=q('galleryUrl').value.trim();
+ try{
+  const parsed=new URL(url);if(parsed.protocol!=='https:'||parsed.username||parsed.password)throw Error('Link inválido.');
+  if(productPhotos.length>=5){note('Limite de cinco fotos.');return}
+  if(productPhotos.includes(url)){note('Esta foto já está na galeria.');return}
+  productPhotos.push(url);q('galleryUrl').value='';setPrincipalPhoto();
+ }catch{note('Informe um link HTTPS válido.')}
+};
+q('galleryFiles').onchange=async e=>{
+ const files=[...e.target.files||[]];e.target.disabled=true;
+ try{
+  for(const file of files){if(productPhotos.length>=5){note('Limite de cinco fotos.');break}
+   const url=await uploadPhoto(file,null);if(!productPhotos.includes(url))productPhotos.push(url);setPrincipalPhoto()}
+ }catch(err){note('⚠️ '+err.message)}
+ finally{e.target.disabled=false;e.target.value=''}
+};
+q('productGallery').onclick=e=>{
+ const b=e.target.closest('[data-photo-left],[data-photo-right],[data-photo-remove]');if(!b)return;
+ if(b.dataset.photoRemove!==undefined)productPhotos.splice(Number(b.dataset.photoRemove),1);
+ else{const from=Number(b.dataset.photoLeft??b.dataset.photoRight),to=from+(b.dataset.photoLeft!==undefined?-1:1);
+ if(to<0||to>=productPhotos.length)return;[productPhotos[from],productPhotos[to]]=[productPhotos[to],productPhotos[from]]}
+ setPrincipalPhoto();
+};
+q('productImage').addEventListener('change',syncPrincipalGallery);
 async function request(method='GET',body){
  const res=await fetch(api+(method==='GET'?'?admin=1':''),{method,credentials:'same-origin',cache:'no-store',headers:{...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
  const data=await res.json();
@@ -171,7 +227,7 @@ q('groupForm').onsubmit=async e=>{e.preventDefault();const button=e.target.query
  }catch(err){note(err.message)}finally{button.disabled=false}};
 q('newBike').onclick=()=>{bikeEditing='';q('bikeForm').reset();showImagePreview('bikeImage');q('bikeForm').hidden=false;q('bikeFormHeading').textContent='Cadastrar moto';q('bikeForm').scrollIntoView({behavior:'smooth',block:'nearest'})};
 q('cancelBike').onclick=()=>q('bikeForm').hidden=true;
-q('newProduct').onclick=()=>{productEditing='';q('productForm').reset();showImagePreview('productImage');q('productStatus').value='rascunho';q('productBike').value=q('filterBike').value;if(openedGroup)q('productGroup').value=openedGroup;q('productFormHeading').textContent='Cadastrar modelo';q('productForm').hidden=false;q('productForm').scrollIntoView({behavior:'smooth',block:'nearest'})};
+q('newProduct').onclick=()=>{productEditing='';productPhotos=[];q('productForm').reset();showImagePreview('productImage');renderGallery();q('productStatus').value='rascunho';q('productBike').value=q('filterBike').value;if(openedGroup)q('productGroup').value=openedGroup;q('productFormHeading').textContent='Cadastrar modelo';q('productForm').hidden=false;q('productForm').scrollIntoView({behavior:'smooth',block:'nearest'})};
 q('cancelProduct').onclick=()=>q('productForm').hidden=true;
 q('filterBike').onchange=()=>{openedGroup='';q('groupForm').hidden=true;render()};
 q('filterCategory').onchange=()=>{openedGroup='';render()};
@@ -193,7 +249,7 @@ q('products').onclick=async e=>{
  }
  productEditing=id;
  q('productBike').value=item.bikeId;q('productGroup').value=item.grupoId;q('productName').value=item.nome;
- q('productDescription').value=item.descricao||'';q('productImage').value=item.foto||'';showImagePreview('productImage');
+ q('productDescription').value=item.descricao||'';productPhotos=[...new Set((item.fotos?.length?item.fotos:[item.foto]).filter(Boolean))].slice(0,5);q('productImage').value=productPhotos[0]||'';showImagePreview('productImage');renderGallery();
  q('productShopee').value=item.shopee||'';q('productMercado').value=item.mercadolivre||'';q('productStatus').value=item.status;
  q('productFormHeading').textContent='Editar '+item.nome;q('productForm').hidden=false;q('productForm').scrollIntoView({behavior:'smooth',block:'nearest'});
 };
@@ -212,7 +268,9 @@ q('productForm').onsubmit=async e=>{
  const button=e.target.querySelector('[type=submit]');button.disabled=true;
  try{
   const group=q('productGroup').value;
-  await request('POST',{kind:'acessorio',record:{id:productEditing||newId('part'),bikeId:q('productBike').value,grupoId:group,categoria:groupCategory(group),nome:q('productName').value,descricao:q('productDescription').value,foto:q('productImage').value,shopee:q('productShopee').value,mercadolivre:q('productMercado').value,status:q('productStatus').value}});
+  const main=q('productImage').value.trim();
+  if(main&&(!productPhotos.length||productPhotos[0]!==main))syncPrincipalGallery();
+  await request('POST',{kind:'acessorio',record:{id:productEditing||newId('part'),bikeId:q('productBike').value,grupoId:group,categoria:groupCategory(group),nome:q('productName').value,descricao:q('productDescription').value,foto:productPhotos[0]||'',fotos:productPhotos,shopee:q('productShopee').value,mercadolivre:q('productMercado').value,status:q('productStatus').value}});
   q('productForm').hidden=true;await reload();
  }catch(err){note(err.message)}finally{button.disabled=false}
 };
