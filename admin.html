@@ -65,7 +65,14 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 <nav class="box p-3 h-fit grid sm:grid-cols-4 lg:grid-cols-1 gap-2" aria-label="Seções administrativas">
 <button type="button" class="tab" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button type="button" class="tab" data-tab="paradas" aria-selected="false">📍 Paradas</button><div id="adminStopQuickLinks" hidden class="sm:col-span-4 lg:col-span-1 grid grid-cols-2 lg:grid-cols-1 gap-1 pl-2 border-l-2 border-orange-500/40"><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe">☕ Café da manhã</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="almoco">🍽️ Almoço</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe_tarde">🥐 Café da tarde</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="jantar">🌙 Jantar</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="turismo">📸 Pontos turísticos</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="descanso">🏍️ Descanso</button></div><button type="button" class="tab" data-tab="rotas" aria-selected="false">🛣️ Rotas prontas</button><button type="button" class="tab" data-tab="backup" aria-selected="false">💾 Backup</button>
 </nav>
-<section class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><section id="publicationQueue" class="rounded-xl border border-orange-500/35 bg-[#181c22] p-4 mt-5 scroll-mt-5" aria-label="Pendências de publicação">
+<section class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><details id="locationAudit" class="rounded-xl border border-orange-500/35 bg-[#181e26] p-4 mt-5">
+ <summary class="cursor-pointer font-black text-lg text-orange-200">🧭 Diagnóstico dos pontos do Google Maps</summary>
+ <p class="tiny mt-2 mb-3">Confere cada parada publicada com o Google Places e identifica coordenadas, links e nomes divergentes. Nada será alterado sem sua confirmação. A consulta utiliza a API do Google.</p>
+ <button id="runLocationAudit" type="button" class="btn text-sm">🔎 Conferir todas as paradas</button>
+ <button id="downloadLocationAudit" type="button" class="subbtn text-sm ml-2" hidden>📄 Baixar relatório</button>
+ <p id="locationAuditProgress" class="tiny mt-3" role="status" aria-live="polite"></p>
+ <div id="locationAuditResults" class="space-y-3 mt-4"></div>
+ </details><section id="publicationQueue" class="rounded-xl border border-orange-500/35 bg-[#181c22] p-4 mt-5 scroll-mt-5" aria-label="Pendências de publicação">
  <div class="flex flex-wrap justify-between items-start gap-3 mb-4"><div>
   <p class="text-orange-400 text-xs font-black tracking-widest">CENTRAL DE PUBLICAÇÃO</p>
   <h2 class="text-2xl font-black mt-1">📋 Falta publicar</h2>
@@ -1267,7 +1274,131 @@ async function publishQueuedRecord(kind,id,button){
  }finally{busy=false;if(button.isConnected){button.disabled=false;button.textContent='🚀 Publicar no site'}}
 }
 
-function render(resetPicker=true){
+
+ let locationAuditResults=[],locationAuditRunning=false;
+ function mapPlaceUrl(place){
+  if(!place?.id)return '';
+  return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(place.name||place.id)+'&query_place_id='+encodeURIComponent(place.id);
+ }
+ function coordinateUrl(coord){
+  if(!coord||!Number.isFinite(coord.latitude)||!Number.isFinite(coord.longitude))return '';
+  return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(coord.latitude+','+coord.longitude);
+ }
+ function auditLink(href,label){
+  const url=safeUrl(href);return url?
+   '<a class="text-orange-300 underline text-sm mr-3 inline-block mt-1" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+' ↗</a>':'';
+ }
+ function renderLocationAuditResults(){
+  const target=$('#locationAuditResults');if(!target)return;
+  const priority={divergente:0,erro:1,revisar:2,ausente:3,gps_disponivel:4,compativel:5,atualizado:6};
+  const sorted=[...locationAuditResults].sort((a,b)=>(priority[a.status]??7)-(priority[b.status]??7)||String(a.nome).localeCompare(String(b.nome),'pt-BR'));
+  target.innerHTML=sorted.map(item=>{
+   const label={divergente:'⚠️ DIVERGÊNCIA',erro:'❌ GOOGLE INDISPONÍVEL',
+    revisar:'🔎 PRECISA CONFERIR',ausente:'❌ NÃO CADASTRADO',gps_disponivel:'📍 GPS DISPONÍVEL',
+    compativel:'✓ COMPATÍVEL',atualizado:'✓ ALTERAÇÃO SALVA'}[item.status]||'Revisar';
+   const selected=item.google&&item.google.id?[item.google]:[];
+   const choices=[...selected,...(item.options||[])];
+   const summary=(item.problems||[]).map(message=>'<li>'+esc(message)+'</li>').join('');
+   const distance=item.distanceMeters!==null&&item.distanceMeters!==undefined?
+    '<p class="tiny">GPS no cadastro versus Google: '+Number(item.distanceMeters).toLocaleString('pt-BR')+' m</p>':'';
+   return '<article class="rounded-xl bg-[#242a34] border border-zinc-600 p-3">'+
+    '<div class="flex flex-wrap justify-between gap-2"><strong class="text-sm break-words">'+esc(item.nome||item.id)+'</strong>'+
+    '<span class="tiny font-bold">'+label+'</span></div>'+
+    '<p class="tiny mt-1">Destino: '+esc(item.destinoId||'não informado')+'</p>'+
+    (summary?'<ul class="tiny my-2 list-disc ml-5">'+summary+'</ul>':'')+
+    distance+
+    (item.cadastrado?auditLink(coordinateUrl(item.cadastrado),'GPS que está no banco'):'')+
+    (item.linkPin?auditLink(coordinateUrl(item.linkPin),'Pin do link original'):'')+
+    auditLink(item.link,'Link original')+
+    (item.google?auditLink(mapPlaceUrl(item.google),'Lugar identificado pelo Google'):'')+
+    choices.map((choice,i)=>{
+     if(!choice.coordinates||!choice.id)return '';
+     return '<div class="rounded-lg bg-[#1a2028] border border-zinc-600 p-2 mt-2">'+
+      '<p class="text-sm font-semibold">'+esc(choice.name)+'</p>'+
+      '<p class="tiny">'+esc(choice.address)+'</p>'+
+      auditLink(mapPlaceUrl(choice),'Ver local no Google')+
+      '<button type="button" class="subbtn text-xs mt-2 ml-2" data-audit-apply="'+esc(item.id)+'" data-audit-option="'+i+'">✓ Confirmar este local e corrigir GPS</button></div>';
+    }).join('')+
+    '</article>';
+  }).join('')||'<p class="tiny">Nenhuma parada para auditar.</p>';
+ }
+ async function runLocationAudit(){
+  if(locationAuditRunning)return;
+  const button=$('#runLocationAudit'),progress=$('#locationAuditProgress'),exportButton=$('#downloadLocationAudit');
+  if(!remote){progress.textContent='Entre na sua conta administrativa e conecte ao banco para auditar os locais.';return}
+  const stops=data.paradas.filter(p=>p.status==='publicado');
+  if(!stops.length){progress.textContent='Não há paradas publicadas para auditar.';return}
+  locationAuditRunning=true;button.disabled=true;exportButton.hidden=true;
+  locationAuditResults=[];
+  $('#locationAuditResults').innerHTML='';
+  try{
+   for(let i=0;i<stops.length;i+=6){
+    const ids=stops.slice(i,i+6).map(p=>p.id);
+    progress.textContent='Verificando '+Math.min(i+6,stops.length)+' de '+stops.length+' paradas...';
+    try{
+     const response=await fetch('./api/location-audit',{method:'POST',headers:{
+      ...(token?{'Authorization':'Bearer '+token}:{}),'Content-Type':'application/json'},
+      credentials:'same-origin',cache:'no-store',body:JSON.stringify({ids})});
+     const body=await response.json();
+     if(!response.ok)throw Error(body.error||'Consulta indisponível');
+     locationAuditResults.push(...(body.results||[]));
+    }catch(error){
+     for(const id of ids){
+      const stop=stops.find(p=>p.id===id);
+      locationAuditResults.push({id,nome:stop?.nome||id,destinoId:stop?.destinoId||'',
+       status:'erro',problems:['Lote indisponível: '+String(error.message||error)]});
+     }
+    }
+    renderLocationAuditResults();
+   }
+   const total=locationAuditResults.length;
+   const divergent=locationAuditResults.filter(p=>p.status==='divergente').length;
+   const review=locationAuditResults.filter(p=>['revisar','erro','gps_disponivel','ausente'].includes(p.status)).length;
+   const good=locationAuditResults.filter(p=>p.status==='compativel').length;
+   progress.textContent='Analisadas '+total+' paradas: '+divergent+' divergência(s), '+review+' para conferir, '+good+' compatível(is). Revise as fichas abaixo; o diagnóstico não altera o banco.';
+   exportButton.hidden=false;
+  }finally{locationAuditRunning=false;button.disabled=false}
+ }
+ async function applyAuditedLocation(id,index){
+  if(locationAuditRunning||busy)return;
+  const result=locationAuditResults.find(p=>p.id===id);
+  const choices=[...(result?.google?.id?[result.google]:[]),...(result?.options||[])];
+  const choice=choices[index],stop=data.paradas.find(p=>p.id===id);
+  if(!choice?.id||!choice.coordinates||!stop)return;
+  const coord=choice.coordinates;
+  if(!Number.isFinite(coord.latitude)||!Number.isFinite(coord.longitude))return;
+  if(!confirm('Confirmar que "'+choice.name+'" ('+choice.address+') é o local correto para "'+stop.nome+'"?\n\nO site atualizará o Place ID, GPS, endereço e link do Maps desta parada. Confirme apenas após comparar os dois pontos no Google.'))return;
+  const update={
+   ...stop,googlePlaceId:choice.id,
+   mapCoordinates:coord.latitude.toFixed(7)+','+coord.longitude.toFixed(7),
+   mapCoordinatesSource:'google-places',
+   endereco:choice.address||stop.endereco,maps:safeUrl(choice.maps)||stop.maps
+  };
+  busy=true;
+  try{
+   const saved=await call('POST',{kind:'paradas',record:update});
+   data.paradas=data.paradas.map(p=>p.id===id?saved.record:p);
+   draft.paradas=draft.paradas.map(p=>p.id===id?saved.record:p);saveLocal();
+   result.status='atualizado';result.problems=['Local salvo no banco. Execute a auditoria novamente para revalidar.'];
+   result.cadastrado=coord;renderLocationAuditResults();
+   render();
+   $('#locationAuditProgress').textContent='✓ GPS e identificação de "'+stop.nome+'" atualizados no banco. Audite novamente para conferir.';
+  }catch(error){
+   $('#locationAuditProgress').textContent='Falha ao atualizar "'+stop.nome+'": '+String(error.message||error);
+  }finally{busy=false}
+ }
+ function downloadLocationAudit(){
+  if(!locationAuditResults.length)return;
+  const payload={site:'Asphalt Boys',createdAt:new Date().toISOString(),total:locationAuditResults.length,
+   disclaimer:'Auditoria de correspondência no Google Places; conferir visualmente os locais antes de navegar.',
+   results:locationAuditResults};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const link=document.createElement('a');link.href=URL.createObjectURL(blob);
+  link.download='asphalt-boys-auditoria-maps.json';link.click();
+  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+ }
+
+ function render(resetPicker=true){
  const previousScrollX=window.scrollX,previousScrollY=window.scrollY;
  categorySuggestionSeq++;categoryUserEdited=false;
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
@@ -1642,6 +1773,12 @@ $('#sync').onclick=async()=>{
  try{data=await call('GET');render();announce(done+' cadastros enviados ao banco. Confira o status de cada cadastro.')}catch(e){announce('Envio concluído, mas não foi possível atualizar a lista.')}
 };
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;editing=null;creatingNewDestination=false;render()});
+ $('#runLocationAudit').onclick=runLocationAudit;
+ $('#downloadLocationAudit').onclick=downloadLocationAudit;
+ $('#locationAuditResults').addEventListener('click',e=>{
+  const button=e.target.closest('[data-audit-apply]');if(!button)return;
+  applyAuditedLocation(button.dataset.auditApply,Number(button.dataset.auditOption));
+ });
 
 const authGate=$('#adminAuthGate'),workspace=$('#adminWorkspace'),loginForm=$('#adminLoginForm'),setupForm=$('#adminSetupForm'),authMsg=$('#adminAuthMessage');
 let recoverMode=false;
