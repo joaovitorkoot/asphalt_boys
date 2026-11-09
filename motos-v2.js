@@ -13,6 +13,23 @@ const galleryIndexes={},galleryPhotos=m=>[...new Set([...(Array.isArray(m.fotos)
 const bike=()=>bikes[index];
 const groupList=()=>defs.map(([id,name,type])=>{const saved=data?.grupos?.[bike().id]?.find(g=>g.id===id);return{id,name:saved?.nome||name,type:saved?.categoria||type,foto:saved?.foto||''}});
 const options=id=>{const group=data?.grupos?.[bike().id]?.find(g=>g.id===id);return group?.modelos?.length?group.modelos.map(m=>({id:m.id,name:m.nome,desc:m.descricao||'',foto:m.foto||'',fotos:Array.isArray(m.fotos)?m.fotos:[],shopee:m.shopee||'',mercadolivre:m.mercadolivre||'',demo:!!m.demo})):[]};
+const mlItem=link=>{const m=String(link||'').match(/MLB[- ]?(\d{6,15})/i);return m?'MLB'+m[1]:''};
+const ratingsCache={};
+function ratingLinks(m){
+ const ml=url(m.mercadolivre),sh=url(m.shopee),item=mlItem(ml);
+ const link=(href,label)=>'<a href="'+esc(href)+'" target="_blank" rel="sponsored noopener noreferrer">'+label+' ↗</a>';
+ return '<div class="external-ratings">'+(sh?link(sh,'Avaliações na Shopee'):'')+(ml?'<span class="ml-ratings" data-ml-item="'+esc(item)+'">'+(item&&ratingsCache[item]?.available?'★ '+ratingsCache[item].rating.toLocaleString('pt-BR',{maximumFractionDigits:1})+' · '+ratingsCache[item].count.toLocaleString('pt-BR')+' avaliações no Mercado Livre':'')+'</span>'+link(ml,'Ver no Mercado Livre'):'')+'</div>'
+}
+async function fetchRatings(){
+ const nodes=[...$('motoModelos').querySelectorAll('[data-ml-item]')];
+ for(const node of nodes){const item=node.dataset.mlItem;if(!item)continue;
+  if(!Object.prototype.hasOwnProperty.call(ratingsCache,item)){
+   ratingsCache[item]={available:false};
+   try{const response=await fetch('./api/motos?ratings=mercadolivre&item='+encodeURIComponent(item));if(response.ok)ratingsCache[item]=await response.json()}catch{}
+  }
+  const data=ratingsCache[item];if(data.available)node.textContent='★ '+data.rating.toLocaleString('pt-BR',{maximumFractionDigits:1})+' · '+data.count.toLocaleString('pt-BR')+' avaliações no Mercado Livre';
+ }
+}
 const svg=id=>'<svg viewBox="0 0 24 24" fill="none" stroke="#ffae6c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(outlines[id]||'')+'</svg>';
 const image=(id,m)=>url(m?.foto)?'<img class="group-photo" loading="lazy" src="'+esc(url(m.foto))+'" alt="'+esc(m.name)+'">':svg(id);
 const key=()=> 'asphalt-boys-'+bike().id+'-montagem-v2';
@@ -32,8 +49,9 @@ function detailRender(){
  $('motoModelos').innerHTML=options(g.id).map(m=>{
   const photos=galleryPhotos(m),idx=Math.min(galleryIndexes[m.id]||0,Math.max(0,photos.length-1));galleryIndexes[m.id]=idx;
   const media=photos.length?'<div class="photo-gallery" data-gallery="'+esc(m.id)+'"><img class="gallery-main-img" loading="lazy" src="'+esc(photos[idx])+'" alt="'+esc(m.name)+' - foto '+(idx+1)+'" data-photo-zoom="'+esc(m.id)+'" tabindex="0" role="button" aria-label="Ampliar foto do produto">'+(photos.length>1?'<button type="button" class="gallery-arrow left" data-photo-step="-1" data-photo-id="'+esc(m.id)+'" aria-label="Foto anterior">‹</button><button type="button" class="gallery-arrow right" data-photo-step="1" data-photo-id="'+esc(m.id)+'" aria-label="Próxima foto">›</button><div class="gallery-dots">'+photos.map((_,i)=>'<button type="button" data-photo-index="'+i+'" data-photo-id="'+esc(m.id)+'" class="'+(i===idx?'active':'')+'" aria-label="Ver foto '+(i+1)+'"></button>').join('')+'</div>':'')+'</div>':image(g.id,m);
-  return '<article class="variant-card" data-chosen="'+(chosen[g.id]===m.id)+'"><div class="group-visual">'+media+'</div><div><h4>'+esc(m.name)+'</h4><p>'+esc(m.desc)+'</p>'+(m.demo?'<p class="subtle-tag">Exemplo · sem anúncio cadastrado</p>':'')+'</div><button type="button" class="'+(chosen[g.id]===m.id?'btn-outline':'btn-primary')+'" data-model="'+esc(m.id)+'">'+(chosen[g.id]===m.id?'✓ Selecionado — retirar':'＋ Escolher este modelo')+'</button></article>'
+  return '<article class="variant-card" data-chosen="'+(chosen[g.id]===m.id)+'"><div class="group-visual">'+media+'</div><div><h4>'+esc(m.name)+'</h4><p>'+esc(m.desc)+'</p>'+(m.demo?'<p class="subtle-tag">Exemplo · sem anúncio cadastrado</p>':'')+ratingLinks(m)+'</div><button type="button" class="'+(chosen[g.id]===m.id?'btn-outline':'btn-primary')+'" data-model="'+esc(m.id)+'">'+(chosen[g.id]===m.id?'✓ Selecionado — retirar':'＋ Escolher este modelo')+'</button></article>'
  }).join('');
+ fetchRatings();
 }
 function buildRender(){
  const arr=groupList().filter(g=>Object.prototype.hasOwnProperty.call(chosen,g.id));
