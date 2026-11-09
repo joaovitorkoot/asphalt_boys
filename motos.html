@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090b0f">
+<meta name="description" content="Asphalt Boys Motos: conheça a Yamaha Fazer FZ25 e explore acessórios para suas viagens.">
+<title>Motos & Acessórios | Asphalt Boys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#090b0f;--panel:#15191f;--card:#1e242c;--line:#414752;--accent:#fb923c;--muted:#aeb6c4}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:#f6f5f3;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,a{font:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed}
+a{color:inherit}
+button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+header{position:sticky;top:0;z-index:40;background:rgba(12,14,18,.91);backdrop-filter:blur(18px);border-bottom:1px solid #ffffff20}
+.header-main{max-width:1280px;height:80px;margin:auto;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.logo{display:inline-flex;align-items:center;gap:12px;flex-shrink:0;text-decoration:none;font-size:clamp(16px,3vw,21px);font-style:italic;font-weight:900;letter-spacing:-.04em;white-space:nowrap}
+.logo img{width:46px;height:46px;object-fit:contain}
+.logo em{color:#f97316;font-style:italic}
+.desktop-nav{display:flex;align-items:center;gap:30px;font-size:14px;font-weight:700;color:#ccd0d6}
+.desktop-nav a{text-decoration:none;transition:color .2s}.desktop-nav a:hover,.desktop-nav a[aria-current=page]{color:var(--accent)}
+.header-cta{background:#f97316;color:#101010;border:0;border-radius:12px;padding:14px 18px;text-decoration:none;font-size:13px;font-weight:900;white-space:nowrap}
+.mobile-nav{display:none}
+.wrap{max-width:1100px;margin:auto;padding:0 20px}
+.intro{padding:58px 0 27px}
+.kicker{color:var(--accent);font-size:12px;letter-spacing:.18em;font-weight:900;text-transform:uppercase}
+h1{font-size:clamp(31px,5vw,48px);font-weight:900;letter-spacing:-.045em;margin:10px 0 12px;line-height:1.15}
+.intro p{color:#b8bec8;font-size:15px;line-height:1.6;max-width:670px}
+.bike-hero{border:1px solid #414752;border-radius:22px;background:linear-gradient(145deg,#252c34,#161c23 85%);overflow:hidden;box-shadow:0 22px 55px #0004}
+.bike-visual{display:flex;align-items:center;justify-content:center;position:relative;min-height:245px;background:radial-gradient(circle at 50% 35%,#f3f4f8 0%,#d8dce2 72%,#aeb5bf 140%);overflow:hidden}
+.bike-visual img{display:block;object-fit:contain;width:100%;height:clamp(260px,42vw,430px);mix-blend-mode:multiply}
+.bike-visual .fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;color:#2b3039;font-size:70px}
+.bike-hero-main{padding:22px 24px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.bike-hero h2{font-size:clamp(20px,3.3vw,28px);margin:0 0 6px;letter-spacing:-.04em}
+.muted{color:var(--muted)}
+.bike-hero .muted{font-size:13px;line-height:1.5;margin:0}
+.model-tag{display:inline-flex;align-items:center;padding:8px 12px;color:#ffd0a4;background:#492f24;border:1px solid #995a37;border-radius:999px;white-space:nowrap;font-size:12px;font-weight:800}
+.catalog{padding:24px 0 65px}
+.switch-wrap{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));background:#242a32;border:1px solid #4c525d;border-radius:14px;padding:4px;isolation:isolate;--idx:0;margin:22px 0 26px}
+.switch-wrap::before{position:absolute;content:"";pointer-events:none;z-index:-1;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/2);border-radius:10px;border:1px solid #fb923c;background:linear-gradient(135deg,#603b2a,#352a29 66%,#272932);box-shadow:0 4px 15px #f9731623;transform:translateX(calc(var(--idx) * 100%));transition:transform .26s cubic-bezier(.2,.8,.25,1)}
+.switch-wrap button{border:0;background:none;color:#d4d7dc;font-size:14px;font-weight:800;padding:15px 6px;border-radius:10px;min-height:49px;transition:color .2s}
+.switch-wrap button[aria-selected=true]{color:#ffcb9c}
+.section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.section-title h3{font-size:19px;letter-spacing:-.02em;margin:0}
+.section-title span{color:#ffa76e;font-weight:700;font-size:12px}
+.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;position:relative;isolation:isolate;background:#242a32;border:1px solid #4c525d;border-radius:13px;padding:4px;--idx:0;margin-bottom:18px}
+.filters::before{content:"";position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/4);background:linear-gradient(135deg,#6e422b,#392c2a);border:1px solid #fb923c;border-radius:9px;box-shadow:0 5px 16px #f973161c;z-index:-1;pointer-events:none;transform:translateX(calc(var(--idx) * 100%));transition:transform .28s cubic-bezier(.2,.8,.25,1)}
+.filters button{font-size:12px;font-weight:800;background:transparent;border:0;color:#c9cbd1;min-height:45px;padding:10px 4px;border-radius:9px;transition:color .2s}
+.filters button[aria-pressed=true]{color:#ffcea3}
+.product-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.product-card{background:linear-gradient(140deg,#20262e,#1a2028);border:1px solid #414752;border-radius:16px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;min-height:200px;transition:border-color .22s,transform .22s,box-shadow .22s;animation:appear .2s both}
+.product-card[aria-selected=true]{background:linear-gradient(135deg,#3b2a24,#22262d 75%);border-color:#f9944b;box-shadow:inset 0 0 0 1px #f9944b19}
+.product-card h4{font-size:15px;margin:14px 0 8px;line-height:1.35;letter-spacing:-.01em}
+.product-card p{font-size:12px;line-height:1.5;color:var(--muted);margin:0 0 18px}
+.product-top{display:flex;align-items:center;justify-content:space-between}
+.product-icon{font-size:24px;display:inline-grid;place-items:center;height:42px;width:42px;border-radius:12px;background:#453022;border:1px solid #73462e}
+.selected-check{font-size:20px;color:#fb923c}
+.btn-primary{background:linear-gradient(105deg,#ffb25e,#f97316);border:0;color:#171717;border-radius:11px;min-height:44px;padding:11px 13px;font-size:13px;font-weight:850}
+.btn-outline{background:#262a31;color:#f3f4f6;border:1px solid #59606c;border-radius:11px;min-height:44px;padding:11px 13px;font-size:13px;font-weight:800}
+.product-card button{width:100%}
+.product-card[aria-selected=true] .btn-primary{background:#34302d;color:#ffd0a6;border:1px solid #eaa16a}
+.catalog-action{margin-top:18px;width:100%;font-size:14px}
+.build-list{display:grid;gap:12px}
+.build-item{padding:16px;border:1px solid #414752;border-radius:14px;background:#202630}
+.build-header{display:flex;align-items:center;gap:12px;justify-content:space-between}
+.build-heading{display:flex;align-items:center;gap:10px;min-width:0}
+.build-heading strong{font-size:14px}
+.build-heading .product-icon{height:37px;width:37px;font-size:22px;flex-shrink:0}
+.remove-btn{width:39px;height:39px;border-radius:9px;border:1px solid #5b636f;background:#262d36;color:#fff;flex-shrink:0;font-size:23px}
+.offer-toggle{margin-top:14px;width:100%}
+.offer-panel{display:grid;gap:9px;margin-top:12px;animation:appear .18s both}
+.offer-panel .shop-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.offer-panel .shop-options button{min-height:49px;border:1px solid #4d515b;background:#2b2c2d;border-radius:11px;font-size:12px;font-weight:800;color:#b5b9c0}
+.offer-panel p{color:#b9bec6;font-size:12px;margin:0;line-height:1.5}
+.empty{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;background:#1c222b;border:1px dashed #606773;border-radius:15px;padding:35px 20px;color:var(--muted);font-size:14px}
+.empty .icon{font-size:43px}
+.notice{margin-top:24px;padding:14px 17px;border-left:3px solid #fb923c;background:#22242b;color:#bdc3ce;font-size:12px;line-height:1.7;border-radius:0 12px 12px 0}
+footer{border-top:1px solid #383e46;background:#13161b;padding:29px 20px 34px}
+footer .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:#aeb5bf}
+footer a{text-decoration:none;font-weight:700}
+footer a:hover{color:var(--accent)}
+[hidden]{display:none!important}
+@keyframes appear{from{opacity:.25;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@media (hover:hover) and (pointer:fine){.product-card:hover{transform:translateY(-2px);border-color:#fb923c;box-shadow:0 9px 20px #0004}.btn-primary:not(:disabled):hover{filter:brightness(1.08)}.btn-outline:not(:disabled):hover{border-color:#fb923c;color:#ffc494}}
+@media(max-width:800px){.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.desktop-nav{display:none}.mobile-nav{display:flex;align-items:center;justify-content:center;gap:30px;padding:8px 12px;border-top:1px solid #ffffff19;font-size:14px;font-weight:800}.mobile-nav a{text-decoration:none;padding:5px 14px}.mobile-nav a[aria-current=page]{color:var(--accent);border-bottom:2px solid var(--accent)}}
+@media(max-width:540px){.header-main{padding:0 15px;gap:8px}.logo{gap:8px}.logo img{width:42px;height:42px}.header-cta{padding:13px 11px;font-size:11px}.intro{padding:31px 0 24px}.wrap{padding:0 16px}.bike-hero-main{padding:18px;align-items:flex-start}.model-tag{font-size:10px;padding:7px 8px}.catalog{padding-top:14px}.product-grid{gap:9px}.product-card{padding:13px;min-height:209px}.product-card h4{font-size:14px}.product-card p{font-size:11px}.switch-wrap button{font-size:12px}.filters button{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+ <div class="header-main">
+  <a class="logo" href="index.html#inicio" aria-label="Asphalt Boys, início">
+   <img src="imagens/mascote-tigre.svg" width="46" height="46" alt="Mascote tigre Asphalt Boys">
+   <span>ASPHALT <em>BOYS</em></span>
+  </a>
+  <nav class="desktop-nav" aria-label="Navegação principal">
+   <a href="index.html#inicio">Início</a><a href="index.html#destinos">Viagens</a><a href="motos.html" aria-current="page">Motos</a><a href="index.html#sobre">O grupo</a>
+  </nav>
+  <a class="header-cta" href="index.html#destinos">Explorar rotas ↗</a>
+ </div>
+ <nav class="mobile-nav" aria-label="Seções do site"><a href="index.html#destinos">🗺️ Viagens</a><a href="motos.html" aria-current="page">🏍️ Motos</a></nav>
+</header>
+<main class="wrap">
+ <section class="intro" aria-labelledby="motosTitulo">
+  <span class="kicker">Motos & acessórios</span>
+  <h1 id="motosTitulo">Sua moto. <span style="color:var(--accent)">Seu estilo.</span></h1>
+  <p>Escolha os acessórios para sua moto, organize sua montagem e encontre opções para equipar suas viagens.</p>
+ </section>
+ <section class="bike-hero" aria-label="Modelo de moto em destaque">
+  <div class="bike-visual">
+   <img id="fz25Foto" src="https://yamahamotors.fbitsstatic.net/img/p/fazer-fz25-connected-155370/352536-1.jpg" loading="eager" alt="Yamaha Fazer FZ25 Connected, foto de catálogo" referrerpolicy="no-referrer">
+   <div id="fz25Fallback" class="fallback" aria-hidden="true"><span>🏍️</span></div>
+  </div>
+  <div class="bike-hero-main">
+   <div><h2>Yamaha Fazer FZ25</h2><p class="muted">Primeiro modelo do catálogo de acessórios</p></div>
+   <span class="model-tag">Modelo inicial</span>
+  </div>
+ </section>
+ <section class="catalog" aria-label="Catálogo e montagem de acessórios">
+  <div id="motoTabs" class="switch-wrap" role="tablist" aria-label="Área de acessórios">
+   <button type="button" role="tab" id="tabAcessorios" aria-controls="painelAcessorios" aria-selected="true" data-tab="catalogo">Acessórios</button>
+   <button type="button" role="tab" id="tabMinha" aria-controls="painelMinha" aria-selected="false" data-tab="minha">Minha moto (0)</button>
+  </div>
+  <div id="painelAcessorios" role="tabpanel" aria-labelledby="tabAcessorios">
+   <div class="section-title"><h3>Explore acessórios</h3><span id="catalogCount">6 opções</span></div>
+   <div id="motoFiltros" class="filters" role="group" aria-label="Categoria dos acessórios">
+    <button type="button" data-cat="todos" aria-pressed="true">Todos</button>
+    <button type="button" data-cat="viagem" aria-pressed="false">Viagem</button>
+    <button type="button" data-cat="protecao" aria-pressed="false">Proteção</button>
+    <button type="button" data-cat="estilo" aria-pressed="false">Estilo</button>
+   </div>
+   <div id="motoProdutos" class="product-grid" aria-live="polite"></div>
+   <button type="button" id="btnVerMontagem" class="btn-primary catalog-action">Ver minha montagem (0) →</button>
+  </div>
+  <div id="painelMinha" role="tabpanel" aria-labelledby="tabMinha" hidden>
+   <div class="section-title"><h3>Minha FZ25</h3><span id="myCount">0 acessórios escolhidos</span></div>
+   <div id="motoMontagem" class="build-list" aria-live="polite"></div>
+   <button type="button" id="btnMais" class="btn-outline catalog-action">＋ Adicionar mais acessórios</button>
+  </div>
+  <p class="notice">Catálogo inicial de demonstração. A compatibilidade de cada acessório com o ano e a versão da FZ25 deve ser conferida antes da compra. Os links de afiliado da Shopee e do Mercado Livre serão disponibilizados após o cadastro das ofertas reais.</p>
+ </section>
+</main>
+<footer><div class="wrap"><strong>ASPHALT <span style="color:#fb923c">BOYS</span></strong><span>Sua moto, seu estilo.</span><a href="index.html#destinos">Voltar às viagens ↗</a></div></footer>
+<script>
+(()=>{
+ 'use strict';
+ const products=[
+  {id:'suporte',name:'Suporte para celular',desc:'Ideal para usar o GPS nas viagens.',category:'viagem',icon:'📱'},
+  {id:'bau',name:'Baú traseiro',desc:'Mais espaço para levar bagagens.',category:'viagem',icon:'🧳'},
+  {id:'protetor',name:'Protetor de motor',desc:'Opção de proteção para sua moto.',category:'protecao',icon:'🛡️'},
+  {id:'bolsa',name:'Bolsa de tanque',desc:'Objetos pequenos ao alcance.',category:'viagem',icon:'🎒'},
+  {id:'manoplas',name:'Manoplas',desc:'Personalização e conforto.',category:'estilo',icon:'🧤'},
+  {id:'bolha',name:'Bolha esportiva',desc:'Personalização frontal.',category:'estilo',icon:'💨'}
+ ];
+ const KEY='asphalt-boys-fz25-montagem-v1';
+ const byId=id=>document.getElementById(id);
+ let selected=new Set(),category='todos',tab='catalogo',openShop='';
+ try{const prior=JSON.parse(localStorage.getItem(KEY)||'[]');if(Array.isArray(prior))selected=new Set(prior.filter(id=>products.some(p=>p.id===id)))}catch{}
+ const escapeHTML=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const counts=()=>{
+  byId('tabMinha').textContent='Minha moto ('+selected.size+')';
+  byId('myCount').textContent=selected.size+' acessório'+(selected.size===1?' escolhido':'s escolhidos');
+  byId('btnVerMontagem').textContent='Ver minha montagem ('+selected.size+') →';
+ };
+ function renderProducts(){
+  const shown=products.filter(p=>category==='todos'||p.category===category);
+  byId('catalogCount').textContent=shown.length+' opç'+(shown.length===1?'ão':'ões');
+  byId('motoProdutos').innerHTML=shown.map(p=>{
+   const yes=selected.has(p.id);
+   return '<article class="product-card" aria-selected="'+yes+'">'+
+    '<div><div class="product-top"><span class="product-icon" aria-hidden="true">'+p.icon+'</span>'+(yes?'<span class="selected-check" aria-hidden="true">✓</span>':'')+'</div>'+
+    '<h4>'+escapeHTML(p.name)+'</h4><p>'+escapeHTML(p.desc)+'</p></div>'+
+    '<button type="button" class="btn-primary" data-toggle="'+p.id+'" aria-pressed="'+yes+'">'+(yes?'✓ Adicionado':'＋ Adicionar')+'</button></article>';
+  }).join('');
+ }
+ function renderBuild(){
+  const chosen=products.filter(p=>selected.has(p.id));
+  if(!chosen.length){byId('motoMontagem').innerHTML='<div class="empty"><span class="icon" aria-hidden="true">📦</span><strong>Sua montagem está vazia</strong><span>Selecione acessórios para personalizar sua FZ25.</span></div>';return}
+  byId('motoMontagem').innerHTML=chosen.map(p=>'<article class="build-item">'+
+    '<div class="build-header"><div class="build-heading"><span class="product-icon" aria-hidden="true">'+p.icon+'</span><strong>'+escapeHTML(p.name)+'</strong></div>'+
+    '<button type="button" class="remove-btn" data-remove="'+p.id+'" aria-label="Remover '+escapeHTML(p.name)+' da montagem">×</button></div>'+
+    '<button type="button" class="btn-outline offer-toggle" data-shops="'+p.id+'" aria-expanded="'+(openShop===p.id)+'">🛍️ '+(openShop===p.id?'Ocultar lojas':'Ver opções de compra')+'</button>'+
+    (openShop===p.id?'<div class="offer-panel"><div class="shop-options"><button type="button" disabled title="Link de afiliado ainda não cadastrado">Shopee · em breve</button><button type="button" disabled title="Link de afiliado ainda não cadastrado">Mercado Livre · em breve</button></div><p>Os links de afiliado serão ativados após o cadastro das ofertas reais.</p></div>':'')+
+    '</article>').join('');
+ }
+ function render(){counts();renderProducts();renderBuild()}
+ function setTab(next){
+  if(!['catalogo','minha'].includes(next))return;
+  tab=next;const mine=tab==='minha';
+  byId('motoTabs').style.setProperty('--idx',mine?'1':'0');
+  byId('tabAcessorios').setAttribute('aria-selected',String(!mine));
+  byId('tabMinha').setAttribute('aria-selected',String(mine));
+  byId('painelAcessorios').hidden=mine;byId('painelMinha').hidden=!mine;
+  render();
+ }
+ function setCategory(next){
+  const cats=['todos','viagem','protecao','estilo'];
+  if(!cats.includes(next))return;
+  category=next;byId('motoFiltros').style.setProperty('--idx',String(cats.indexOf(next)));
+  byId('motoFiltros').querySelectorAll('[data-cat]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.cat===next)));
+  renderProducts();
+ }
+ function toggle(id){
+  if(!products.some(p=>p.id===id))return;
+  if(selected.has(id)){selected.delete(id);if(openShop===id)openShop=''}
+  else selected.add(id);
+  try{localStorage.setItem(KEY,JSON.stringify([...selected]))}catch{}
+  render();
+ }
+ byId('motoTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)setTab(b.dataset.tab)});
+ byId('motoFiltros').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b)setCategory(b.dataset.cat)});
+ byId('motoProdutos').addEventListener('click',e=>{const b=e.target.closest('[data-toggle]');if(b)toggle(b.dataset.toggle)});
+ byId('motoMontagem').addEventListener('click',e=>{
+  const remove=e.target.closest('[data-remove]');if(remove){toggle(remove.dataset.remove);return}
+  const shops=e.target.closest('[data-shops]');if(shops){openShop=openShop===shops.dataset.shops?'':shops.dataset.shops;renderBuild()}
+ });
+ byId('btnVerMontagem').onclick=()=>setTab('minha');
+ byId('btnMais').onclick=()=>setTab('catalogo');
+ const img=byId('fz25Foto');
+ img.onerror=()=>{if(img.dataset.fallback)return;img.dataset.fallback='1';img.src='https://production.autoforce.com/uploads/version/profile_image/11636/model_main_webp_comprar-titanium-grey-cinza-fosco_64db317cef.png.webp';img.onerror=()=>{img.hidden=true;byId('fz25Fallback').style.display='flex'}};
+ render();
+})();
+</script>
+</body>
+</html>
