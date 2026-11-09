@@ -368,7 +368,9 @@
   // Inclui sempre o nome do local. Enviar "CE-253" sozinho pode causar desvios.
   const conciseName=name.replace(/,?\s*nome antigo e tradicional:\s*/i,' - ').replace(/\.+$/,'').trim();
   const query=[conciseName,address,city].filter(Boolean).join(', ').slice(0,450);
-  // Place ID específico tem prioridade sobre GPS possivelmente extraído da câmera.
+  // Usar o GPS oficial somente depois de confirmado no painel pelo Google Places.
+  // Nos demais casos, o Place ID prevalece sobre GPS históricos da câmera.
+  if(gps&&stop.mapCoordinatesSource==='google-places')return {type:'gps',value:gps,name};
   if(id&&name)return {type:'place',id,value:query,name};
   if(gps){
    if(cityId==='guaramiranga'){
