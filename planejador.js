@@ -86,7 +86,7 @@
  function originLabel(){return originMode==='gps'?'Minha localização atual':(q('tripOrigin').value.trim()||'Cidade a definir')}
  function routeSummaryText(){
   const ending=selected.length?stopById(selected[selected.length-1])?.nome:destination?.nome;
-  return originLabel()+' → '+selected.length+' parada(s) → '+(ending||'Destino');
+  return originLabel()+' → '+(ending||'Destino');
  }
  function setOriginMode(mode){
   originMode=mode==='manual'?'manual':'gps';
@@ -94,8 +94,8 @@
   q('tripUseManual').setAttribute('aria-pressed',String(originMode==='manual'));
   q('tripManualOrigin').hidden=originMode!=='manual';
   q('tripOriginHint').textContent=originMode==='gps'
-   ?'O Google Maps usará a localização do aparelho ao abrir a navegação. O site não precisa acessar seu GPS.'
-   :'Digite uma cidade ou endereço para começar a rota de outro lugar.';
+   ?'O Google Maps usa a localização do aparelho.'
+   :'';
   if(destination)q('tripRouteSummary').textContent=routeSummaryText();
  }
  function mergeData(a){if(!a||!['destinos','paradas','rotas'].every(k=>Array.isArray(a[k])))return false;data=a;return true}
@@ -122,7 +122,7 @@
    const stops=term?categoryStops.filter(p=>searchText([p.nome,p.descricao,p.endereco,categoryLabels(p)].join(' ')).includes(term)):categoryStops;
    const name=categories.find(([id])=>id===category)?.[1]||'categoria';
    q('tripSearch').placeholder='Pesquisar em '+name.replace(/^[^a-zA-ZÀ-ÿ]+/,'').trim()+'…';
-   q('tripSearchCount').textContent=stops.length+' '+(stops.length===1?'local':'locais')+(term?' encontrado'+(stops.length===1?'':'s'):'')+' nesta categoria';
+   q('tripSearchCount').textContent=term?(stops.length+' '+(stops.length===1?'local encontrado':'locais encontrados')):'';
    q('tripCategories').innerHTML=categories.map(([id,label])=>'<button type="button" class="tripCat" data-cat="'+id+'" aria-pressed="'+(category===id)+'">'+label+'</button>').join('');
    q('tripAvailable').innerHTML=stops.length?stops.map(p=>{
      const pic=httpsUrl(p.foto),dis=selected.includes(p.id),full=selected.length>=MAX_ROUTE_STOPS,loc=String(p.endereco||'').trim();
@@ -130,7 +130,7 @@
   (httpsUrl(p.fotoFonteUrl)?' · <a href="'+esc(httpsUrl(p.fotoFonteUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Original</a>':'')+
   (httpsUrl(p.fotoLicencaUrl)?' · <a href="'+esc(httpsUrl(p.fotoLicencaUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Licença</a>':'')+
   '</p></details>':'';
-     return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p><p class="tripTiny">'+esc(categoryLabels(p))+'</p><p class="tripTiny mt-1">'+esc(p.descricao||'')+'</p>'+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Limite de 20 paradas':'+ Adicionar')+'</button></div></div></article>';
+     return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p>'+(p.descricao?'<p class="tripTiny tripStopDescription mt-1">'+esc(p.descricao)+'</p>':'')+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Limite de 20 paradas':'+ Adicionar')+'</button></div></div></article>';
    }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">'+(term?'Nenhuma parada encontrada nesta categoria. Tente outra pesquisa.':'Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.')+'</p>';
    loadPublicStopPhotos();
  }
@@ -190,7 +190,7 @@
   const routes=currentRoutes();
   q('tripPresets').innerHTML=routes.length?routes.map(r=>{
     const stops=(r.paradas||[]).map(id=>stopById(id)?.nome||'Parada não disponível');
-    return '<article class="tripPresetCard"><h4 class="font-bold">'+esc(r.nome)+'</h4><p class="tripTiny mt-1">'+esc(r.descricao||'Rota sugerida pelo grupo')+'</p><p class="tripTiny mt-2">'+stops.length+' paradas</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="tripNavBtn" data-view-route="'+esc(r.id)+'">👁 Ver paradas</button><button type="button" class="tripBtn text-sm" data-use-route="'+esc(r.id)+'">Usar esta rota</button></div><ol class="tripPresetStops" id="tripRoute-'+esc(r.id)+'" hidden>'+stops.map(name=>'<li>'+esc(name)+'</li>').join('')+'</ol></article>';
+    return '<article class="tripPresetCard"><h4 class="font-bold">'+esc(r.nome)+'</h4>'+(r.descricao?'<p class="tripTiny mt-1">'+esc(r.descricao)+'</p>':'')+'<p class="tripTiny mt-2">'+stops.length+' paradas</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="tripNavBtn" data-view-route="'+esc(r.id)+'">👁 Ver paradas</button><button type="button" class="tripBtn text-sm" data-use-route="'+esc(r.id)+'">Usar esta rota</button></div><ol class="tripPresetStops" id="tripRoute-'+esc(r.id)+'" hidden>'+stops.map(name=>'<li>'+esc(name)+'</li>').join('')+'</ol></article>';
   }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há rotas prontas publicadas para este destino. Você pode montar a sua rota na primeira aba.</p>';
  }
  function renderChosen(){
@@ -216,10 +216,8 @@
    :'🗺️ Abrir rota no Maps'+(selected.length?' ('+selected.length+' paradas)':'');
   const suspicious=selected.map(stopById).filter(p=>suspectStop(p));
    q('tripMapsHelp').textContent=suspicious.length
-   ?'⚠️ Confira a localização de '+suspicious.map(p=>p.nome).join(', ')+' antes de navegar. O cadastro pode causar um desvio.'
-   :stageCount>1
-   ?'As '+selected.length+' paradas serão organizadas em '+stageCount+' etapas de até nove locais, na ordem escolhida.'
-   :'O Google Maps receberá até nove locais. Confira cada ponto antes de iniciar a navegação.';
+    ?'⚠️ Confira a localização de '+suspicious.map(p=>p.nome).join(', ')+' antes de navegar. O cadastro pode causar um desvio.'
+    :'';
   q('tripRouteSegments').hidden=true;
   q('tripRouteSegments').replaceChildren();
   saveRoute();
@@ -437,7 +435,7 @@
    result.unresolved?.length
     ?'Alguns locais ainda precisam de localização exata. Confira seus links originais:'
     :'Suas '+selected.length+' paradas serão navegadas em '+result.segments.length+' etapas.');
-  box.appendChild(heading);
+  if(result.error||result.unresolved?.length)box.appendChild(heading);
   if(Array.isArray(result.warnings)&&result.warnings.length){
    const warning=document.createElement('p');warning.className='tripStopWarning mb-3';
    warning.textContent='⚠️ '+result.warnings.join(' · ')+' Confira os pontos no Maps antes de navegar.';
@@ -463,12 +461,12 @@
    box.appendChild(route);
    const main=document.createElement('a');main.className='tripBtn tripLegStart';
    main.href=current.url;main.target='_blank';main.rel='noopener noreferrer';
-   main.textContent='🗺️ Abrir etapa '+(activeLegIndex+1)+' no Maps ('+(current.lastStop-current.firstStop+1)+' paradas) ↗';
+   main.textContent='🗺️ Abrir etapa '+(activeLegIndex+1)+' no Maps ↗';
    box.appendChild(main);
    const note=document.createElement('p');note.className='tripTiny mt-2';
    note.textContent=activeLegIndex<total-1
-    ?'Depois de chegar ao fim desta etapa, volte ao Asphalt Boys e escolha Próxima etapa. As paradas restantes continuam salvas.'
-    :'Esta é a última etapa. Confira as paradas no Google Maps antes de começar.';
+    ?'Ao terminar, volte aqui para avançar à próxima etapa.'
+    :'Última etapa. Confira os pontos antes de navegar.';
    box.appendChild(note);
    const controls=document.createElement('div');controls.className='tripLegControls';
    if(activeLegIndex>0){
@@ -560,8 +558,7 @@
    if(result.unresolved.length||result.error){
     q('tripNote').textContent=result.error||'Alguns locais ainda precisam de GPS ou identificação exata para navegar.';
    }else{
-    q('tripNote').textContent='Seu roteiro tem '+result.segments.length+' etapa'+(result.segments.length===1?'':'s')+
-     ', com até nove paradas por etapa. Abra no Google Maps e confira os pontos.';
+    q('tripNote').textContent='Confira os pontos no Google Maps antes de sair.';
    }
    showGoogleLegs(result);
   }finally{
@@ -588,7 +585,7 @@
    }else{
     const r=await fetch('/api/content',{cache:'no-store'});if(!r.ok)throw Error('Banco público ainda não configurado.');
     if(!mergeData(await r.json()))throw Error('Dados públicos incompletos.');
-    q('tripDataStatus').textContent='Paradas e rotas publicadas pelo Asphalt Boys.';
+    q('tripDataStatus').textContent='';
    }
    for(const p of data.destinos){
     let existing=lugares.find(l=>mapping(l.id)===p.id);
