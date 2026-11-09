@@ -54,7 +54,7 @@
  let reviewRequestEpoch=0;
  const categorySearches=Object.create(null);
  const searchText=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
- let originMode='gps',activeLegIndex=0,tripDays=[],activeDayId='';
+ let originMode='gps',originPoint=null,originRequestEpoch=0,activeLegIndex=0,tripDays=[],activeDayId='';
   const expandedDayIds=new Set();
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null,previewReturnScroll=0;
  const urlParams=new URLSearchParams(location.search);
@@ -97,7 +97,7 @@
   safeStore(draftKey(destination.id),JSON.stringify({
    v:2,stops:[...selected],days:tripDays.map(d=>({
     id:d.id,title:d.title,stops:d.stops,legIndex:d.legIndex||0
-   })),activeDayId,originMode,origin:q('tripOrigin').value.trim().slice(0,150),
+   })),activeDayId,originMode,origin:q('tripOrigin').value.trim().slice(0,900),originPoint:originPoint&&originPoint.input===q('tripOrigin').value.trim()?originPoint:null,
    presetId,tab,category,legIndex:activeLegIndex
   }));
  }
@@ -120,7 +120,9 @@
   }
   presetId=typeof saved.presetId==='string'&&currentRoutes().some(r=>r.id===saved.presetId)?saved.presetId:'';
   category=categories.some(([id])=>id===saved.category)?saved.category:category;
-  q('tripOrigin').value=typeof saved.origin==='string'?saved.origin.slice(0,150):'';
+  q('tripOrigin').value=typeof saved.origin==='string'?saved.origin.slice(0,900):'';
+  originPoint=normalizedOriginPoint(saved.originPoint,q('tripOrigin').value.trim());
+  renderOriginPoint();
   setOriginMode(saved.originMode==='manual'&&q('tripOrigin').value.trim()?'manual':'gps');
   tab=tripDays.length>1||selected.length?'mine':['mine','custom','preset'].includes(saved.tab)?saved.tab:'custom';
   return true;
@@ -128,7 +130,95 @@
  function rememberOpen(id){try{sessionStorage.setItem(OPEN_MODAL_KEY,id)}catch{}}
  function forgetOpen(){try{sessionStorage.removeItem(OPEN_MODAL_KEY)}catch{}}
  function readOpen(){try{return sessionStorage.getItem(OPEN_MODAL_KEY)||''}catch{return ''}}
- function originLabel(){return originMode==='gps'?'Minha localização atual':(q('tripOrigin').value.trim()||'Cidade a definir')}
+ function originMapURL(raw){
+  try{
+   const u=new URL(String(raw||''));
+   const host=u.hostname.toLowerCase();
+   if(u.protocol==='https:'&&(host==='google.com'||host.endsWith('.google.com')||
+     host==='google.com.br'||host.endsWith('.google.com.br')||host==='maps.app.goo.gl'))
+     return u.href;
+  }catch{}
+  return '';
+ }
+ function normalizedOriginPoint(raw,expected){
+  if(!raw||typeof raw!=='object')return null;
+  const input=String(raw.input||'').trim(),coordinate=validCoords(raw.coordinate);
+  if(!coordinate||input!==String(expected||'').trim()||!input)return null;
+  return {input,coordinate,name:String(raw.name||'Ponto de saída').slice(0,120),
+   address:String(raw.address||'').slice(0,350),
+   maps:originMapURL(raw.maps)||'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(coordinate)};
+ }
+ function originValue(){
+  if(originMode!=='manual')return '';
+  const typed=q('tripOrigin').value.trim();
+  if(originPoint&&originPoint.input===typed)return originPoint.coordinate;
+  if(/^https?:\/\//i.test(typed))return ''; // links exigem verificação antes de navegar
+  return validCoords(typed)||typed; // origens por cidade já usadas continuam funcionando
+ }
+ function originLabel(){
+  if(originMode==='gps')return 'Minha localização atual';
+  const typed=q('tripOrigin').value.trim();
+  return originPoint&&originPoint.input===typed?originPoint.name:typed||'Ponto de saída a definir';
+ }
+ function renderOriginPoint(){
+  const confirmed=!!originPoint&&originPoint.input===q('tripOrigin').value.trim();
+  q('tripOriginConfirmed').hidden=!confirmed;
+  if(confirmed){
+   q('tripOriginName').textContent=originPoint.name;
+   q('tripOriginAddress').textContent=originPoint.address||originPoint.coordinate;
+   q('tripOriginMap').href=originPoint.maps;
+  }
+ }
+ function selectOriginPoint(item){
+  const input=q('tripOrigin').value.trim();
+  originPoint=normalizedOriginPoint({...item,input},input);
+  if(!originPoint)return;
+  q('tripOriginCandidates').replaceChildren();q('tripOriginCandidates').hidden=true;
+  q('tripOriginStatus').textContent='✓ Ponto definido. Confira o marcador no Google Maps.';
+  renderOriginPoint();activeLegIndex=0;saveRoute();
+  if(destination)q('tripRouteSummary').textContent=routeSummaryText();
+ }
+ function showOriginOptions(items,input,notice){
+  const box=q('tripOriginCandidates');box.replaceChildren();
+  for(const item of Array.isArray(items)?items.slice(0,5):[]){
+   const point=normalizedOriginPoint({...item,input},input);
+   if(!point)continue;
+   const card=document.createElement('div');card.className='tripOriginCandidate';
+   const details=document.createElement('div');details.className='min-w-0 flex-1';
+   const name=document.createElement('strong');name.textContent=point.name;
+   const address=document.createElement('span');address.textContent=point.address||point.coordinate;
+   details.append(name,address);
+   const choose=document.createElement('button');choose.type='button';
+   choose.className='tripNavBtn text-xs';choose.textContent='Usar este ponto';
+   choose.onclick=()=>selectOriginPoint(point);
+   card.append(details,choose);box.appendChild(card);
+  }
+  box.hidden=!box.childElementCount;
+  q('tripOriginStatus').textContent=box.childElementCount?
+   (notice||'Escolha o ponto correto e confira no Maps.'):
+   'Nenhum ponto exato encontrado. Experimente outro endereço.';
+ }
+ async function checkOriginPoint(){
+  const input=q('tripOrigin').value.trim();
+  if(!input){q('tripOriginStatus').textContent='Informe um endereço, coordenadas ou link do Maps.';return}
+  const epoch=++originRequestEpoch,button=q('tripOriginCheck');
+  button.disabled=true;button.textContent='🔎 Procurando…';
+  q('tripOriginStatus').textContent='Procurando o ponto no Google Maps…';
+  q('tripOriginCandidates').hidden=true;
+  try{
+   const res=await fetch('./api/origin-point',{method:'POST',credentials:'same-origin',
+    cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({input})});
+   const data=await res.json();
+   if(epoch!==originRequestEpoch||input!==q('tripOrigin').value.trim())return;
+   if(!res.ok)throw Error(data.error||'Não encontrei esse local.');
+   showOriginOptions(data.results,input,data.notice);
+  }catch(error){
+   if(epoch!==originRequestEpoch)return;
+   q('tripOriginStatus').textContent='⚠️ '+String(error.message||error).slice(0,200);
+  }finally{
+   button.disabled=false;button.textContent='📍 Conferir ponto no Maps';
+  }
+ }
  function routeSummaryText(){
   const ending=selected.length?stopById(selected[selected.length-1])?.nome:destination?.nome;
   return originLabel()+' → '+(ending||'Destino');
@@ -138,9 +228,9 @@
   q('tripUseGps').setAttribute('aria-pressed',String(originMode==='gps'));
   q('tripUseManual').setAttribute('aria-pressed',String(originMode==='manual'));
   q('tripManualOrigin').hidden=originMode!=='manual';
-  q('tripOriginHint').textContent=originMode==='gps'
-   ?'O Google Maps usa a localização do aparelho.'
-   :'';
+  q('tripOriginHint').textContent=originMode==='gps'?'O Maps usa a localização do aparelho.':
+   'Cole um link, coordenadas ou endereço para conferir o ponto exato.';
+  renderOriginPoint();
   if(destination)q('tripRouteSummary').textContent=routeSummaryText();
  }
  function mergeData(a){if(!a||!['destinos','paradas','rotas'].every(k=>Array.isArray(a[k])))return false;data=a;return true}
