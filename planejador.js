@@ -247,7 +247,7 @@
   if(active)q('tripActiveDayName').textContent=active.title+' · '+selected.length+' parada'+(selected.length===1?'':'s');
   q('tripActiveDayRename').hidden=true;
   q('tripCreateDay').disabled=!selected.length||tripDays.length>=MAX_TRIP_DAYS;
-  q('tripCreateDay').textContent=tripDays.length>=MAX_TRIP_DAYS?'Limite de dias atingido':'＋ Criar próximo dia';
+  q('tripCreateDay').textContent=tripDays.length>=MAX_TRIP_DAYS?'Limite de dias':'＋ Novo dia';
   box.innerHTML=multi?tripDays.filter(d=>d.id!==activeDayId).map(d=>{
    const id=esc(d.id),expanded=expandedDayIds.has(d.id);
    const count=d.stops.length+' parada'+(d.stops.length===1?'':'s');
@@ -291,7 +291,7 @@
    q('tripCount').textContent=tripDays.length>1?
     tripDays.length+' dias · '+totalStops+' paradas':
     selected.length+' parada'+(selected.length===1?'':'s');
-  q('tripRouteSummary').textContent=routeSummaryText();
+  q('tripRouteSummary').textContent=selected.length?routeSummaryText():'';
   q('tripOpenMaps').disabled=!selected.length||selected.length>MAX_ROUTE_STOPS;
   const tentative=selected.length?routeSegmentsFor(selected.map(stopById).filter(Boolean),'',APP_MAX_STOPS):null;
   const stageCount=tentative&&!tentative.error&&!tentative.unresolved.length?
