@@ -504,16 +504,17 @@
    q('tripNote').textContent='Informe uma cidade ou escolha Minha localização atual.';
    q('tripOrigin').focus();return null;
   }
+  // A API pode resolver endereços longos para GPS oficial. Não bloquear
+  // a rota antes dessa tentativa apenas pelo tamanho do link provisório.
   const stops=selected.map(stopById).filter(Boolean);
-  const fallback=routeSegmentsFor(stops,origin,APP_MAX_STOPS);
-  if(fallback.error||fallback.unresolved.length){
-   q('tripNote').textContent=fallback.error||'Há uma parada sem identificação exata ou com GPS distante. Confira o link original antes de navegar.';
-   showGoogleLegs(fallback);return null;
+  if(stops.length>MAX_ROUTE_STOPS){
+   q('tripNote').textContent='Escolha no máximo 20 paradas.';
+   return null;
   }
   if(originMode==='manual')safeStore('asphalt-boys-ultima-origem',origin);
-  return {stops,origin,fallback};
+  return {stops,origin};
  }
-  async function preparePreciseStops(stops){
+ async function preparePreciseStops(stops){
   if(localPreview||!stops.length)return {stops,warnings:localPreview?
    ['Modo de rascunho: confira os pontos antes de navegar.']:[]};
   try{
