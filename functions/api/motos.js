@@ -53,8 +53,9 @@ function clean(kind,input){
   return {id:'grupo-'+bikeId+'-'+grupoId,nome,descricao:'',foto:cleanUrl(input.foto,{image:true}),status:'publicado',bikeId,grupoId,categoria:initialGroups.find(g=>g.id===grupoId).categoria};
  }
  if(kind==='moto')return {id,nome,descricao:String(input.descricao||'').trim().slice(0,320),foto:cleanUrl(input.foto,{image:true}),status,order:Math.max(0,Math.min(9999,Number(input.order)||0))};
- const bikeId=String(input.bikeId||'').trim();
- if(!ids(bikeId))throw Error('Selecione uma moto.');
+ const universal=input.universal===true;
+ const bikeId=universal?'universal':String(input.bikeId||'').trim();
+ if(!universal&&!ids(bikeId))throw Error('Selecione uma moto.');
  const categoria=String(input.categoria||'viagem');
  if(!categories.includes(categoria))throw Error('Categoria inválida.');
  const grupoId=String(input.grupoId||'').trim();
@@ -64,7 +65,7 @@ function clean(kind,input){
  const foto=cleanUrl(input.foto,{image:true});
  if(foto&&!fotos.includes(foto))fotos.unshift(foto);
  fotos.length=Math.min(fotos.length,5);
- return {id,nome,descricao:String(input.descricao||'').trim().slice(0,500),foto:fotos[0]||foto,fotos,status,bikeId,categoria,grupoId,shopee:cleanUrl(input.shopee),mercadolivre:cleanUrl(input.mercadolivre),order:Math.max(0,Math.min(9999,Number(input.order)||0))};
+ return {id,nome,descricao:String(input.descricao||'').trim().slice(0,500),foto:fotos[0]||foto,fotos,status,bikeId,universal,categoria,grupoId,shopee:cleanUrl(input.shopee),mercadolivre:cleanUrl(input.mercadolivre),order:Math.max(0,Math.min(9999,Number(input.order)||0))};
 }
 async function load(db,all=false){
  await dbInit(db);
@@ -85,8 +86,9 @@ async function load(db,all=false){
   grupos[bike.id]=initialGroups.map(g=>{const override=groupOverrides.find(x=>x.bikeId===bike.id&&x.grupoId===g.id);return {...g,nome:override?.nome||g.nome,foto:override?.foto||'',modelos:[]}});
  }
  for(const item of acessorios){
-  const arr=grupos[item.bikeId];if(!arr)continue;
-  const group=arr.find(x=>x.id===item.grupoId);if(group)group.modelos.push(item);
+  const targets=item.universal||item.bikeId==='universal'?motos.map(b=>b.id):[item.bikeId];
+  for(const target of targets){const arr=grupos[target];if(!arr)continue;const group=arr.find(x=>x.id===item.grupoId);if(group)group.modelos.push(item)}
+
  }
 
  return {motos,grupos,acessorios,demo:false};
@@ -116,7 +118,7 @@ export async function onRequestPost({request,env}){
   await dbInit(env.DB);
   if(body.kind==='acessorio'||body.kind==='grupo'){
    const motos=await load(env.DB,true);
-   if(!motos.motos.some(x=>x.id===value.bikeId))return json({error:'Moto não encontrada.'},400);
+   if(body.kind==='acessorio'&&value.universal){}else if(!motos.motos.some(x=>x.id===value.bikeId))return json({error:'Moto não encontrada.'},400);
   }
   await env.DB.prepare("INSERT INTO ab_motos_catalog(id,kind,bike_id,status,payload,updated_at) VALUES(?,?,?,?,?,datetime('now')) ON CONFLICT(id) DO UPDATE SET kind=excluded.kind,bike_id=excluded.bike_id,status=excluded.status,payload=excluded.payload,updated_at=datetime('now')")
   .bind(value.id,body.kind,body.kind==='moto'?'':value.bikeId,value.status,JSON.stringify(value)).run();
