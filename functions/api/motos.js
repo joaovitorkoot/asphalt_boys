@@ -58,12 +58,16 @@ function clean(kind,input){
 }
 async function load(db,all=false){
  await dbInit(db);
- const stmt=all?db.prepare("SELECT kind,payload FROM ab_motos_catalog ORDER BY updated_at ASC"):db.prepare("SELECT kind,payload FROM ab_motos_catalog WHERE status='publicado' ORDER BY updated_at ASC");
- const rows=(await stmt.all()).results||[];
- const motos=[],acessorios=[];
- for(const row of rows)try{const value=JSON.parse(row.payload);if(row.kind==='moto')motos.push(value);else if(row.kind==='acessorio')acessorios.push(value)}catch{}
- const exists=new Set(motos.map(m=>m.id));
- for(const bike of initialBikes)if(!exists.has(bike.id))motos.push({...bike});
+ const rows=(await db.prepare("SELECT kind,payload FROM ab_motos_catalog ORDER BY updated_at ASC").all()).results||[];
+ const motos=[],acessorios=[],registeredBikes=new Set();
+ for(const row of rows)try{
+  const value=JSON.parse(row.payload);
+  if(row.kind==='moto')registeredBikes.add(value.id);
+  if(!all&&value.status!=='publicado')continue;
+  if(row.kind==='moto')motos.push(value);
+  else if(row.kind==='acessorio')acessorios.push(value);
+ }catch{}
+ for(const bike of initialBikes)if(!registeredBikes.has(bike.id))motos.push({...bike});
  motos.sort((a,b)=>(a.order||0)-(b.order||0));
  const grupos={};
  for(const bike of motos){
