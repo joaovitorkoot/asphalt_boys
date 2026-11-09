@@ -261,6 +261,11 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
 .tripReviewStatus{color:#b8bdc6;font-size:12px}
 .tripGMPAttribution{font-family:Roboto,Arial,sans-serif;font-size:12px;font-weight:400;font-style:normal;letter-spacing:normal;white-space:nowrap;color:#fff}
 .tripReviewProvider{margin-top:14px;padding-top:10px;border-top:1px solid #3a414b}
+#tripPanel{overflow-anchor:none}
+#tripCustomSection,#tripPresetSection,#tripMineSection{min-height:min(56dvh,540px)}
+.tripTabEnter{animation:tripSectionFade .19s ease-out both}
+@keyframes tripSectionFade{from{opacity:.68;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.tripTabEnter{animation:none!important}}
 #tripPanel::-webkit-scrollbar{width:5px}#tripPanel::-webkit-scrollbar-thumb{background:#4e5661;border-radius:9px}
 @media(max-width:580px){#tripCategories{grid-template-columns:repeat(2,minmax(0,1fr))}.tripTab{font-size:11px;padding:8px 3px}.tripStop{grid-template-columns:62px minmax(0,1fr)}.tripStop img,.tripFallback{width:62px;height:76px}#tripPanel{border-radius:14px}}
 </style>
@@ -434,5 +439,5 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261109-clean-home-images"></script>
+<script src="planejador.js?v=20261109-tabs-scroll-smooth"></script>
 </body></html>
