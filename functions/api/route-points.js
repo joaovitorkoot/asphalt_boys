@@ -31,7 +31,10 @@ async function officialPosition(placeId,key){
  }});
  if(!response.ok)throw Error('Google Places '+response.status);
  const place=await response.json();
- const coordinate=place.location?validCoords(place.location.latitude+','+place.location.longitude):'';
+ const latitude=Number(place.location?.latitude),longitude=Number(place.location?.longitude);
+ const coordinate=Number.isFinite(latitude)&&Number.isFinite(longitude)&&
+  Math.abs(latitude)<=90&&Math.abs(longitude)<=180?
+   latitude.toFixed(7)+','+longitude.toFixed(7):'';
  if(!coordinate)throw Error('Google Places não retornou o ponto');
  if(cache){
   try{await cache.put(cacheKey,new Response(JSON.stringify({coordinate}),{
