@@ -116,6 +116,12 @@ renderAsphaltCards();
 }
 .tripDayAdd{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;padding:7px 11px;border:1px dashed #f5a76a;border-radius:10px;min-height:37px;font-size:12px;font-weight:800;color:#ffbc86;background:#2b2523}
 .tripDayAdd:disabled{opacity:.5;cursor:not-allowed}
+.tripSaveDay{font-size:14px;padding:9px 15px;min-height:40px}
+.tripDayEditor label{font-size:12px;color:#e6ba93}
+.tripDayEditor .tripField{width:100%;background:#252831;border:1px solid #68503c}
+.tripDayEditor .tripField:focus{border-color:#fb923c;outline:2px solid #fb923c4d;outline-offset:1px}
+.tripDayCard .tripDayExpand{min-width:0}
+.tripDayCard .tripDayBody[hidden]{display:none!important}
 /* Estados visuais do planejador: movimento sutil, sem alterar o layout ou os eventos. */
 .tripOriginChoice,.tripTab,.tripCat,.tripStop,.tripPicked,.tripNavBtn,.tripBtn,
 .tripPresetCard,.tripDayCard,.tripDayAdd,.abDestinationCard,.abPlanPick{transition:transform .19s ease,box-shadow .19s ease,border-color .19s ease,background-color .19s ease,filter .19s ease}
@@ -294,17 +300,22 @@ renderAsphaltCards();
  <h3 class="font-black text-lg">Meu roteiro</h3>
  <div class="flex flex-wrap gap-2 items-center">
   <span id="tripCount" class="tripTiny">0 paradas</span>
-  <button id="tripCreateDay" type="button" class="tripDayAdd" title="Guardar as paradas atuais neste dia e começar o próximo" aria-label="Guardar paradas e criar próximo dia">＋ Novo dia</button>
+  <button id="tripCreateDay" type="button" class="tripDayAdd" title="Montar e salvar um dia de viagem" aria-label="Criar novo dia">＋ Novo dia</button>
  </div>
 </div>
-<p class="tripTiny mt-1 mb-3">Selecione um dia para editar. Alterações salvas automaticamente.</p>
-<div id="tripDayGroups" class="space-y-2 mb-3" hidden aria-label="Dias planejados da viagem"></div>
+<p class="tripTiny mt-1 mb-3">Monte sua rota normalmente. Use Novo dia apenas quando quiser guardar um dia da viagem.</p>
+<div id="tripDayGroups" class="space-y-2 mb-3" hidden aria-label="Dias salvos da viagem"></div>
 <div id="tripDayEditor" class="tripDayEditor mb-3" hidden>
  <div class="flex flex-wrap gap-2 items-center justify-between">
-  <strong id="tripActiveDayName" class="font-bold text-sm">Dia selecionado</strong>
+  <strong id="tripActiveDayName" class="font-bold text-sm">Novo dia</strong>
   <button id="tripAddDayStops" type="button" class="tripNavBtn tripDayAddStops text-xs">＋ Adicionar paradas</button>
  </div>
- <p class="tripTiny mt-2">As paradas deste dia aparecem abaixo. Use ↑ ↓ para mudar a ordem.</p>
+ <label for="tripDayName" class="tripTiny mt-3 mb-1 block">Nome do dia</label>
+ <input id="tripDayName" class="tripField" type="text" maxlength="55" placeholder="Ex.: Dia 2 — Retorno" autocomplete="off">
+ <div class="flex flex-wrap gap-2 mt-3">
+  <button type="button" id="tripSaveDay" class="tripBtn tripSaveDay">✓ Salvar dia</button>
+  <button type="button" id="tripCancelDay" class="tripNavBtn">Cancelar</button>
+ </div>
 </div>
 <div id="tripChosen" class="space-y-2"></div>
 <p id="tripDayMessage" class="tripTiny mt-2" role="status" aria-live="polite"></p>
@@ -392,5 +403,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261109-days-rebuilt"></script>
+<script src="planejador.js?v=20261109-days-saveflow"></script>
 </body></html>
