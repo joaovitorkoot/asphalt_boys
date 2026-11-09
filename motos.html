@@ -361,7 +361,7 @@ function setCategory(next){
 }
 function openGroup(id){
  if(!groups.some(g=>g.id===id))return;
- haptic();activeGroup=id;tab='catalogo';setTab('catalogo');renderDetail();
+ activeGroup=id;setTab('catalogo');renderDetail();
  q('catalogDetail').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function choose(model){
@@ -401,7 +401,7 @@ q('motoMontagem').addEventListener('click',e=>{
  }
 });
 q('btnVoltarCategorias').onclick=()=>{
- haptic();activeGroup='';renderDetail();
+ haptic();activeGroup='';renderGroups();renderDetail();
 };
 q('btnVerMontagem').onclick=()=>setTab('minha');
 q('btnMontagemDetalhe').onclick=()=>setTab('minha');
