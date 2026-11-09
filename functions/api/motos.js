@@ -63,7 +63,7 @@ async function load(db,all=false){
  const motos=[],acessorios=[];
  for(const row of rows)try{const value=JSON.parse(row.payload);if(row.kind==='moto')motos.push(value);else if(row.kind==='acessorio')acessorios.push(value)}catch{}
  const exists=new Set(motos.map(m=>m.id));
- for(const bike of initialBikes)if(!exists.has(bike.id)&&!rows.some(r=>r.kind==='moto'&&JSON.parse(r.payload)?.id===bike.id))motos.push({...bike});
+ for(const bike of initialBikes)if(!exists.has(bike.id))motos.push({...bike});
  motos.sort((a,b)=>(a.order||0)-(b.order||0));
  const grupos={};
  for(const bike of motos){
@@ -89,7 +89,7 @@ async function requireAdmin(request,env){
  return !!(await sessionFor(request,env));
 }
 export async function onRequestGet({request,env}){
- if(!env.DB)return json(seedResponse(),200);
+ if(!env.DB){if(new URL(request.url).searchParams.has('admin'))return json({error:'Banco D1 não configurado.'},503);return json(seedResponse(),200);}
  try{
   const admin=new URL(request.url).searchParams.has('admin');
   if(admin&&!(await sessionFor(request,env)))return json({error:'Acesso administrativo necessário.'},401);
