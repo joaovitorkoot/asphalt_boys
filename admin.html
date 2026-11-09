@@ -657,7 +657,7 @@ function form(){
   fields='<input type="hidden" name="destinoId" id="f_destinoId" value="'+esc(dest)+'">'+
    '<p class="tiny text-orange-300">Rota para '+esc(currentDestination()?.nome||dest)+'</p>'+
    '<h3 class="font-bold mt-3">🏍️ Importar roteiro do Asphalt Boys</h3>'+
-   '<p class="tiny mb-3">Monte a viagem no site público, toque em Compartilhar e cole aqui o link (ou a mensagem do WhatsApp). As paradas serão recuperadas automaticamente, sem precisar selecioná-las.</p>'+
+   '<p class="tiny mb-3">Monte uma rota avulsa no site, toque em Compartilhar e cole o link (ou a mensagem do WhatsApp). As paradas serão recuperadas. Viagens com vários dias ainda não podem ser importadas como uma única rota pronta.</p>'+
    makeField('maps','Link compartilhado pelo Asphalt Boys',share,'textarea',true)+
    '<button type="button" id="routeImportButton" class="subbtn text-sm mt-2">✓ Conferir roteiro</button>'+
    '<p id="routeShareStatus" class="tiny mt-2" role="status" aria-live="polite">Cole o link para recuperar as paradas.</p>'+
@@ -681,6 +681,8 @@ function parseAsphaltRouteLink(text){
  const dest=String(url.searchParams.get('dest')||'').trim();
  const raw=url.searchParams.get('stops');
  if(!/^[a-zA-Z0-9_-]{3,120}$/.test(dest))throw Error('O link não informa um destino válido.');
+ if(!raw&&url.searchParams.has('dias'))
+  throw Error('Este link reúne vários dias. Rotas prontas aceita uma rota avulsa por cadastro. Compartilhe apenas a montagem de uma rota, ou cadastre cada dia separadamente.');
  if(!raw)throw Error('O link não contém paradas. Em Meu roteiro, toque em Compartilhar depois de adicionar os locais.');
  const ids=raw.split(',');
  if(ids.length<1||ids.length>20||ids.some(id=>!/^[a-zA-Z0-9_-]{3,120}$/.test(id)))
