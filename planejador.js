@@ -54,7 +54,7 @@
  let reviewRequestEpoch=0;
  const categorySearches=Object.create(null);
  const searchText=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
- let originMode='gps',originPoint=null,originRequestEpoch=0,activeLegIndex=0,tripDays=[],activeDayId='',dayDraftMode='',dayDraftTitle='',dayDraftPrevious=null;
+ let originMode='gps',originPoint=null,originRequestEpoch=0,activeLegIndex=0,tripDays=[],activeDayId='',dayDraftMode='',dayDraftTitle='',dayDraftPrevious=null,minePickerOpen=false,mineCategory='turismo';
   const expandedDayIds=new Set();
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null,previewReturnScroll=0;
  const urlParams=new URLSearchParams(location.search);
@@ -298,7 +298,7 @@
   (httpsUrl(p.fotoFonteUrl)?' · <a href="'+esc(httpsUrl(p.fotoFonteUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Original</a>':'')+
   (httpsUrl(p.fotoLicencaUrl)?' · <a href="'+esc(httpsUrl(p.fotoLicencaUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Licença</a>':'')+
   '</p></details>':'';
-     return '<article class="tripStop" data-selected="'+dis+'">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p>'+(p.descricao?'<p class="tripTiny tripStopDescription mt-1">'+esc(p.descricao)+'</p>':'')+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" aria-pressed="'+dis+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Limite de 20 paradas':'+ Adicionar')+'</button></div></div></article>';
+     return '<article class="tripStop" data-selected="'+dis+'">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p>'+(p.descricao?'<p class="tripTiny tripStopDescription mt-1">'+esc(p.descricao)+'</p>':'')+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" aria-pressed="'+dis+'" '+(!dis&&(full||!loc)?'disabled':'')+'>'+(dis?'− Remover':!loc?'Sem endereço':full?'Limite de 20 paradas':'+ Adicionar')+'</button></div></div></article>';
    }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">'+(term?'Nenhuma parada encontrada nesta categoria. Tente outra pesquisa.':'Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.')+'</p>';
    loadPublicStopPhotos();
  }
@@ -361,6 +361,30 @@
     return '<article class="tripPresetCard"><h4 class="font-bold">'+esc(r.nome)+'</h4>'+(r.descricao?'<p class="tripTiny mt-1">'+esc(r.descricao)+'</p>':'')+'<p class="tripTiny mt-2">'+stops.length+' paradas</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="tripNavBtn" data-view-route="'+esc(r.id)+'">👁 Ver paradas</button><button type="button" class="tripBtn text-sm" data-use-route="'+esc(r.id)+'">Usar esta rota</button></div><ol class="tripPresetStops" id="tripRoute-'+esc(r.id)+'" hidden>'+stops.map(name=>'<li>'+esc(name)+'</li>').join('')+'</ol></article>';
   }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há rotas prontas publicadas para este destino. Você pode montar a sua rota na primeira aba.</p>';
  }
+ function renderMinePicker(){
+  const container=q('tripMinePicker');
+  container.hidden=!dayDraftMode||!minePickerOpen;
+  if(container.hidden)return;
+  const cat=categories.some(([id])=>id===mineCategory)?mineCategory:categories[0]?.[0];
+  if(!cat)return;
+  mineCategory=cat;
+  q('tripMineCategories').innerHTML=categories.map(([id,label])=>
+   '<button type="button" class="tripCat" data-mine-cat="'+id+'" aria-pressed="'+(cat===id)+'">'+label+'</button>'
+  ).join('');
+  const term=searchText(q('tripMineSearch').value).trim();
+  const stops=currentStops().filter(p=>stopCategories(p).includes(cat))
+   .filter(p=>!term||searchText([p.nome,p.descricao,p.endereco].join(' ')).includes(term));
+  q('tripMineAvailable').innerHTML=stops.length?stops.map(p=>{
+   const dis=selected.includes(p.id),unavailable=!dis&&(selected.length>=MAX_ROUTE_STOPS||!p.endereco);
+   return '<article class="tripMineOption" data-selected="'+dis+'">'+
+    '<div class="min-w-0 flex-1"><p class="font-semibold text-sm">'+esc(p.nome)+'</p>'+
+    (p.descricao?'<p class="tripTiny mt-1">'+esc(p.descricao)+'</p>':'')+
+    '<a class="tripStopCheck" href="'+esc(mapLink(p))+'" target="_blank" rel="noopener noreferrer">📍 Conferir no Maps ↗</a></div>'+
+    '<button type="button" class="tripNavBtn text-xs" data-add-stop="'+esc(p.id)+'" aria-pressed="'+dis+'" '+(unavailable?'disabled':'')+'>'+
+     (dis?'− Remover':!p.endereco?'Sem endereço':selected.length>=MAX_ROUTE_STOPS?'Limite de 20 paradas':'+ Adicionar')+
+    '</button></article>';
+  }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-4">Nenhum local nesta categoria. Experimente outra pesquisa.</p>';
+ }
  function renderDayGroups(){
   const box=q('tripDayGroups'),editor=q('tripDayEditor');
   box.hidden=!tripDays.length;
@@ -373,6 +397,8 @@
    if(name.value!==dayDraftTitle)name.value=dayDraftTitle;
    q('tripSaveDay').disabled=!selected.length;
   }
+  renderMinePicker();
+  q('tripAddDayStops').textContent=minePickerOpen?'− Fechar seleção':'＋ Adicionar paradas';
   box.innerHTML=tripDays.map((day,index)=>{
    const id=esc(day.id),expanded=expandedDayIds.has(day.id);
    const label=day.stops.length+' parada'+(day.stops.length===1?'':'s');
@@ -444,6 +470,7 @@
    Object.keys(categorySearches).forEach(k=>delete categorySearches[k]);
    q('tripSearch').value='';
    selected=[];presetId='';activeLegIndex=0;expandedDayIds.clear();beginSingleDay();
+   minePickerOpen=false;mineCategory='turismo';q('tripMineSearch').value='';
    q('tripDayMessage').textContent='';
    q('tripShareBox').hidden=true;
    q('tripTitle').textContent=destination.nome;
@@ -531,9 +558,10 @@
    }
   }
   q('tripPreviewMap').href=mapLink(p);
-  const add=q('tripPreviewAdd');
-  add.disabled=selected.includes(id)||selected.length>=MAX_ROUTE_STOPS||!p.endereco;
-  add.textContent=selected.includes(id)?'✓ Já está na rota':selected.length>=MAX_ROUTE_STOPS?'Máximo de 20 paradas':!p.endereco?'Endereço indisponível':'+ Adicionar à rota';
+  const add=q('tripPreviewAdd'),already=selected.includes(id);
+  add.disabled=!already&&(selected.length>=MAX_ROUTE_STOPS||!p.endereco);
+  add.setAttribute('aria-pressed',String(already));
+  add.textContent=already?'− Remover da rota':selected.length>=MAX_ROUTE_STOPS?'Máximo de 20 paradas':!p.endereco?'Endereço indisponível':'+ Adicionar à rota';
   if(!localPreview)fetch('/api/place?stop='+encodeURIComponent(p.id),{cache:'no-store'}).then(async response=>{
     const result=await response.json();
     if(previewId!==id||q('tripStopPreview').hidden)return;
@@ -580,6 +608,14 @@
  function addStop(id){
   if(!stopById(id)?.endereco||selected.length>=MAX_ROUTE_STOPS||selected.includes(id))return;
   selected.push(id);presetId='';activeLegIndex=0;render();
+ }
+ function toggleStop(id){
+  if(!stopById(id))return;
+  const at=selected.indexOf(id);
+  if(at>=0){
+   selected.splice(at,1);
+   presetId='';activeLegIndex=0;render();
+  }else addStop(id);
  }
  function destinationUrl(){return destination.dest||destination.mapa||destination.nome}
  // Links universais tentam abrir o app com até 9 destinos; Safari pode limitar a 3 intermediários.
@@ -878,6 +914,7 @@
    return;
   }
   dayDraftMode='new';activeDayId='';dayDraftTitle='Dia '+(tripDays.length+1);
+  minePickerOpen=false;mineCategory=category;q('tripMineSearch').value='';
   dayDraftPrevious=null;presetId='';tab='mine';
   q('tripDayMessage').textContent='Escolha o nome e as paradas, depois toque em Salvar dia.';
   render();
@@ -901,6 +938,7 @@
    selected=[];activeLegIndex=0;presetId='';
   }
   dayDraftMode='';activeDayId='';dayDraftTitle='';dayDraftPrevious=null;
+  minePickerOpen=false;q('tripMineSearch').value='';
   expandedDayIds.clear();tab='mine';
   q('tripDayMessage').textContent='✓ Dia salvo. A montagem está livre para criar outra rota.';
   render();
@@ -914,6 +952,7 @@
   }
   // Ao cancelar um dia novo, manter a montagem avulsa e suas paradas.
   dayDraftMode='';activeDayId='';dayDraftTitle='';dayDraftPrevious=null;
+  minePickerOpen=false;q('tripMineSearch').value='';
   tab='mine';q('tripDayMessage').textContent='Edição cancelada. Nenhum card foi alterado.';
   render();
  }
@@ -927,9 +966,10 @@
   dayDraftPrevious={stops:[...selected],legIndex:activeLegIndex,presetId};
   dayDraftMode='edit';activeDayId=id;dayDraftTitle=day.title;
   selected=[...day.stops];activeLegIndex=day.legIndex||0;presetId='';tab='mine';
-  expandedDayIds.clear();q('tripDayMessage').textContent='Edite as paradas e toque em Salvar dia.';
+  minePickerOpen=!!addStops;mineCategory=category;q('tripMineSearch').value='';
+  expandedDayIds.clear();q('tripDayMessage').textContent='Altere as paradas aqui mesmo e toque em Salvar dia.';
   render();
-  if(addStops)showTab('custom',true);
+  if(addStops)q('tripDayEditor').scrollIntoView({behavior:'smooth',block:'nearest'});
  }
  function removeDay(id){
   const index=tripDays.findIndex(d=>d.id===id);if(index<0)return;
@@ -940,6 +980,7 @@
    activeLegIndex=dayDraftPrevious?.legIndex||0;
    presetId=dayDraftPrevious?.presetId||'';
    dayDraftMode='';activeDayId='';dayDraftTitle='';dayDraftPrevious=null;
+   minePickerOpen=false;q('tripMineSearch').value='';
   }
   tripDays.splice(index,1);expandedDayIds.delete(id);
   q('tripDayMessage').textContent='Dia excluído. As demais rotas foram preservadas.';
@@ -985,7 +1026,7 @@
    }
  });
  q('tripClose').onclick=close;q('tripPreviewBack').onclick=previewBack;
- q('tripPreviewAdd').onclick=()=>{addStop(previewId);previewBack();showTab('mine')};
+ q('tripPreviewAdd').onclick=()=>{toggleStop(previewId);previewBack()};
  q('tripModal').addEventListener('click',e=>{if(e.target===modal)close()});
  document.addEventListener('keydown',e=>{if(modal.hidden)return;if(e.key==='Escape'){if(!q('tripStopPreview').hidden)previewBack();else close()}if(e.key==='Tab'){const visible=[...panel.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(x=>x.offsetParent!==null);if(!visible.length)return;const f=visible[0],l=visible[visible.length-1];if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}}});
  q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);activeLegIndex=0;saveRoute();if(originMode==='manual')q('tripOrigin').focus()});
@@ -1021,7 +1062,22 @@
   if(e.key==='Enter'){e.preventDefault();saveCurrentDay()}
   if(e.key==='Escape'){e.stopPropagation();cancelCurrentDay()}
  });
- q('tripAddDayStops').onclick=()=>{if(dayDraftMode)showTab('custom',true)};
+ q('tripAddDayStops').onclick=()=>{
+  if(!dayDraftMode)return;
+  minePickerOpen=!minePickerOpen;renderMinePicker();
+  q('tripAddDayStops').textContent=minePickerOpen?'− Fechar seleção':'＋ Adicionar paradas';
+  if(minePickerOpen)q('tripMineSearch').focus();
+ };
+ q('tripMineCategories').addEventListener('click',e=>{
+  const button=e.target.closest('[data-mine-cat]');
+  if(!button)return;mineCategory=button.dataset.mineCat;renderMinePicker();
+ });
+ q('tripMineSearch').addEventListener('input',renderMinePicker);
+ q('tripMineSearchClear').onclick=()=>{q('tripMineSearch').value='';renderMinePicker();q('tripMineSearch').focus()};
+ q('tripMineAvailable').addEventListener('click',e=>{
+  const button=e.target.closest('[data-add-stop]');
+  if(button)toggleStop(button.dataset.addStop);
+ });
  q('tripDayGroups').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   const d=b.dataset;
@@ -1044,7 +1100,7 @@
  q('tripCategories').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b){category=b.dataset.cat;q('tripSearch').value=categorySearches[category]||'';renderAvailable()}});
  q('tripSearch').addEventListener('input',e=>{categorySearches[category]=e.target.value;renderAvailable()});
  q('tripSearchClear').addEventListener('click',()=>{categorySearches[category]='';q('tripSearch').value='';renderAvailable();q('tripSearch').focus()});
- q('tripAvailable').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preview)preview(b.dataset.preview);else if(b.dataset.addStop)addStop(b.dataset.addStop)});
+ q('tripAvailable').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preview)preview(b.dataset.preview);else if(b.dataset.addStop)toggleStop(b.dataset.addStop)});
  q('tripPresets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.viewRoute){const li=document.getElementById('tripRoute-'+b.dataset.viewRoute);if(li)li.hidden=!li.hidden}
   if(b.dataset.useRoute){const r=currentRoutes().find(x=>x.id===b.dataset.useRoute);if(!r)return;
