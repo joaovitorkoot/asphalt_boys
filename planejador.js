@@ -120,10 +120,13 @@
   }
   presetId=typeof saved.presetId==='string'&&currentRoutes().some(r=>r.id===saved.presetId)?saved.presetId:'';
   category=categories.some(([id])=>id===saved.category)?saved.category:category;
-  q('tripOrigin').value=typeof saved.origin==='string'?saved.origin.slice(0,1800):'';
-  originPoint=normalizedOriginPoint(saved.originPoint,q('tripOrigin').value.trim());
+  // Restaurar somente pontos fixos previamente confirmados.
+  // Cidades antigas não verificadas não são preenchidas automaticamente.
+  const confirmed=normalizedOriginPoint(saved.originPoint,typeof saved.origin==='string'?saved.origin.trim():'');
+  originPoint=confirmed;
+  q('tripOrigin').value=confirmed?confirmed.input:'';
   renderOriginPoint();
-  setOriginMode(saved.originMode==='manual'&&q('tripOrigin').value.trim()?'manual':'gps');
+  setOriginMode(confirmed&&saved.originMode==='manual'?'manual':'gps');
   tab=tripDays.length>1||selected.length?'mine':['mine','custom','preset'].includes(saved.tab)?saved.tab:'custom';
   return true;
  }
@@ -421,7 +424,7 @@
    q('tripTitle').textContent=destination.nome;
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
-   q('tripOrigin').value=(share&&share.origin)||safeRead('asphalt-boys-ultima-origem')||'';
+   q('tripOrigin').value=share&&share.origin?String(share.origin).slice(0,1800):'';
   originPoint=null;originRequestEpoch++;
   q('tripOriginStatus').textContent='';
   q('tripOriginCandidates').replaceChildren();q('tripOriginCandidates').hidden=true;
@@ -710,7 +713,6 @@
    q('tripNote').textContent='Escolha no máximo 20 paradas.';
    return null;
   }
-  if(originMode==='manual')safeStore('asphalt-boys-ultima-origem',origin);
   return {stops,origin};
  }
  async function preparePreciseStops(stops){
