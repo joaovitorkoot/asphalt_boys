@@ -138,6 +138,11 @@ footer a:hover{color:var(--accent)}
 .build-heading .group-photo{height:62px;width:78px}
 .shop-link{display:flex;align-items:center;justify-content:center;min-height:49px;padding:8px;text-align:center;text-decoration:none;border-radius:11px;background:#483023;border:1px solid #f6a362;color:#ffd0a6;font-size:12px;font-weight:800}
 .shop-link:hover{background:#6d4228}
+/* Reservar espaço reduz saltos de rolagem em trocas de moto/aba no celular. */
+#painelAcessorios,#painelMinha{min-height:min(690px,80dvh)}
+.group-card,.variant-card{scroll-margin-top:110px}
+@media(prefers-reduced-motion:reduce){.bike-arrow,.group-card{transition:none!important}}
+
 @media(max-width:540px){.bike-arrow{height:42px;width:42px;font-size:29px}.bike-prev{left:8px}.bike-next{right:8px}.group-visual svg{height:67px;width:67px}}
 </style>
 </head>
