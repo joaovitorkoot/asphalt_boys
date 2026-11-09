@@ -58,7 +58,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 <section class="box p-4 sm:p-5 mb-6" aria-label="Conexão administrativa">
 <div class="flex flex-wrap items-center justify-between gap-3"><div><strong class="text-base">Status da publicação</strong><p id="connection" class="tiny mt-1" role="status">Verificando conexão com o servidor...</p></div><span id="mode" class="pill">Rascunhos locais</span></div>
 <div id="legacyTokenArea" hidden class="grid sm:grid-cols-[1fr_auto] gap-3 items-end mt-3"><div><label class="lbl" for="secret">Token de administrador (somente após configurar na Cloudflare)</label><input class="field" id="secret" type="password" autocomplete="off" placeholder="Digite o valor do ADMIN_TOKEN (não o nome da variável)"><div class="flex items-center justify-between gap-2 mt-2"><span class="tiny">Use a senha configurada na produção da Cloudflare (mínimo 20 caracteres).</span><button id="showAdminPassword" type="button" class="text-orange-300 text-xs font-bold underline whitespace-nowrap">Mostrar senha</button></div></div><button id="connect" type="button" class="subbtn">Conectar ao banco</button></div>
-<div class="mt-3"><a class="subbtn inline-flex items-center gap-2 text-sm" href="#publicationQueue" id="pendingPublicationShortcut">📋 Ver pendências para publicar <strong id="pendingTopCount" class="pill">0</strong></a></div>
+<div class="mt-3"><a class="subbtn inline-flex items-center gap-2 text-sm" href="#publicationQueue" id="pendingPublicationShortcut">📋 Ver pendências para publicar <strong id="pendingTopCount" class="pill">0</strong></a> <a id="locationAuditShortcut" href="#locationAudit" class="subbtn inline-flex items-center gap-2 text-sm mt-2 sm:mt-0">🧭 Auditar pontos do Maps</a></div>
 <div id="syncArea" class="mt-3" hidden><div class="flex flex-wrap gap-2"><button type="button" id="sync" class="subbtn">Enviar meus rascunhos locais para o banco</button><button type="button" id="checkPublicSync" class="subbtn">🔎 Verificar site público</button></div><p class="tiny mt-1">Enviar não publica automaticamente: cadastros continuam com o status definido em cada formulário.</p><p id="publicSyncStatus" role="status" class="tiny mt-2"></p></div>
 </section>
 <div class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-5">
@@ -1295,7 +1295,7 @@ async function publishQueuedRecord(kind,id,button){
   target.innerHTML=sorted.map(item=>{
    const label={divergente:'⚠️ DIVERGÊNCIA',erro:'❌ GOOGLE INDISPONÍVEL',
     revisar:'🔎 PRECISA CONFERIR',ausente:'❌ NÃO CADASTRADO',gps_disponivel:'📍 GPS DISPONÍVEL',
-    compativel:'✓ COMPATÍVEL',atualizado:'✓ ALTERAÇÃO SALVA'}[item.status]||'Revisar';
+    compativel:'✓ GPS SEM DIVERGÊNCIA',atualizado:'✓ ALTERAÇÃO SALVA'}[item.status]||'Revisar';
    const selected=item.google&&item.google.id?[item.google]:[];
    const choices=[...selected,...(item.options||[])];
    const summary=(item.problems||[]).map(message=>'<li>'+esc(message)+'</li>').join('');
@@ -1773,6 +1773,7 @@ $('#sync').onclick=async()=>{
  try{data=await call('GET');render();announce(done+' cadastros enviados ao banco. Confira o status de cada cadastro.')}catch(e){announce('Envio concluído, mas não foi possível atualizar a lista.')}
 };
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;editing=null;creatingNewDestination=false;render()});
+ $('#locationAuditShortcut').onclick=()=>{$('#locationAudit').open=true};
  $('#runLocationAudit').onclick=runLocationAudit;
  $('#downloadLocationAudit').onclick=downloadLocationAudit;
  $('#locationAuditResults').addEventListener('click',e=>{
