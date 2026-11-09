@@ -1200,6 +1200,7 @@ async function publishQueuedRecord(kind,id,button){
 }
 
 function render(resetPicker=true){
+ const previousScrollX=window.scrollX,previousScrollY=window.scrollY;
  categorySuggestionSeq++;categoryUserEdited=false;
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
  $('#sectionTitle').textContent=titles[tab];
@@ -1312,6 +1313,7 @@ function render(resetPicker=true){
  document.querySelectorAll('[data-publish-stop]').forEach(b=>b.onclick=()=>publishExistingStop(b.dataset.publishStop));
  document.querySelectorAll('[data-publish-destination]').forEach(b=>b.onclick=()=>publishExistingDestination(b.dataset.publishDestination));
  loadAutoGoogleCardPhotos();
+ window.scrollTo(previousScrollX,previousScrollY);
 }
 async function call(method,body,admin=true){
  const res=await fetch(API+(method==='GET'&&admin?'?admin=1':''),{method,headers:{...(token?{'Authorization':'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),cache:'no-store'});
@@ -1497,8 +1499,7 @@ async function saveRecord(e){
  if(v.status!=='publicado'){
   const buttons=[...document.querySelectorAll('[data-queue-publish]')];
   const pendingButton=buttons.find(button=>button.dataset.queuePublish===v.id&&button.dataset.queueKind===tab);
-  const card=pendingButton?.closest('article');
-  if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+  // A fila é atualizada sem mover a tela automaticamente.
   const note=$('#publicationQueueMessage');
   if(note)note.textContent='✓ "'+v.nome+'" salvo '+(remote?'no banco':'neste aparelho')+' e incluído na lista para publicação. Publique quando quiser.';
  }
