@@ -274,15 +274,22 @@
  }
  function currentRoutes(){return destination?data.rotas.filter(r=>r.destinoId===mapping(destination.id)):[]}
  function stopById(id){return currentStops().find(p=>p.id===id)}
- function showTab(next,scrollOnTabClick=false){
+ function showTab(next,animateOnTabClick=false){
+  if(!['custom','preset','mine'].includes(next))return;
   const changed=tab!==next;
+  // Preservar a posição da rolagem ao mudar de aba; não enviar o usuário ao topo.
+  const scrollBefore=panel.scrollTop;
   tab=next;
-  for(const name of ['custom','preset','mine'])q('trip'+name.charAt(0).toUpperCase()+name.slice(1)+'Section').hidden=next!==name;
+  for(const name of ['custom','preset','mine']){
+   const section=q('trip'+name.charAt(0).toUpperCase()+name.slice(1)+'Section');
+   section.hidden=next!==name;
+   section.classList.remove('tripTabEnter');
+   if(name===next&&changed&&animateOnTabClick)section.classList.add('tripTabEnter');
+  }
   document.querySelectorAll('#tripTabs [data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===next)));
   q('tripShareBox').hidden=true;
   saveRoute();
-  // Só rolar ao topo em uma troca de aba solicitada pelo visitante.
-  if(scrollOnTabClick&&changed)panel.scrollTop=0;
+  panel.scrollTop=scrollBefore;
  }
  function renderAvailable(){
    const term=searchText(categorySearches[category]||'').trim();
