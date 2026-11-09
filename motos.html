@@ -144,6 +144,22 @@ footer a:hover{color:var(--accent)}
 @media(prefers-reduced-motion:reduce){.bike-arrow,.group-card{transition:none!important}}
 
 @media(max-width:540px){.bike-arrow{height:42px;width:42px;font-size:29px}.bike-prev{left:8px}.bike-next{right:8px}.group-visual svg{height:67px;width:67px}}
+
+.photo-gallery{position:relative;width:100%;height:185px;display:flex;align-items:center;justify-content:center;touch-action:pan-y}
+.gallery-main-img{display:block;width:100%;height:100%;object-fit:contain;cursor:zoom-in}
+.gallery-arrow{position:absolute;top:50%;transform:translateY(-50%);width:35px!important;height:35px;border-radius:50%;background:#15191edb!important;color:#fff!important;border:1px solid #fb923c80;font-size:26px;line-height:1;padding:0;z-index:2}
+.gallery-arrow.left{left:5px}.gallery-arrow.right{right:5px}
+.gallery-dots{position:absolute;bottom:4px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:6px}
+.gallery-dots button{width:8px!important;height:8px!important;min-width:8px!important;min-height:8px!important;padding:0;border-radius:50%;background:#8d959e;border:0}
+.gallery-dots button.active{background:#fb923c;width:18px!important;border-radius:6px}
+.photo-lightbox{position:fixed;inset:0;z-index:9999;background:rgba(4,7,12,.95);display:flex;align-items:center;justify-content:center;padding:60px 15px}
+.photo-lightbox[hidden]{display:none!important}
+.photo-lightbox img{max-width:95vw;max-height:80vh;object-fit:contain}
+.photo-lightbox button{position:absolute;border:1px solid #fb923c66;background:#222933;color:white;border-radius:50%;width:45px;height:45px;font-size:26px;cursor:pointer}
+.photo-lightbox [data-light-close]{right:16px;top:14px}
+.photo-lightbox [data-light-step="-1"]{left:14px;top:50%}
+.photo-lightbox [data-light-step="1"]{right:14px;top:50%}
+.lightbox-counter{position:absolute;bottom:24px;left:0;right:0;text-align:center;color:white;font-size:14px}
 </style>
 </head>
 <body>
@@ -212,6 +228,13 @@ footer a:hover{color:var(--accent)}
  </section>
 </main>
 <footer><div class="wrap"><strong>ASPHALT <span style="color:#fb923c">BOYS</span></strong><span>Sua moto, seu estilo.</span><a href="index.html#destinos">Voltar às viagens ↗</a></div></footer>
-<script src="./motos-v2.js?v=20261109-categories"></script>
+<div id="photoLightbox" class="photo-lightbox" role="dialog" aria-modal="true" aria-label="Foto ampliada do acessório" hidden>
+ <button type="button" data-light-close aria-label="Fechar foto">×</button>
+ <button type="button" data-light-step="-1" aria-label="Foto anterior">‹</button>
+ <img alt="Foto ampliada">
+ <button type="button" data-light-step="1" aria-label="Próxima foto">›</button>
+ <span class="lightbox-counter"></span>
+</div>
+<script src="./motos-v2.js?v=20261109-gallery"></script>
 </body>
 </html>
