@@ -9,9 +9,10 @@ const outlines={suporte:'<rect x="8" y="2" width="8" height="16" rx="2"/><path d
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const url=s=>{try{const u=new URL(s||'',location.origin);return u.protocol==='https:'&&!u.username&&!u.password?u.href:''}catch{return''}};
 let bikes=[...bikesDefault],data=null,index=0,chosen={},tab='catalogo',category='todos',active='',shops='',fade=null,tick=0;
+const galleryIndexes={},galleryPhotos=m=>[...new Set([...(Array.isArray(m.fotos)?m.fotos:[]),m.foto].filter(x=>url(x)))].slice(0,5);
 const bike=()=>bikes[index];
 const groupList=()=>defs.map(([id,name,type])=>{const saved=data?.grupos?.[bike().id]?.find(g=>g.id===id);return{id,name:saved?.nome||name,type:saved?.categoria||type,foto:saved?.foto||''}});
-const options=id=>{const group=data?.grupos?.[bike().id]?.find(g=>g.id===id);return group?.modelos?.length?group.modelos.map(m=>({id:m.id,name:m.nome,desc:m.descricao||'',foto:m.foto||'',shopee:m.shopee||'',mercadolivre:m.mercadolivre||'',demo:!!m.demo})):[]};
+const options=id=>{const group=data?.grupos?.[bike().id]?.find(g=>g.id===id);return group?.modelos?.length?group.modelos.map(m=>({id:m.id,name:m.nome,desc:m.descricao||'',foto:m.foto||'',fotos:Array.isArray(m.fotos)?m.fotos:[],shopee:m.shopee||'',mercadolivre:m.mercadolivre||'',demo:!!m.demo})):[]};
 const svg=id=>'<svg viewBox="0 0 24 24" fill="none" stroke="#ffae6c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(outlines[id]||'')+'</svg>';
 const image=(id,m)=>url(m?.foto)?'<img class="group-photo" loading="lazy" src="'+esc(url(m.foto))+'" alt="'+esc(m.name)+'">':svg(id);
 const key=()=> 'asphalt-boys-'+bike().id+'-montagem-v2';
@@ -28,7 +29,11 @@ function detailRender(){
  const g=groupList().find(g=>g.id===active);$('catalogBrowse').hidden=!!g;$('catalogDetail').hidden=!g;$('motoFiltros').hidden=!!g;$('catalogCount').hidden=!!g;if(!g)return;
  $('detailTitle').textContent=g.name;$('detailDescription').textContent='Escolha um modelo para '+bike().nome+'. Confira a compatibilidade no anúncio.';
  $('modelCount').textContent=options(g.id).length+' MODELOS';
- $('motoModelos').innerHTML=options(g.id).map(m=>'<article class="variant-card" data-chosen="'+(chosen[g.id]===m.id)+'"><div class="group-visual">'+image(g.id,m)+'</div><div><h4>'+esc(m.name)+'</h4><p>'+esc(m.desc)+'</p>'+(m.demo?'<p class="subtle-tag">Exemplo · sem anúncio cadastrado</p>':'')+'</div><button type="button" class="'+(chosen[g.id]===m.id?'btn-outline':'btn-primary')+'" data-model="'+esc(m.id)+'">'+(chosen[g.id]===m.id?'✓ Selecionado — retirar':'＋ Escolher este modelo')+'</button></article>').join('');
+ $('motoModelos').innerHTML=options(g.id).map(m=>{
+  const photos=galleryPhotos(m),idx=Math.min(galleryIndexes[m.id]||0,Math.max(0,photos.length-1));galleryIndexes[m.id]=idx;
+  const media=photos.length?'<div class="photo-gallery" data-gallery="'+esc(m.id)+'"><img class="gallery-main-img" loading="lazy" src="'+esc(photos[idx])+'" alt="'+esc(m.name)+' - foto '+(idx+1)+'" data-photo-zoom="'+esc(m.id)+'" tabindex="0" role="button" aria-label="Ampliar foto do produto">'+(photos.length>1?'<button type="button" class="gallery-arrow left" data-photo-step="-1" data-photo-id="'+esc(m.id)+'" aria-label="Foto anterior">‹</button><button type="button" class="gallery-arrow right" data-photo-step="1" data-photo-id="'+esc(m.id)+'" aria-label="Próxima foto">›</button><div class="gallery-dots">'+photos.map((_,i)=>'<button type="button" data-photo-index="'+i+'" data-photo-id="'+esc(m.id)+'" class="'+(i===idx?'active':'')+'" aria-label="Ver foto '+(i+1)+'"></button>').join('')+'</div>':'')+'</div>':image(g.id,m);
+  return '<article class="variant-card" data-chosen="'+(chosen[g.id]===m.id)+'"><div class="group-visual">'+media+'</div><div><h4>'+esc(m.name)+'</h4><p>'+esc(m.desc)+'</p>'+(m.demo?'<p class="subtle-tag">Exemplo · sem anúncio cadastrado</p>':'')+'</div><button type="button" class="'+(chosen[g.id]===m.id?'btn-outline':'btn-primary')+'" data-model="'+esc(m.id)+'">'+(chosen[g.id]===m.id?'✓ Selecionado — retirar':'＋ Escolher este modelo')+'</button></article>'
+ }).join('');
 }
 function buildRender(){
  const arr=groupList().filter(g=>Object.prototype.hasOwnProperty.call(chosen,g.id));
@@ -53,6 +58,37 @@ $('bikePrev').onclick=()=>bikeChange(-1);$('bikeNext').onclick=()=>bikeChange(1)
 $('motoTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)switchTab(b.dataset.tab)});
 $('motoFiltros').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b)switchCategory(b.dataset.cat)});
 $('motoProdutos').addEventListener('click',e=>{const b=e.target.closest('[data-group]');if(b){vibe();active=b.dataset.group;detailRender()}});
+function changeGalleryPhoto(id,step,index=null){
+ const m=options(active).find(x=>x.id===id);if(!m)return;const photos=galleryPhotos(m);if(!photos.length)return;
+ const current=galleryIndexes[id]||0;galleryIndexes[id]=index===null?(current+step+photos.length)%photos.length:Math.max(0,Math.min(index,photos.length-1));
+ detailRender();
+}
+function openPhotoZoom(id){
+ const m=options(active).find(x=>x.id===id);if(!m)return;const photos=galleryPhotos(m);if(!photos.length)return;
+ const light=$('photoLightbox');light.hidden=false;light.dataset.model=id;light.querySelector('img').src=photos[galleryIndexes[id]||0];light.querySelector('img').alt=m.name;
+ light.querySelector('.lightbox-counter').textContent=((galleryIndexes[id]||0)+1)+' / '+photos.length;
+ light.querySelectorAll('[data-light-step]').forEach(b=>b.hidden=photos.length<2);
+ light.querySelector('[data-light-close]').focus();
+}
+function updateLightbox(){
+ const light=$('photoLightbox');if(light.hidden)return;const m=options(active).find(x=>x.id===light.dataset.model);if(!m){light.hidden=true;return}
+ const photos=galleryPhotos(m),idx=galleryIndexes[m.id]||0;light.querySelector('img').src=photos[idx];light.querySelector('.lightbox-counter').textContent=(idx+1)+' / '+photos.length;
+}
+$('motoModelos').addEventListener('click',e=>{
+ const step=e.target.closest('[data-photo-step]'),dot=e.target.closest('[data-photo-index]'),zoom=e.target.closest('[data-photo-zoom]');
+ if(step){e.stopPropagation();changeGalleryPhoto(step.dataset.photoId,Number(step.dataset.photoStep));return}
+ if(dot){e.stopPropagation();changeGalleryPhoto(dot.dataset.photoId,0,Number(dot.dataset.photoIndex));return}
+ if(zoom){openPhotoZoom(zoom.dataset.photoZoom);return}
+});
+$('motoModelos').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-photo-zoom]')){e.preventDefault();openPhotoZoom(e.target.dataset.photoZoom)}});
+let touchX=null;
+$('motoModelos').addEventListener('touchstart',e=>{if(e.target.closest('[data-gallery]'))touchX=e.changedTouches[0].clientX},{passive:true});
+$('motoModelos').addEventListener('touchend',e=>{if(touchX===null)return;const box=e.target.closest('[data-gallery]'),dx=e.changedTouches[0].clientX-touchX;touchX=null;if(box&&Math.abs(dx)>45)changeGalleryPhoto(box.dataset.gallery,dx<0?1:-1)},{passive:true});
+$('photoLightbox').addEventListener('click',e=>{
+ const light=$('photoLightbox');if(e.target===light||e.target.closest('[data-light-close]')){light.hidden=true;return}
+ const b=e.target.closest('[data-light-step]');if(b){changeGalleryPhoto(light.dataset.model,Number(b.dataset.lightStep));updateLightbox()}
+});
+document.addEventListener('keydown',e=>{const light=$('photoLightbox');if(light.hidden)return;if(e.key==='Escape'){light.hidden=true}else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){changeGalleryPhoto(light.dataset.model,e.key==='ArrowRight'?1:-1);updateLightbox()}});
 $('motoModelos').addEventListener('click',e=>{const b=e.target.closest('[data-model]');if(!b)return;const m=options(active).find(x=>x.id===b.dataset.model);if(!m)return;vibe();if(chosen[active]===m.id)delete chosen[active];else chosen[active]=m.id;save();counts();detailRender();buildRender()});
 $('motoMontagem').addEventListener('click',e=>{const b=e.target.closest('[data-remove],[data-change],[data-shops]');if(!b)return;vibe();if(b.dataset.remove){delete chosen[b.dataset.remove];save();render()}else if(b.dataset.change){active=b.dataset.change;switchTab('catalogo');detailRender()}else if(b.dataset.shops){shops=shops===b.dataset.shops?'':b.dataset.shops;buildRender()}});
 $('btnVoltarCategorias').onclick=()=>{active='';detailRender()};
