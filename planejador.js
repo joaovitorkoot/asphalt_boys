@@ -207,14 +207,19 @@
   q('tripCount').textContent=selected.length+' parada'+(selected.length===1?'':'s');
   q('tripRouteSummary').textContent=routeSummaryText();
   q('tripOpenMaps').disabled=selected.length>MAX_ROUTE_STOPS;
-  q('tripOpenMaps').textContent=selected.length>APP_MAX_STOPS
-   ?'🧭 Ver '+Math.ceil(selected.length/APP_MAX_STOPS)+' etapas da viagem'
+  const tentative=selected.length?routeSegmentsFor(selected.map(stopById).filter(Boolean),'',APP_MAX_STOPS):null;
+  const stageCount=tentative&&!tentative.error&&!tentative.unresolved.length?
+   tentative.segments.length:Math.ceil(selected.length/APP_MAX_STOPS);
+  const precisionSplit=stageCount>Math.ceil(selected.length/APP_MAX_STOPS);
+  q('tripOpenMaps').textContent=stageCount>1
+   ?'🧭 Ver '+stageCount+' etapas da viagem'
    :'🗺️ Abrir rota no Maps'+(selected.length?' ('+selected.length+' paradas)':'');
   const suspicious=selected.map(stopById).filter(p=>suspectStop(p));
    q('tripMapsHelp').textContent=suspicious.length
    ?'⚠️ Confira a localização de '+suspicious.map(p=>p.nome).join(', ')+' antes de navegar. O cadastro pode causar um desvio.'
-   :selected.length>APP_MAX_STOPS
-   ?'As '+selected.length+' paradas serão organizadas automaticamente em '+Math.ceil(selected.length/APP_MAX_STOPS)+' etapas, na ordem escolhida.'
+   :stageCount>1
+   ?'As '+selected.length+' paradas serão organizadas em '+stageCount+' etapas, na ordem escolhida.'+
+     (precisionSplit?' Alguns trechos são menores para manter a precisão dos locais.':'')
    :'O Google Maps receberá até '+APP_MAX_STOPS+' paradas, respeitando a ordem do roteiro.';
   q('tripRouteSegments').hidden=true;
   q('tripRouteSegments').replaceChildren();
@@ -411,6 +416,14 @@
    // Até 3 paradas intermediárias e 1 ponto final no Google Maps do celular.
    // Endereços e coordenadas podem coexistir no mesmo link.
    let take=Math.min(Math.max(1,Math.min(APP_MAX_STOPS,maxPointsPerLink)),points.length-offset);
+   // Preservar os IDs exatos do Google. Quando GPS e Place ID aparecem
+   // misturados como intermediários, o Maps descarta a lista de Place IDs.
+   // Dividir apenas nesse caso, mantendo até 9 paradas nos demais.
+   while(take>1){
+    const middle=points.slice(offset,offset+take-1);
+    if(middle.every(p=>p.type==='place')||middle.every(p=>p.type==='gps'))break;
+    take--;
+   }
    let chunk=points.slice(offset,offset+take);
    let url=oneGoogleSegment(from,chunk);
    while(url.length>1950&&take>1){
@@ -512,7 +525,7 @@
   // Tenta um URL único para o aplicativo Maps. O limite do navegador é menor.
   const complete=routeSegmentsFor(plan.stops,plan.origin,APP_MAX_STOPS);
   if(complete.error||complete.unresolved.length||complete.segments.length!==1){
-   q('tripNote').textContent='O roteiro ficou longo para um único link. Use os trechos compatíveis abaixo.';
+   q('tripNote').textContent='Dividimos automaticamente a rota para preservar a identificação exata de cada local. Abra as etapas na ordem.';
    showGoogleLegs(plan.fallback);
    return null;
   }
