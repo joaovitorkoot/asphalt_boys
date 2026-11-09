@@ -31,7 +31,7 @@ button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity
   <div class="grid">
    <div class="field"><label for="bikeName">Nome da moto</label><input id="bikeName" maxlength="120" required placeholder="Honda CG Titan 150"></div>
    <div class="field"><label for="bikeDescription">Descrição curta</label><input id="bikeDescription" maxlength="320" placeholder="Moto urbana"></div>
-   <div class="field"><label for="bikeImage">Foto (link HTTPS ou /api/image)</label><input id="bikeImage" placeholder="https://..."></div>
+   <div class="field"><label for="bikeImage">Foto da moto (link HTTPS)</label><input id="bikeImage" placeholder="https://..."><label for="bikeUpload">Ou enviar foto do aparelho</label><input id="bikeUpload" type="file" accept="image/*"></div>
    <div class="field"><label for="bikeStatus">Visibilidade</label><select id="bikeStatus"><option value="publicado">Publicado</option><option value="rascunho">Rascunho</option></select></div>
   </div>
   <div class="actions"><button type="submit" class="primary">Salvar moto</button><button id="cancelBike" type="button">Cancelar</button></div>
@@ -52,7 +52,7 @@ button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity
     <option value="suporte">Suporte para celular</option><option value="bau">Baú traseiro</option><option value="bolsa">Bolsa de tanque</option><option value="protetor">Protetor de motor</option><option value="manoplas">Manoplas</option><option value="bolha">Bolha esportiva</option>
    </select></div>
    <div class="field"><label for="productName">Nome do modelo</label><input id="productName" required maxlength="120" placeholder="Suporte antivibração modelo X"></div>
-   <div class="field"><label for="productImage">Foto do produto</label><input id="productImage" placeholder="https://..."></div>
+   <div class="field"><label for="productImage">Foto do produto (link HTTPS)</label><input id="productImage" placeholder="https://..."><label for="productUpload">Ou enviar foto do aparelho</label><input id="productUpload" type="file" accept="image/*"></div>
    <div class="field"><label for="productShopee">Link afiliado Shopee</label><input id="productShopee" placeholder="https://shopee.com.br/..."></div>
    <div class="field"><label for="productMercado">Link afiliado Mercado Livre</label><input id="productMercado" placeholder="https://mercadolivre.com.br/..."></div>
    <div class="field"><label for="productStatus">Visibilidade no site</label><select id="productStatus"><option value="rascunho">Rascunho</option><option value="publicado">Publicado</option></select></div>
@@ -70,6 +70,36 @@ const q=id=>document.getElementById(id),api='./api/motos';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let catalog={motos:[],acessorios:[],grupos:{}},bikeEditing='',productEditing='';
 const groups=[['suporte','Suporte para celular','viagem'],['bau','Baú traseiro','viagem'],['bolsa','Bolsa de tanque','viagem'],['protetor','Protetor de motor','protecao'],['manoplas','Manoplas','estilo'],['bolha','Bolha esportiva','estilo']];
+async function uploadPhoto(file,input){
+ if(!file||!file.type.startsWith('image/'))throw Error('Escolha uma foto de imagem válida.');
+ if(file.size>20*1024*1024)throw Error('Foto grande demais. Use uma imagem de até 20 MB.');
+ const bitmap=await createImageBitmap(file);
+ const max=900,scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
+ const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+ const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+ bitmap.close?.();
+ let blob=null;
+ for(const quality of [.82,.69,.55,.42]){
+  blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
+  if(blob&&blob.size<=210000&&blob.size>=100)break;
+ }
+ if(!blob||blob.size>220000)throw Error('Não consegui otimizar a foto. Tente outra imagem menor.');
+ note('Enviando foto para o site...');
+ const response=await fetch('./api/image-upload',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':blob.type},body:blob});
+ const json=await response.json();
+ if(!response.ok||!json.url)throw Error(json.error||'Falha no upload.');
+ input.value=json.url;
+ note('Foto enviada e vinculada ao formulário. Toque em Salvar para publicar.');
+}
+for(const [fileId,urlId] of [['bikeUpload','bikeImage'],['productUpload','productImage']]){
+ q(fileId).addEventListener('change',async event=>{
+  const file=event.target.files?.[0];if(!file)return;
+  event.target.disabled=true;
+  try{await uploadPhoto(file,q(urlId))}catch(error){note('⚠️ '+error.message)}
+  finally{event.target.disabled=false;event.target.value=''}
+ });
+}
+
 async function request(method='GET',body){
  const res=await fetch(api+(method==='GET'?'?admin=1':''),{method,credentials:'same-origin',cache:'no-store',headers:{...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
  const data=await res.json();
