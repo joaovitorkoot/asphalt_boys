@@ -426,6 +426,8 @@
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
    q('tripOrigin').value=share&&share.origin?String(share.origin).slice(0,1800):'';
   originPoint=null;originRequestEpoch++;
+  q('tripOriginCheck').disabled=false;
+  q('tripOriginCheck').textContent='📍 Conferir ponto no Maps';
   q('tripOriginStatus').textContent='';
   q('tripOriginCandidates').replaceChildren();q('tripOriginCandidates').hidden=true;
   if(share&&share.origin&&validCoords(share.origin)){
@@ -924,6 +926,8 @@
  q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);activeLegIndex=0;saveRoute();if(originMode==='manual')q('tripOrigin').focus()});
  q('tripOrigin').addEventListener('input',()=>{
    originRequestEpoch++;originPoint=null;
+   q('tripOriginCheck').disabled=false;
+   q('tripOriginCheck').textContent='📍 Conferir ponto no Maps';
    q('tripOriginCandidates').replaceChildren();q('tripOriginCandidates').hidden=true;
    q('tripOriginStatus').textContent=q('tripOrigin').value.trim()?'Toque em Conferir ponto para identificar o local.':'';
    renderOriginPoint();
@@ -933,6 +937,8 @@
   q('tripOriginCheck').onclick=checkOriginPoint;
   q('tripOriginClear').onclick=()=>{
    originPoint=null;originRequestEpoch++;
+   q('tripOriginCheck').disabled=false;
+   q('tripOriginCheck').textContent='📍 Conferir ponto no Maps';
    q('tripOriginCandidates').replaceChildren();q('tripOriginCandidates').hidden=true;
    q('tripOriginStatus').textContent='Altere o endereço e confira novamente.';
    renderOriginPoint();q('tripOrigin').focus();saveRoute();
