@@ -97,7 +97,7 @@
   safeStore(draftKey(destination.id),JSON.stringify({
    v:2,stops:[...selected],days:tripDays.map(d=>({
     id:d.id,title:d.title,stops:d.stops,legIndex:d.legIndex||0
-   })),activeDayId,originMode,origin:q('tripOrigin').value.trim().slice(0,900),originPoint:originPoint&&originPoint.input===q('tripOrigin').value.trim()?originPoint:null,
+   })),activeDayId,originMode,origin:q('tripOrigin').value.trim().slice(0,1800),originPoint:originPoint&&originPoint.input===q('tripOrigin').value.trim()?originPoint:null,
    presetId,tab,category,legIndex:activeLegIndex
   }));
  }
@@ -120,7 +120,7 @@
   }
   presetId=typeof saved.presetId==='string'&&currentRoutes().some(r=>r.id===saved.presetId)?saved.presetId:'';
   category=categories.some(([id])=>id===saved.category)?saved.category:category;
-  q('tripOrigin').value=typeof saved.origin==='string'?saved.origin.slice(0,900):'';
+  q('tripOrigin').value=typeof saved.origin==='string'?saved.origin.slice(0,1800):'';
   originPoint=normalizedOriginPoint(saved.originPoint,q('tripOrigin').value.trim());
   renderOriginPoint();
   setOriginMode(saved.originMode==='manual'&&q('tripOrigin').value.trim()?'manual':'gps');
@@ -188,6 +188,10 @@
    const name=document.createElement('strong');name.textContent=point.name;
    const address=document.createElement('span');address.textContent=point.address||point.coordinate;
    details.append(name,address);
+   const inspect=document.createElement('a');
+   inspect.href=point.maps;inspect.target='_blank';inspect.rel='noopener noreferrer';
+   inspect.className='tripStopCheck mt-2';inspect.textContent='📍 Ver no Maps ↗';
+   details.appendChild(inspect);
    const choose=document.createElement('button');choose.type='button';
    choose.className='tripNavBtn text-xs';choose.textContent='Usar este ponto';
    choose.onclick=()=>selectOriginPoint(point);
@@ -216,7 +220,9 @@
    if(epoch!==originRequestEpoch)return;
    q('tripOriginStatus').textContent='⚠️ '+String(error.message||error).slice(0,200);
   }finally{
-   button.disabled=false;button.textContent='📍 Conferir ponto no Maps';
+   if(epoch===originRequestEpoch){
+    button.disabled=false;button.textContent='📍 Conferir ponto no Maps';
+   }
   }
  }
  function routeSummaryText(){
