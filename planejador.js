@@ -234,8 +234,7 @@
   q('tripUseGps').setAttribute('aria-pressed',String(originMode==='gps'));
   q('tripUseManual').setAttribute('aria-pressed',String(originMode==='manual'));
   q('tripManualOrigin').hidden=originMode!=='manual';
-  q('tripOriginHint').textContent=originMode==='gps'?'O Maps usa a localização do aparelho.':
-   'Cole um link, coordenadas ou endereço para conferir o ponto exato.';
+  q('tripOriginHint').textContent=originMode==='gps'?'O Maps usa a localização do aparelho.':'';
   renderOriginPoint();
   if(destination)q('tripRouteSummary').textContent=routeSummaryText();
  }
@@ -701,7 +700,7 @@
  function routeRequest(){
   const origin=originValue();
   if(originMode==='manual'&&!origin){
-   q('tripNote').textContent='Conﬁra o ponto de saída fixo ou escolha Minha localização atual.';
+   q('tripNote').textContent='Confira o ponto de saída fixo ou escolha Minha localização atual.';
    q('tripOrigin').focus();return null;
   }
   // A API pode resolver endereços longos para GPS oficial. Não bloquear
@@ -752,7 +751,7 @@
   if(day){
    const origin=originValue();
    if(originMode==='manual'&&!origin){
-    q('tripNote').textContent='Conﬁra o ponto de saída fixo ou escolha Minha localização atual.';
+    q('tripNote').textContent='Confira o ponto de saída fixo ou escolha Minha localização atual.';
     q('tripOrigin').focus();return;
    }
    plan={stops:day.stops.map(stopById).filter(Boolean),origin};
