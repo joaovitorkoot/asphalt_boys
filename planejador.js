@@ -518,13 +518,16 @@
   }
   return {segments,unresolved:[]};
  }
- function showGoogleLegs(result,scroll=true){
-  const box=q('tripRouteSegments');box.replaceChildren();box.hidden=false;
+ function showGoogleLegs(result,scroll=true,dayId=''){
+  const day=dayId?tripDays.find(d=>d.id===dayId):null;
+  const box=dayId?document.querySelector('[data-day-map-output="'+dayId+'"]'):q('tripRouteSegments');
+  if(!box||dayId&&!day)return;
+  const count=day?day.stops.length:selected.length;
+  box.replaceChildren();box.hidden=false;
   const heading=document.createElement('p');heading.className='tripTiny font-bold mb-2';
   heading.textContent=result.error||(
-   result.unresolved?.length
-    ?'Alguns locais ainda precisam de localização exata. Confira seus links originais:'
-    :'Suas '+selected.length+' paradas serão navegadas em '+result.segments.length+' etapas.');
+   result.unresolved?.length?'Alguns locais ainda precisam de localização exata. Confira seus links originais:':
+   'Roteiro preparado em '+result.segments.length+' etapas.');
   if(result.error||result.unresolved?.length)box.appendChild(heading);
   if(Array.isArray(result.warnings)&&result.warnings.length){
    const warning=document.createElement('p');warning.className='tripStopWarning mb-3';
@@ -541,34 +544,37 @@
    }
   }else if(result.segments.length){
    const total=result.segments.length;
-   activeLegIndex=Math.min(Math.max(0,activeLegIndex),total-1);
-   const current=result.segments[activeLegIndex];
+   const index=Math.min(Math.max(0,day?day.legIndex||0:activeLegIndex),total-1);
+   if(day)day.legIndex=index;else activeLegIndex=index;
+   const current=result.segments[index];
    const status=document.createElement('p');status.className='tripLegStatus';
-   status.textContent='ETAPA '+(activeLegIndex+1)+' DE '+total+' · Paradas '+current.firstStop+'–'+current.lastStop+' de '+selected.length;
+   status.textContent='ETAPA '+(index+1)+' DE '+total+' · Paradas '+current.firstStop+'–'+current.lastStop+' de '+count;
    box.appendChild(status);
    const route=document.createElement('p');route.className='tripLegDescription';
    route.textContent=current.from+' → '+current.to;
    box.appendChild(route);
    const main=document.createElement('a');main.className='tripBtn tripLegStart';
    main.href=current.url;main.target='_blank';main.rel='noopener noreferrer';
-   main.textContent='🗺️ Abrir etapa '+(activeLegIndex+1)+' no Maps ↗';
+   main.textContent='🗺️ Abrir etapa '+(index+1)+' no Maps ↗';
    box.appendChild(main);
    const note=document.createElement('p');note.className='tripTiny mt-2';
-   note.textContent=activeLegIndex<total-1
-    ?'Ao terminar, volte aqui para avançar à próxima etapa.'
-    :'Última etapa. Confira os pontos antes de navegar.';
+   note.textContent=index<total-1?'Ao terminar, volte aqui para avançar à próxima etapa.':
+    'Última etapa. Confira os pontos antes de navegar.';
    box.appendChild(note);
    const controls=document.createElement('div');controls.className='tripLegControls';
-   if(activeLegIndex>0){
+   const move=(next)=>{
+    if(day)day.legIndex=next;else activeLegIndex=next;
+    saveRoute();showGoogleLegs(result,false,dayId);
+   };
+   if(index>0){
     const prev=document.createElement('button');prev.type='button';prev.className='tripNavBtn';
-    prev.textContent='← Etapa anterior';
-    prev.onclick=()=>{activeLegIndex--;saveRoute();showGoogleLegs(result,false)};
+    prev.textContent='← Etapa anterior';prev.onclick=()=>move(index-1);
     controls.appendChild(prev);
    }
-   if(activeLegIndex<total-1){
+   if(index<total-1){
     const next=document.createElement('button');next.type='button';next.className='tripNavBtn tripLegNext';
-    next.textContent='Já concluí → Próxima etapa '+(activeLegIndex+2)+'/'+total;
-    next.onclick=()=>{activeLegIndex++;saveRoute();showGoogleLegs(result,false)};
+    next.textContent='Já concluí → Próxima etapa '+(index+2)+'/'+total;
+    next.onclick=()=>move(index+1);
     controls.appendChild(next);
    }
    box.appendChild(controls);
@@ -633,38 +639,59 @@
    return {stops,warnings:['Não foi possível conferir os pontos com o Google Places agora.']};
   }
  }
- async function prepareGoogleRoute(){
-  const plan=routeRequest();if(!plan)return;
-  const button=q('tripOpenMaps'),previousLabel=button.textContent;
-  if(button.disabled)return;
-  const plannedIds=selected.join(',');
-  button.disabled=true;button.textContent='📍 Conferindo locais…';
+ async function prepareGoogleRoute(dayId=''){
+  const day=dayId?tripDays.find(d=>d.id===dayId):null;
+  if(dayId&&!day)return;
+  let plan;
+  if(day){
+   const origin=originMode==='manual'?q('tripOrigin').value.trim():'';
+   if(originMode==='manual'&&!origin){
+    q('tripNote').textContent='Informe uma cidade ou escolha Minha localização atual.';
+    q('tripOrigin').focus();return;
+   }
+   plan={stops:day.stops.map(stopById).filter(Boolean),origin};
+  }else plan=routeRequest();
+  if(!plan||!plan.stops.length)return;
+  const button=day?document.querySelector('[data-day-route="'+dayId+'"]'):q('tripOpenMaps');
+  if(!button||button.disabled)return;
+  const oldLabel=button.textContent,plannedIds=plan.stops.map(p=>p.id).join(',');
+  button.disabled=true;button.textContent='📍 Conferindo…';
   q('tripNote').textContent='Verificando a localização de cada ponto antes de montar o roteiro.';
   try{
    const prepared=await preparePreciseStops(plan.stops);
-   if(selected.join(',')!==plannedIds||!destination)return;
+   const now=day?tripDays.find(d=>d.id===dayId)?.stops.join(','):selected.join(',');
+   if(now!==plannedIds||!destination)return;
    const result=routeSegmentsFor(prepared.stops,plan.origin,APP_MAX_STOPS);
    result.warnings=prepared.warnings;
-   if(result.unresolved.length||result.error){
-    q('tripNote').textContent=result.error||'Alguns locais ainda precisam de GPS ou identificação exata para navegar.';
-   }else{
-    q('tripNote').textContent='Confira os pontos no Google Maps antes de sair.';
-   }
-   showGoogleLegs(result);
+   q('tripNote').textContent=result.error||(
+    result.unresolved.length?'Alguns locais precisam ser conferidos antes de navegar.':
+    'Confira os pontos no Google Maps antes de sair.');
+   showGoogleLegs(result,true,dayId);
   }finally{
-   button.disabled=false;button.textContent=previousLabel;
+   button.disabled=false;button.textContent=oldLabel;
   }
  }
  function share(){
+  syncCurrentDay();
   const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('dest',destination.id);
-  if(presetId)u.searchParams.set('rota',presetId);
+  if(tripDays.length>1){
+   const serialized=tripDays.map(d=>[d.title,d.stops]);
+   u.searchParams.set('dias',JSON.stringify(serialized));
+  }else if(presetId)u.searchParams.set('rota',presetId);
   else if(selected.length)u.searchParams.set('stops',selected.join(','));
-  const origin=originMode==='manual'?q('tripOrigin').value.trim():'';if(origin)u.searchParams.set('origem',origin.slice(0,100));
+  const origin=originMode==='manual'?q('tripOrigin').value.trim():'';
+  if(origin)u.searchParams.set('origem',origin.slice(0,100));
   if(localPreview)u.searchParams.set('preview','local');
   const url=u.href;q('tripShareLink').value=url;q('tripShareBox').hidden=false;
-  const msg='🏍️ Roteiro Asphalt Boys — '+destination.nome+'\nOrigem: '+(origin||'localização de cada participante')+'\nParadas: '+(selected.map(id=>stopById(id)?.nome||id).join(' → ')||'rota direta')+'\n'+url;
+  const detail=tripDays.length>1?
+   tripDays.map(d=>d.title+': '+(d.stops.map(id=>stopById(id)?.nome||id).join(' → ')||'A definir')).join('\n'):
+   'Paradas: '+(selected.map(id=>stopById(id)?.nome||id).join(' → ')||'rota direta');
+  const msg='🏍️ Roteiro Asphalt Boys — '+destination.nome+
+   '\nOrigem: '+(origin||'localização de cada participante')+'\n'+detail+'\n'+url;
   q('tripShareWhats').href='https://api.whatsapp.com/send?text='+encodeURIComponent(msg);
-  q('tripNote').textContent=localPreview?'Link de teste: rascunhos locais só aparecem neste navegador. Para compartilhar com outros, publique a rota no banco.':'Envie o link para o motogrupo. Cada pessoa poderá usar a própria localização.';
+  q('tripNote').textContent=localPreview?
+   'Link de teste: paradas locais ainda não publicadas não aparecem para outros usuários.':
+   'Link da viagem preparado. Cada pessoa poderá usar sua localização.';
  }
  async function fetchPublic(){
   try{
@@ -762,7 +789,7 @@
  (async()=>{
   await fetchPublic();
   const id=urlParams.get('dest');
-  if(id){open(id,{origin:urlParams.get('origem')||'',route:urlParams.get('rota'),stops:urlParams.get('stops')})}
+  if(id){open(id,{origin:urlParams.get('origem')||'',route:urlParams.get('rota'),stops:urlParams.get('stops'),days:urlParams.get('dias')})}
   else {const wasOpen=readOpen();if(wasOpen)open(wasOpen)}
  })();
 })();
