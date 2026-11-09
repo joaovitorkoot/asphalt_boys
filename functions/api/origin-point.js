@@ -6,7 +6,7 @@ const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers
 }});
 const VALID_PLACE=/^[A-Za-z0-9_-]{5,250}$/;
 function coords(raw){
- const match=String(raw||'').trim().match(/^\s*\(?(-?\d{1,2}(?:\.\d{1,9})?)\s*[,;]\s*(-?\d{1,3}(?:\.\d{1,9})?)\)?\s*$/);
+ const match=String(raw||'').trim().match(/^\s*\(?(-?\d{1,2}(?:\.\d{1,15})?)\s*[,;]\s*(-?\d{1,3}(?:\.\d{1,15})?)\)?\s*$/);
  if(!match)return '';
  const lat=Number(match[1]),lng=Number(match[2]);
  return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?
@@ -133,10 +133,10 @@ export async function onRequestPost({request,env}){
  let accepted=false;
  try{accepted=origin?new URL(origin).origin===host:referer?new URL(referer).origin===host:false}catch{}
  if(!accepted)return reply({error:'Origem não autorizada.'},403);
- if(Number(request.headers.get('content-length')||0)>2200)return reply({error:'Pesquisa muito longa.'},413);
+ if(Number(request.headers.get('content-length')||0)>4200)return reply({error:'Pesquisa muito longa.'},413);
  let body;try{body=await request.json()}catch{return reply({error:'Pesquisa inválida.'},400)}
  const input=typeof body?.input==='string'?body.input.trim():'';
- if(input.length<4||input.length>900)return reply({error:'Informe um endereço, coordenadas ou um link válido.'},400);
+ if(input.length<4||input.length>1800)return reply({error:'Informe um endereço, coordenadas ou um link válido.'},400);
  try{
   const result=await build(input,String(env.GOOGLE_PLACES_API_KEY||''));
   return reply(result);
