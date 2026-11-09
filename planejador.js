@@ -265,7 +265,7 @@
   (httpsUrl(p.fotoFonteUrl)?' · <a href="'+esc(httpsUrl(p.fotoFonteUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Original</a>':'')+
   (httpsUrl(p.fotoLicencaUrl)?' · <a href="'+esc(httpsUrl(p.fotoLicencaUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Licença</a>':'')+
   '</p></details>':'';
-     return '<article class="tripStop">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p>'+(p.descricao?'<p class="tripTiny tripStopDescription mt-1">'+esc(p.descricao)+'</p>':'')+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Limite de 20 paradas':'+ Adicionar')+'</button></div></div></article>';
+     return '<article class="tripStop" data-selected="'+dis+'">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p>'+(p.descricao?'<p class="tripTiny tripStopDescription mt-1">'+esc(p.descricao)+'</p>':'')+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" aria-pressed="'+dis+'" '+(dis||full||!loc?'disabled':'')+'>'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Limite de 20 paradas':'+ Adicionar')+'</button></div></div></article>';
    }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">'+(term?'Nenhuma parada encontrada nesta categoria. Tente outra pesquisa.':'Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.')+'</p>';
    loadPublicStopPhotos();
  }
@@ -417,6 +417,16 @@
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
    q('tripOrigin').value=(share&&share.origin)||safeRead('asphalt-boys-ultima-origem')||'';
+  originPoint=null;originRequestEpoch++;
+  q('tripOriginStatus').textContent='';
+  q('tripOriginCandidates').replaceChildren();q('tripOriginCandidates').hidden=true;
+  if(share&&share.origin&&validCoords(share.origin)){
+   originPoint=normalizedOriginPoint({
+    input:share.origin,coordinate:share.origin,
+    name:share.originName||'Ponto de saída fixo',address:share.origin
+   },share.origin);
+  }
+  renderOriginPoint();
   setOriginMode(share&&share.origin?'manual':'gps');
    if(!(share&&(share.route||share.stops||share.origin||share.days)))restoreRoute();
    if(share&&share.route){const r=currentRoutes().find(x=>x.id===share.route);if(r){selected=(r.paradas||[]).filter(id=>stopById(id)).slice(0,MAX_ROUTE_STOPS);presetId=r.id;tab='mine'}}
@@ -683,9 +693,9 @@
   if(scroll)box.scrollIntoView({behavior:'smooth',block:'nearest'});
  }
  function routeRequest(){
-  const origin=originMode==='manual'?q('tripOrigin').value.trim():'';
+  const origin=originValue();
   if(originMode==='manual'&&!origin){
-   q('tripNote').textContent='Informe uma cidade ou escolha Minha localização atual.';
+   q('tripNote').textContent='Conﬁra o ponto de saída fixo ou escolha Minha localização atual.';
    q('tripOrigin').focus();return null;
   }
   // A API pode resolver endereços longos para GPS oficial. Não bloquear
@@ -734,9 +744,9 @@
   if(dayId&&!day)return;
   let plan;
   if(day){
-   const origin=originMode==='manual'?q('tripOrigin').value.trim():'';
+   const origin=originValue();
    if(originMode==='manual'&&!origin){
-    q('tripNote').textContent='Informe uma cidade ou escolha Minha localização atual.';
+    q('tripNote').textContent='Conﬁra o ponto de saída fixo ou escolha Minha localização atual.';
     q('tripOrigin').focus();return;
    }
    plan={stops:day.stops.map(stopById).filter(Boolean),origin};
@@ -769,15 +779,19 @@
    u.searchParams.set('dias',JSON.stringify(serialized));
   }else if(presetId)u.searchParams.set('rota',presetId);
   else if(selected.length)u.searchParams.set('stops',selected.join(','));
-  const origin=originMode==='manual'?q('tripOrigin').value.trim():'';
-  if(origin)u.searchParams.set('origem',origin.slice(0,100));
+  const origin=originValue();
+  if(origin){
+   u.searchParams.set('origem',origin.slice(0,150));
+   if(originPoint&&originPoint.input===q('tripOrigin').value.trim())
+    u.searchParams.set('origem_nome',originPoint.name);
+  }
   if(localPreview)u.searchParams.set('preview','local');
   const url=u.href;q('tripShareLink').value=url;q('tripShareBox').hidden=false;
   const detail=tripDays.length>1?
    tripDays.map(d=>d.title+': '+(d.stops.map(id=>stopById(id)?.nome||id).join(' → ')||'A definir')).join('\n'):
    'Paradas: '+(selected.map(id=>stopById(id)?.nome||id).join(' → ')||'rota direta');
   const msg='🏍️ Roteiro Asphalt Boys — '+destination.nome+
-   '\nOrigem: '+(origin||'localização de cada participante')+'\n'+detail+'\n'+url;
+   '\nOrigem: '+(origin?originLabel():'localização de cada participante')+'\n'+detail+'\n'+url;
   q('tripShareWhats').href='https://api.whatsapp.com/send?text='+encodeURIComponent(msg);
   q('tripNote').textContent=localPreview?
    'Link de teste: paradas locais ainda não publicadas não aparecem para outros usuários.':
@@ -900,7 +914,24 @@
  q('tripModal').addEventListener('click',e=>{if(e.target===modal)close()});
  document.addEventListener('keydown',e=>{if(modal.hidden)return;if(e.key==='Escape'){if(!q('tripStopPreview').hidden)previewBack();else close()}if(e.key==='Tab'){const visible=[...panel.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')].filter(x=>x.offsetParent!==null);if(!visible.length)return;const f=visible[0],l=visible[visible.length-1];if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}}});
  q('tripOriginChoices').addEventListener('click',e=>{const button=e.target.closest('[data-origin-mode]');if(!button)return;setOriginMode(button.dataset.originMode);activeLegIndex=0;saveRoute();if(originMode==='manual')q('tripOrigin').focus()});
- q('tripOrigin').addEventListener('input',()=>{if(destination&&originMode==='manual')q('tripRouteSummary').textContent=routeSummaryText();activeLegIndex=0;saveRoute()});
+ q('tripOrigin').addEventListener('input',()=>{
+   originRequestEpoch++;originPoint=null;
+   q('tripOriginCandidates').replaceChildren();q('tripOriginCandidates').hidden=true;
+   q('tripOriginStatus').textContent=q('tripOrigin').value.trim()?'Toque em Conferir ponto para identificar o local.':'';
+   renderOriginPoint();
+   if(destination&&originMode==='manual')q('tripRouteSummary').textContent=routeSummaryText();
+   activeLegIndex=0;saveRoute();
+  });
+  q('tripOriginCheck').onclick=checkOriginPoint;
+  q('tripOriginClear').onclick=()=>{
+   originPoint=null;originRequestEpoch++;
+   q('tripOriginCandidates').replaceChildren();q('tripOriginCandidates').hidden=true;
+   q('tripOriginStatus').textContent='Altere o endereço e confira novamente.';
+   renderOriginPoint();q('tripOrigin').focus();saveRoute();
+  };
+  q('tripOrigin').addEventListener('keydown',e=>{
+   if(e.key==='Enter'){e.preventDefault();checkOriginPoint()}
+  });
  q('tripCreateDay').onclick=makeNextDay;
  q('tripRenameActiveDay').onclick=()=>{
   const day=currentDay();if(!day)return;
@@ -974,7 +1005,7 @@
  (async()=>{
   await fetchPublic();
   const id=urlParams.get('dest');
-  if(id){open(id,{origin:urlParams.get('origem')||'',route:urlParams.get('rota'),stops:urlParams.get('stops'),days:urlParams.get('dias')})}
+  if(id){open(id,{origin:urlParams.get('origem')||'',originName:urlParams.get('origem_nome')||'',route:urlParams.get('rota'),stops:urlParams.get('stops'),days:urlParams.get('dias')})}
   else {const wasOpen=readOpen();if(wasOpen)open(wasOpen)}
  })();
 })();
