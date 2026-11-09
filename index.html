@@ -97,8 +97,23 @@ renderAsphaltCards();
 .tripDayList{margin:8px 0 12px 20px;list-style:decimal;color:#d1d5db;font-size:13px}
 .tripDayList li{padding:3px 0}
 .tripDayRename{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}
+.tripDayRename[hidden],.tripDayBody[hidden],[data-day-map-output][hidden],#tripDayEditor[hidden]{display:none!important}
 .tripDayRename input{flex:1 1 175px;min-width:100px;font-size:16px}
-.tripDayEditor{border:1px solid #fb923c6b;border-radius:13px;padding:13px;background:#33261e4d}
+.tripDayEditor{border:1px solid #fb923c6b;border-radius:13px;padding:13px;background:linear-gradient(130deg,#332820,#202630)}
+.tripDayCard[data-active="true"]{border-color:#fb923c;background:linear-gradient(125deg,#493026,#242831 70%);box-shadow:inset 0 0 0 1px #fb923c22,0 8px 22px #0003}
+.tripDayCard[data-active="true"] .tripDayTitle{color:#ffd0ab}
+.tripDayHeader{min-width:0}
+.tripDayHeader .tripDayExpand{border-radius:8px;padding:4px}
+.tripDayHeader .tripNavBtn{flex-shrink:0}
+.tripDayTrash{border-color:#855252;color:#f7b6ae}
+.tripDayTrash:hover{border-color:#fca5a5;color:#fff;background:#5d2929}
+.tripDayMaps{border-color:#b87745;color:#ffd2a9}
+.tripDayAddStops{border-color:#fb923c;color:#ffd2ae;background:#4d3324}
+@media(max-width:580px){
+ .tripDayHeader{gap:5px}
+ .tripDayHeader .tripNavBtn{padding:6px 8px;min-width:35px}
+ .tripDayHeader .tripDayExpand{flex:1 1 110px}
+}
 .tripDayAdd{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;padding:7px 11px;border:1px dashed #f5a76a;border-radius:10px;min-height:37px;font-size:12px;font-weight:800;color:#ffbc86;background:#2b2523}
 .tripDayAdd:disabled{opacity:.5;cursor:not-allowed}
 /* Estados visuais do planejador: movimento sutil, sem alterar o layout ou os eventos. */
@@ -282,18 +297,14 @@ renderAsphaltCards();
   <button id="tripCreateDay" type="button" class="tripDayAdd" title="Guardar as paradas atuais neste dia e começar o próximo" aria-label="Guardar paradas e criar próximo dia">＋ Novo dia</button>
  </div>
 </div>
-<p class="tripTiny mt-1 mb-3">Use ↑ ↓ para ordenar. Roteiro salvo automaticamente.</p>
+<p class="tripTiny mt-1 mb-3">Selecione um dia para editar. Alterações salvas automaticamente.</p>
 <div id="tripDayGroups" class="space-y-2 mb-3" hidden aria-label="Dias planejados da viagem"></div>
 <div id="tripDayEditor" class="tripDayEditor mb-3" hidden>
- <div class="flex gap-2 flex-wrap justify-between items-center">
-  <strong id="tripActiveDayName" class="font-bold text-sm">Dia atual</strong>
-  <button id="tripRenameActiveDay" type="button" class="tripNavBtn text-xs">✎ Renomear dia</button>
+ <div class="flex flex-wrap gap-2 items-center justify-between">
+  <strong id="tripActiveDayName" class="font-bold text-sm">Dia selecionado</strong>
+  <button id="tripAddDayStops" type="button" class="tripNavBtn tripDayAddStops text-xs">＋ Adicionar paradas</button>
  </div>
- <div id="tripActiveDayRename" class="tripDayRename" hidden>
-  <input id="tripActiveDayInput" type="text" class="tripField" maxlength="55" placeholder="Ex.: Dia 2 — Retorno" aria-label="Nome deste dia">
-  <button id="tripActiveDaySave" class="tripNavBtn" type="button">Salvar</button>
-  <button id="tripActiveDayCancel" class="tripNavBtn" type="button">Cancelar</button>
- </div>
+ <p class="tripTiny mt-2">As paradas deste dia aparecem abaixo. Use ↑ ↓ para mudar a ordem.</p>
 </div>
 <div id="tripChosen" class="space-y-2"></div>
 <p id="tripDayMessage" class="tripTiny mt-2" role="status" aria-live="polite"></p>
@@ -381,5 +392,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261109-origin-empty-stable"></script>
+<script src="planejador.js?v=20261109-days-rebuilt"></script>
 </body></html>
