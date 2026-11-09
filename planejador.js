@@ -813,7 +813,10 @@
  function share(){
   syncCurrentDay();
   const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('dest',destination.id);
-  if(tripDays.length){
+  // Uma montagem avulsa continua independente dos dias já salvos.
+  // Quando a montagem está vazia, compartilhar envia os cards da viagem.
+  const shareSavedDays=tripDays.length>0&&(dayDraftMode!==''||!selected.length);
+  if(shareSavedDays){
    const serialized=tripDays.map(d=>[d.title,d.stops]);
    u.searchParams.set('dias',JSON.stringify(serialized));
   }else if(presetId)u.searchParams.set('rota',presetId);
@@ -830,7 +833,7 @@
   // sem repetir essas informações na mensagem do WhatsApp.
   const msg='🏍️ Asphalt Boys'+
    '\n📍 Destino: '+destination.nome+
-   (tripDays.length?'\n📅 '+(tripDays.length===1?'Viagem de 1 dia':'Viagem de '+tripDays.length+' dias'):'')+
+   (shareSavedDays?'\n📅 '+(tripDays.length===1?'Viagem de 1 dia':'Viagem de '+tripDays.length+' dias'):'')+
    '\n🔗 Ver roteiro: '+url;
   q('tripShareWhats').href='https://api.whatsapp.com/send?text='+encodeURIComponent(msg);
   q('tripNote').textContent=localPreview?
