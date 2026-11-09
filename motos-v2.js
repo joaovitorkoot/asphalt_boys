@@ -10,8 +10,8 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const url=s=>{try{const u=new URL(s||'',location.origin);return u.protocol==='https:'&&!u.username&&!u.password?u.href:''}catch{return''}};
 let bikes=[...bikesDefault],data=null,index=0,chosen={},tab='catalogo',category='todos',active='',shops='',fade=null,tick=0;
 const bike=()=>bikes[index];
-const groupList=()=>defs.map(([id,name,type])=>{const saved=data?.grupos?.[bike().id]?.find(g=>g.id===id);return{id,name:saved?.nome||name,type:saved?.categoria||type}});
-const options=id=>{const group=data?.grupos?.[bike().id]?.find(g=>g.id===id);return group?.modelos?.length?group.modelos.map(m=>({id:m.id,name:m.nome,desc:m.descricao||'',foto:m.foto||'',shopee:m.shopee||'',mercadolivre:m.mercadolivre||'',demo:!!m.demo})):(demo[id]||[]).map(([id,name,desc])=>({id,name,desc,demo:true}))};
+const groupList=()=>defs.map(([id,name,type])=>{const saved=data?.grupos?.[bike().id]?.find(g=>g.id===id);return{id,name:saved?.nome||name,type:saved?.categoria||type,foto:saved?.foto||''}});
+const options=id=>{const group=data?.grupos?.[bike().id]?.find(g=>g.id===id);return group?.modelos?.length?group.modelos.map(m=>({id:m.id,name:m.nome,desc:m.descricao||'',foto:m.foto||'',shopee:m.shopee||'',mercadolivre:m.mercadolivre||'',demo:!!m.demo})):[]};
 const svg=id=>'<svg viewBox="0 0 24 24" fill="none" stroke="#ffae6c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(outlines[id]||'')+'</svg>';
 const image=(id,m)=>url(m?.foto)?'<img class="group-photo" loading="lazy" src="'+esc(url(m.foto))+'" alt="'+esc(m.name)+'">':svg(id);
 const key=()=> 'asphalt-boys-'+bike().id+'-montagem-v2';
@@ -22,7 +22,7 @@ function counts(){const n=Object.keys(chosen).length;$('tabMinha').textContent='
 function groupsRender(){
  const arr=groupList().filter(g=>category==='todos'||g.type===category);
  $('catalogCount').textContent=arr.length+' categorias';
- $('motoProdutos').innerHTML=arr.map(g=>'<button type="button" class="group-card" data-group="'+g.id+'" data-chosen="'+!!chosen[g.id]+'"><div class="group-visual">'+svg(g.id)+'</div><div><h4>'+esc(g.name)+'</h4><p>'+options(g.id).length+' modelos para escolher</p></div><div class="group-bottom"><span>'+(chosen[g.id]?'✓ Modelo escolhido':'Escolher modelo')+'</span><strong>›</strong></div></button>').join('');
+ $('motoProdutos').innerHTML=arr.map(g=>'<button type="button" class="group-card" data-group="'+g.id+'" data-chosen="'+!!chosen[g.id]+'"><div class="group-visual">'+image(g.id,{foto:g.foto,name:g.name})+'</div><div><h4>'+esc(g.name)+'</h4><p>'+options(g.id).length+' modelos para escolher</p></div><div class="group-bottom"><span>'+(chosen[g.id]?'✓ Modelo escolhido':'Escolher modelo')+'</span><strong>›</strong></div></button>').join('');
 }
 function detailRender(){
  const g=groupList().find(g=>g.id===active);$('catalogBrowse').hidden=!!g;$('catalogDetail').hidden=!g;$('motoFiltros').hidden=!!g;$('catalogCount').hidden=!!g;if(!g)return;
