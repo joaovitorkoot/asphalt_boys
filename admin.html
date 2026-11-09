@@ -63,9 +63,9 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
 </section>
 <div class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-5">
 <nav class="box p-3 h-fit grid sm:grid-cols-4 lg:grid-cols-1 gap-2" aria-label="Seções administrativas">
-<button type="button" class="tab" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button type="button" class="tab" data-tab="paradas" aria-selected="false">📍 Paradas</button><div id="adminStopQuickLinks" hidden class="sm:col-span-4 lg:col-span-1 grid grid-cols-2 lg:grid-cols-1 gap-1 pl-2 border-l-2 border-orange-500/40"><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe">☕ Café da manhã</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="almoco">🍽️ Almoço</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe_tarde">🥐 Café da tarde</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="jantar">🌙 Jantar</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="turismo">📸 Pontos turísticos</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="descanso">🏍️ Descanso</button></div><button type="button" class="tab" data-tab="rotas" aria-selected="false">🛣️ Rotas prontas</button><button type="button" class="tab" data-tab="backup" aria-selected="false">💾 Backup</button>
+<button type="button" class="tab" data-tab="destinos" aria-selected="true">🌄 Destinos</button><button type="button" class="tab" data-tab="paradas" aria-selected="false">📍 Paradas</button><div id="adminStopQuickLinks" hidden class="sm:col-span-4 lg:col-span-1 grid grid-cols-2 lg:grid-cols-1 gap-1 pl-2 border-l-2 border-orange-500/40"><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe">☕ Café da manhã</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="almoco">🍽️ Almoço</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="cafe_tarde">🥐 Café da tarde</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="jantar">🌙 Jantar</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="turismo">📸 Pontos turísticos</button><button class="text-left px-3 py-2 rounded-lg text-sm hover:bg-zinc-800" type="button" data-stop-quick="descanso">🏍️ Descanso</button></div><button type="button" class="tab" data-tab="rotas" aria-selected="false">🛣️ Rotas prontas</button><button type="button" class="tab" data-tab="backup" aria-selected="false">💾 Backup</button><button type="button" class="tab" data-tab="motos" aria-selected="false">🏍️ Motos e afiliados</button>
 </nav>
-<section class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><details id="locationAudit" class="rounded-xl border border-orange-500/35 bg-[#181e26] p-4 mt-5">
+<section id="adminTravelWorkspace" class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><details id="locationAudit" class="rounded-xl border border-orange-500/35 bg-[#181e26] p-4 mt-5">
  <summary class="cursor-pointer font-black text-lg text-orange-200">🧭 Diagnóstico dos pontos do Google Maps</summary>
  <p class="tiny mt-2 mb-3">Confere cada parada publicada com o Google Places e identifica coordenadas, links e nomes divergentes. Nada será alterado sem sua confirmação. A consulta utiliza a API do Google.</p>
  <button id="runLocationAudit" type="button" class="btn text-sm">🔎 Conferir todas as paradas</button>
@@ -81,7 +81,7 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
  <p id="publicationQueueMessage" class="tiny mb-3" role="status"></p>
  <div id="publicationQueueList" class="space-y-4"></div>
  <p class="tiny mt-4">Nenhum item é publicado automaticamente. O botão <strong>Publicar no site</strong> confirma e envia somente o cadastro já salvo.</p>
-</section><div id="listing" class="mt-6"></div></section>
+</section><div id="listing" class="mt-6"></div></section><section id="adminMotoWorkspace" class="box p-2 min-w-0" hidden><iframe id="adminMotoFrame" title="Administração de motos e afiliados" style="display:block;width:100%;height:1550px;border:0;border-radius:12px;background:#15191f" loading="lazy"></iframe></section>
 </div>
 </div>
 </main>
@@ -1402,6 +1402,15 @@ async function publishQueuedRecord(kind,id,button){
 
  function render(resetPicker=true){
  const previousScrollX=window.scrollX,previousScrollY=window.scrollY;
+ const motosActive=tab==='motos';
+ $('#adminTravelWorkspace').hidden=motosActive;
+ $('#adminMotoWorkspace').hidden=!motosActive;
+ if(motosActive){
+  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab==='motos')));
+  const frame=$('#adminMotoFrame');
+  if(!frame.getAttribute('src'))frame.src='./motos-admin.html';
+  return;
+ }
  categorySuggestionSeq++;categoryUserEdited=false;
  const titles={destinos:'Destinos',paradas:'Paradas',rotas:'Rotas prontas',backup:'Backup'};
  $('#sectionTitle').textContent=titles[tab];
@@ -1775,6 +1784,11 @@ $('#sync').onclick=async()=>{
  try{data=await call('GET');render();announce(done+' cadastros enviados ao banco. Confira o status de cada cadastro.')}catch(e){announce('Envio concluído, mas não foi possível atualizar a lista.')}
 };
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;editing=null;creatingNewDestination=false;render()});
+ window.addEventListener('message',event=>{
+  if(event.origin!==location.origin||event.source!==$('#adminMotoFrame').contentWindow)return;
+  const pixels=Number(event.data?.asphaltMotosHeight);
+  if(Number.isFinite(pixels)&&pixels>=450&&pixels<=12000)$('#adminMotoFrame').style.height=Math.ceil(pixels+12)+'px';
+ });
  $('#locationAuditShortcut').onclick=()=>{$('#locationAudit').open=true};
  $('#runLocationAudit').onclick=runLocationAudit;
  $('#downloadLocationAudit').onclick=downloadLocationAudit;
