@@ -10,6 +10,7 @@
  const validCoords=s=>{const m=String(s||'').trim().match(/^(-?\d{1,2}(?:\.\d{1,9})?),\s*(-?\d{1,3}(?:\.\d{1,9})?)$/);return m&&Math.abs(Number(m[1]))<=90&&Math.abs(Number(m[2]))<=180?m[1]+','+m[2]:''};
  const validPlaceId=s=>/^[a-zA-Z0-9_-]{5,250}$/.test(String(s||''))?String(s):'';
  const MAX_ROUTE_STOPS=20;
+  const MAX_TRIP_DAYS=14;
  const MOBILE_WAYPOINTS=3;
  const APP_MAX_STOPS=9;
  // Abrir o link ORIGINAL de quem cadastrou. Nunca trocar por resultado por nome.
@@ -53,7 +54,8 @@
  let reviewRequestEpoch=0;
  const categorySearches=Object.create(null);
  const searchText=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
- let originMode='gps',activeLegIndex=0;
+ let originMode='gps',activeLegIndex=0,tripDays=[],activeDayId='';
+  const expandedDayIds=new Set();
  let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null,previewReturnScroll=0;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
@@ -62,22 +64,65 @@
 
  const OPEN_MODAL_KEY='asphalt-boys-rota-aberta-v1';
  const draftKey=id=>'asphalt-boys-roteiro-v1-'+(localPreview?'preview-':'')+mapping(id);
+ const dayTitle=(s,idx)=>typeof s==='string'&&s.trim()?s.trim().slice(0,55):'Dia '+(idx+1);
+ const validDayStops=items=>Array.isArray(items)?
+  [...new Set(items.filter(id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{3,120}$/.test(id)&&stopById(id)))].slice(0,MAX_ROUTE_STOPS):[];
+ function beginSingleDay(stops=[],legIndex=0){
+  tripDays=[{id:'dia-1',title:'Dia 1',stops:validDayStops(stops),legIndex:legIndex||0}];
+  activeDayId='dia-1';selected=[...tripDays[0].stops];activeLegIndex=tripDays[0].legIndex;
+ }
+ function currentDay(){return tripDays.find(d=>d.id===activeDayId)||null}
+ function syncCurrentDay(){
+  const d=currentDay();
+  if(d){d.stops=[...selected];d.legIndex=activeLegIndex;}
+ }
+ function initializeSharedDays(raw){
+  let parsed;
+  try{parsed=JSON.parse(String(raw||''))}catch{return false}
+  if(!Array.isArray(parsed)||!parsed.length||parsed.length>MAX_TRIP_DAYS)return false;
+  const restored=parsed.map((item,i)=>{
+   if(!Array.isArray(item)||item.length!==2||!Array.isArray(item[1])||item[1].length>MAX_ROUTE_STOPS)return null;
+   if(item[1].some(id=>!stopById(id)))return null;
+   return {id:'dia-'+(i+1),title:dayTitle(item[0],i),stops:validDayStops(item[1]),legIndex:0};
+  });
+  if(restored.some(x=>!x))return false;
+  tripDays=restored;activeDayId=tripDays[tripDays.length-1].id;
+  selected=[...currentDay().stops];activeLegIndex=0;
+  expandedDayIds.clear();
+  return true;
+ }
  function saveRoute(){
   if(!destination)return;
-  safeStore(draftKey(destination.id),JSON.stringify({v:1,stops:selected.slice(0,MAX_ROUTE_STOPS),originMode,
-   origin:q('tripOrigin').value.trim().slice(0,150),presetId,tab,category,legIndex:activeLegIndex}));
+  syncCurrentDay();
+  safeStore(draftKey(destination.id),JSON.stringify({
+   v:2,stops:[...selected],days:tripDays.map(d=>({
+    id:d.id,title:d.title,stops:d.stops,legIndex:d.legIndex||0
+   })),activeDayId,originMode,origin:q('tripOrigin').value.trim().slice(0,150),
+   presetId,tab,category,legIndex:activeLegIndex
+  }));
  }
  function restoreRoute(){
   if(!destination)return false;
   let saved;try{saved=JSON.parse(safeRead(draftKey(destination.id))||'null')}catch{return false}
-  if(!saved||saved.v!==1||!Array.isArray(saved.stops))return false;
-  selected=[...new Set(saved.stops.filter(id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{3,120}$/.test(id)&&stopById(id)))].slice(0,MAX_ROUTE_STOPS);
-  activeLegIndex=Number.isInteger(saved.legIndex)&&saved.legIndex>=0&&saved.legIndex<MAX_ROUTE_STOPS?saved.legIndex:0;
+  if(!saved||![1,2].includes(saved.v)||!Array.isArray(saved.stops))return false;
+  const oldStops=validDayStops(saved.stops);
+  const restored=Array.isArray(saved.days)&&saved.days.length&&saved.days.length<=MAX_TRIP_DAYS
+   ?saved.days.map((d,i)=>{
+    const id=typeof d.id==='string'&&/^[a-zA-Z0-9_-]{3,120}$/.test(d.id)?d.id:'dia-'+(i+1);
+    return {id,title:dayTitle(d.title,i),stops:validDayStops(d.stops),
+     legIndex:Number.isInteger(d.legIndex)&&d.legIndex>=0&&d.legIndex<MAX_ROUTE_STOPS?d.legIndex:0};
+   }):null;
+  if(restored&&new Set(restored.map(d=>d.id)).size===restored.length){
+   tripDays=restored;activeDayId=tripDays.some(d=>d.id===saved.activeDayId)?saved.activeDayId:tripDays.at(-1).id;
+   selected=[...currentDay().stops];activeLegIndex=currentDay().legIndex;
+  }else{
+   beginSingleDay(oldStops,Number.isInteger(saved.legIndex)?saved.legIndex:0);
+  }
   presetId=typeof saved.presetId==='string'&&currentRoutes().some(r=>r.id===saved.presetId)?saved.presetId:'';
   category=categories.some(([id])=>id===saved.category)?saved.category:category;
   q('tripOrigin').value=typeof saved.origin==='string'?saved.origin.slice(0,150):'';
   setOriginMode(saved.originMode==='manual'&&q('tripOrigin').value.trim()?'manual':'gps');
-  tab=selected.length?'mine':['mine','custom','preset'].includes(saved.tab)?saved.tab:'custom';
+  tab=tripDays.length>1||selected.length?'mine':['mine','custom','preset'].includes(saved.tab)?saved.tab:'custom';
   return true;
  }
  function rememberOpen(id){try{sessionStorage.setItem(OPEN_MODAL_KEY,id)}catch{}}
@@ -193,6 +238,43 @@
     return '<article class="tripPresetCard"><h4 class="font-bold">'+esc(r.nome)+'</h4>'+(r.descricao?'<p class="tripTiny mt-1">'+esc(r.descricao)+'</p>':'')+'<p class="tripTiny mt-2">'+stops.length+' paradas</p><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="tripNavBtn" data-view-route="'+esc(r.id)+'">👁 Ver paradas</button><button type="button" class="tripBtn text-sm" data-use-route="'+esc(r.id)+'">Usar esta rota</button></div><ol class="tripPresetStops" id="tripRoute-'+esc(r.id)+'" hidden>'+stops.map(name=>'<li>'+esc(name)+'</li>').join('')+'</ol></article>';
   }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">Ainda não há rotas prontas publicadas para este destino. Você pode montar a sua rota na primeira aba.</p>';
  }
+ function renderDayGroups(){
+  syncCurrentDay();
+  const box=q('tripDayGroups'),editor=q('tripDayEditor'),active=currentDay();
+  const multi=tripDays.length>1;
+  box.hidden=!multi;
+  editor.hidden=!multi&&active?.title==='Dia 1';
+  if(active)q('tripActiveDayName').textContent=active.title+' · '+selected.length+' parada'+(selected.length===1?'':'s');
+  q('tripActiveDayRename').hidden=true;
+  q('tripCreateDay').disabled=!selected.length||tripDays.length>=MAX_TRIP_DAYS;
+  q('tripCreateDay').textContent=tripDays.length>=MAX_TRIP_DAYS?'Limite de dias atingido':'＋ Criar próximo dia';
+  box.innerHTML=multi?tripDays.filter(d=>d.id!==activeDayId).map(d=>{
+   const id=esc(d.id),expanded=expandedDayIds.has(d.id);
+   const count=d.stops.length+' parada'+(d.stops.length===1?'':'s');
+   const names=d.stops.map(stop=>stopById(stop)?.nome||'Parada indisponível');
+   return '<article class="tripDayCard" data-day-card="'+id+'">'+
+    '<div class="tripDayHeader">'+
+     '<button type="button" class="tripDayExpand" data-day-expand="'+id+'" aria-expanded="'+expanded+'">'+
+      '<span class="tripDayTitle">'+(expanded?'▾ ':'▸ ')+esc(d.title)+'</span>'+
+      '<span class="tripDaySub">'+count+'</span></button>'+
+     '<button type="button" class="tripNavBtn text-xs" data-day-route="'+id+'" '+(!names.length?'disabled':'')+'>🗺️ Maps</button>'+
+     '<button type="button" class="tripNavBtn text-xs" data-day-rename="'+id+'" aria-label="Renomear '+esc(d.title)+'">✎</button>'+
+    '</div>'+
+    '<div class="tripDayRename" data-day-rename-box="'+id+'" hidden>'+
+     '<input class="tripField" data-day-title="'+id+'" type="text" maxlength="55" value="'+esc(d.title)+'" aria-label="Nome do dia">'+
+     '<button type="button" class="tripNavBtn" data-day-save="'+id+'">Salvar</button>'+
+     '<button type="button" class="tripNavBtn" data-day-cancel="'+id+'">Cancelar</button>'+
+    '</div>'+
+    '<div class="tripDayBody" data-day-content="'+id+'" '+(expanded?'':'hidden')+'>'+
+     '<ol class="tripDayList">'+names.map(name=>'<li>'+esc(name)+'</li>').join('')+'</ol>'+
+     '<div class="flex flex-wrap gap-2">'+
+      '<button type="button" class="tripNavBtn text-xs" data-day-edit="'+id+'">✎ Editar paradas</button>'+
+      '<button type="button" class="tripNavBtn text-xs" data-day-delete="'+id+'">Excluir dia</button>'+
+     '</div></div>'+
+    '<div data-day-map-output="'+id+'" hidden class="mt-3 rounded-xl border border-orange-500/35 bg-[#242831] p-3" role="region" aria-label="Navegação de '+esc(d.title)+'"></div>'+
+   '</article>';
+  }).join(''):'';
+ }
  function renderChosen(){
   const stops=currentStops();
   q('tripChosen').innerHTML=selected.length?selected.map((id,i)=>{
@@ -204,9 +286,13 @@
    const check=original?'<a class="tripStopCheck" href="'+esc(original)+'" target="_blank" rel="noopener noreferrer" aria-label="Conferir local original no Google Maps: '+esc(p.nome)+'">📍 Ver ponto no Maps ↗</a>':'';
    return '<div class="tripPicked"><span class="tripPickedIndex">'+(i+1)+'.</span><div class="tripPickedInfo"><div class="tripPickedName">'+esc(p?.nome||'Parada indisponível')+'</div><div class="tripPickedCategories">'+chips+'</div>'+(suspect?'<p class="tripStopWarning">⚠️ Localização suspeita: '+esc(suspect)+'</p>':'')+check+'</div><div class="tripPickedActions"><button type="button" class="tripNavBtn" data-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="Mover parada para cima">↑</button><button type="button" class="tripNavBtn" data-down="'+i+'" '+(i===selected.length-1?'disabled':'')+' aria-label="Mover parada para baixo">↓</button><button type="button" class="tripNavBtn" data-remove="'+i+'" aria-label="Remover parada">×</button></div></div>';
   }).join(''):'<p class="tripTiny">Nenhuma parada selecionada. Você pode explorar as categorias ou escolher uma rota pronta.</p>';
-  q('tripCount').textContent=selected.length+' parada'+(selected.length===1?'':'s');
+  syncCurrentDay();
+   const totalStops=tripDays.reduce((sum,d)=>sum+d.stops.length,0);
+   q('tripCount').textContent=tripDays.length>1?
+    tripDays.length+' dias · '+totalStops+' paradas':
+    selected.length+' parada'+(selected.length===1?'':'s');
   q('tripRouteSummary').textContent=routeSummaryText();
-  q('tripOpenMaps').disabled=selected.length>MAX_ROUTE_STOPS;
+  q('tripOpenMaps').disabled=!selected.length||selected.length>MAX_ROUTE_STOPS;
   const tentative=selected.length?routeSegmentsFor(selected.map(stopById).filter(Boolean),'',APP_MAX_STOPS):null;
   const stageCount=tentative&&!tentative.error&&!tentative.unresolved.length?
    tentative.segments.length:Math.ceil(selected.length/APP_MAX_STOPS);
@@ -225,7 +311,7 @@
  function render(){
    if(!destination)return;
    const offset=panel.scrollTop;
-   renderAvailable();renderPresets();renderChosen();showTab(tab);
+   renderAvailable();renderPresets();renderChosen();renderDayGroups();showTab(tab);
    panel.scrollTop=offset;
   }
  function open(id,share){
@@ -236,15 +322,19 @@
    category=categories.some(([cat])=>cat===requestedCategory)?requestedCategory:'turismo';
    Object.keys(categorySearches).forEach(k=>delete categorySearches[k]);
    q('tripSearch').value='';
-   selected=[];presetId='';activeLegIndex=0;
+   selected=[];presetId='';activeLegIndex=0;expandedDayIds.clear();beginSingleDay();
    q('tripTitle').textContent=destination.nome;
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
    q('tripOrigin').value=(share&&share.origin)||safeRead('asphalt-boys-ultima-origem')||'';
   setOriginMode(share&&share.origin?'manual':'gps');
-   if(!(share&&(share.route||share.stops||share.origin)))restoreRoute();
+   if(!(share&&(share.route||share.stops||share.origin||share.days)))restoreRoute();
    if(share&&share.route){const r=currentRoutes().find(x=>x.id===share.route);if(r){selected=(r.paradas||[]).filter(id=>stopById(id)).slice(0,MAX_ROUTE_STOPS);presetId=r.id;tab='mine'}}
-   else if(share&&share.stops){selected=[...new Set(share.stops.split(',').filter(id=>/^[a-z0-9_-]{3,120}$/i.test(id)&&stopById(id)))].slice(0,MAX_ROUTE_STOPS);if(selected.length)tab='mine'}
+   else if(share&&share.days){
+     if(initializeSharedDays(share.days))tab='mine';
+     else q('tripNote').textContent='Não foi possível abrir os dias do link compartilhado.';
+    }
+    else if(share&&share.stops){selected=validDayStops(share.stops.split(','));if(selected.length)tab='mine'}
    modal.hidden=false;q('tripStopPreview').hidden=true;q('tripMain').hidden=false;q('tripModalHero').hidden=false;document.body.style.overflow='hidden';render();rememberOpen(id);panel.scrollTop=0;panel.focus();return true;
  }
  function close(){saveRoute();forgetOpen();modal.hidden=true;document.body.style.overflow='';if(focusBefore&&focusBefore.focus)focusBefore.focus()}
