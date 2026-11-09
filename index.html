@@ -132,6 +132,12 @@ renderAsphaltCards();
  }
  .tripBtn:not(:disabled):hover{transform:translateY(-2px) scale(1.02);filter:brightness(1.08);box-shadow:0 10px 22px #f9731640}
  .tripNavBtn[data-add-stop][aria-pressed="true"]:hover{transform:none;background-image:linear-gradient(120deg,#ffb25e,#f97316);color:#1b1714}
+ /* A aba selecionada mantém o laranja também quando o mouse passa. */
+ .tripTab[aria-selected="true"]:hover,.tripCat[aria-pressed="true"]:hover,.tripOriginChoice[aria-pressed="true"]:hover{
+  background-image:linear-gradient(125deg,#80502f,#493126 65%,#2a292d);border-color:#ffb777;color:#ffddbd
+ }
+ .tripStop[data-selected="true"]:hover{background-image:linear-gradient(110deg,#704029,#332b2b 70%,#252933);border-color:#ffb777}
+
 }
 @media (prefers-reduced-motion:reduce){
  .tripOriginChoice,.tripTab,.tripCat,.tripStop,.tripPicked,.tripNavBtn,.tripBtn,
@@ -369,5 +375,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261109-multiday"></script>
+<script src="planejador.js?v=20261109-origin-gradient"></script>
 </body></html>
