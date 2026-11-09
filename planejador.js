@@ -85,12 +85,14 @@
   try{parsed=JSON.parse(String(raw||''))}catch{return false}
   if(!Array.isArray(parsed)||!parsed.length||parsed.length>MAX_TRIP_DAYS)return false;
   const restored=parsed.map((item,i)=>{
-   if(!Array.isArray(item)||item.length!==2||!Array.isArray(item[1])||!item[1].length||
+   if(!Array.isArray(item)||item.length!==2||!Array.isArray(item[1])||
       item[1].length>MAX_ROUTE_STOPS||item[1].some(id=>!stopById(id)))return null;
    return {id:'dia-'+(i+1),title:dayTitle(item[0],i),stops:validDayStops(item[1]),legIndex:0};
   });
   if(restored.some(x=>!x))return false;
-  tripDays=restored;activeDayId='';dayDraftMode='';dayDraftTitle='';dayDraftPrevious=null;
+  const nonEmpty=restored.filter(day=>day.stops.length);
+  if(!nonEmpty.length)return false;
+  tripDays=nonEmpty;activeDayId='';dayDraftMode='';dayDraftTitle='';dayDraftPrevious=null;
   selected=[];activeLegIndex=0;presetId='';expandedDayIds.clear();
   return true;
  }
@@ -442,6 +444,8 @@
    Object.keys(categorySearches).forEach(k=>delete categorySearches[k]);
    q('tripSearch').value='';
    selected=[];presetId='';activeLegIndex=0;expandedDayIds.clear();beginSingleDay();
+   q('tripDayMessage').textContent='';
+   q('tripShareBox').hidden=true;
    q('tripTitle').textContent=destination.nome;
    q('tripDesc').textContent=destination.sub||'Planeje seu trajeto e descubra novas paradas.';
    const img=q('tripCover');img.onerror=()=>{img.onerror=null;if(destination.fallbackImg)img.src=destination.fallbackImg;else img.style.display='none'};img.style.display='block';img.src=destination.cover||destination.img||'';img.alt='Imagem de '+destination.nome;
