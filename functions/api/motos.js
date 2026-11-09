@@ -98,6 +98,21 @@ async function requireAdmin(request,env){
  return !!(await sessionFor(request,env));
 }
 export async function onRequestGet({request,env}){
+ const query=new URL(request.url).searchParams;
+ if(query.get('ratings')==='mercadolivre'){
+  const item=String(query.get('item')||'').toUpperCase();
+  if(!/^MLB[0-9]{6,15}$/.test(item))return json({error:'Código do anúncio inválido.'},400);
+  const token=env.MERCADOLIVRE_ACCESS_TOKEN;
+  if(!token)return json({available:false,reason:'Integração de avaliações não configurada.'});
+  try{
+   const response=await fetch('https://api.mercadolibre.com/reviews/item/'+item,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(6000)});
+   if(!response.ok)return json({available:false});
+   const result=await response.json(),rating=Number(result.rating_average),count=Number(result.paging?.total);
+   if(!(rating>=1&&rating<=5)||!Number.isInteger(count)||count<1)return json({available:false});
+   return json({available:true,source:'Mercado Livre',rating:Math.round(rating*10)/10,count});
+  }catch{return json({available:false})}
+ }
+
  if(!env.DB){if(new URL(request.url).searchParams.has('admin'))return json({error:'Banco D1 não configurado.'},503);return json(seedResponse(),200);}
  try{
   const admin=new URL(request.url).searchParams.has('admin');
