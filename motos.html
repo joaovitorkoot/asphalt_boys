@@ -92,6 +92,42 @@ footer a:hover{color:var(--accent)}
 @media(max-width:800px){.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.desktop-nav{display:none}.mobile-nav{display:flex;align-items:center;justify-content:center;gap:30px;padding:8px 12px;border-top:1px solid #ffffff19;font-size:14px;font-weight:800}.mobile-nav a{text-decoration:none;padding:5px 14px}.mobile-nav a[aria-current=page]{color:var(--accent);border-bottom:2px solid var(--accent)}}
 @media(max-width:540px){.header-main{padding:0 15px;gap:8px}.logo{gap:8px}.logo img{width:42px;height:42px}.header-cta{padding:13px 11px;font-size:11px}.intro{padding:31px 0 24px}.wrap{padding:0 16px}.bike-hero-main{padding:18px;align-items:flex-start}.model-tag{font-size:10px;padding:7px 8px}.catalog{padding-top:14px}.product-grid{gap:9px}.product-card{padding:13px;min-height:209px}.product-card h4{font-size:14px}.product-card p{font-size:11px}.switch-wrap button{font-size:12px}.filters button{font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* Catálogo em categorias: imagens vetoriais específicas, sem emojis genéricos. */
+.group-card{display:flex;flex-direction:column;gap:12px;min-height:265px;padding:12px;border:1px solid #414752;border-radius:16px;background:linear-gradient(145deg,#222a33,#1a2028);color:#fff;text-align:left;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.group-card[data-chosen=true]{border-color:#f9944b}
+.group-card h4{margin:0;font-weight:800;font-size:15px;line-height:1.35}
+.group-card p{margin:5px 0 0;font-size:12px;color:#aeb6c4}
+.group-visual{display:grid;place-items:center;min-height:145px;background:radial-gradient(circle at 50% 35%,#354453 0%,#252e38 70%);border:1px solid #404b59;border-radius:11px;overflow:hidden}
+.group-visual svg{display:block;width:100%;height:135px;max-width:230px}
+.group-bottom{display:flex;align-items:center;justify-content:space-between;gap:5px;color:#ffb477;font-size:12px;font-weight:800;margin-top:auto}
+.group-bottom strong{font-size:19px}
+.product-grid{transition:opacity .15s ease,transform .15s ease;will-change:opacity}
+.product-grid.is-transitioning{opacity:.18;transform:translateY(7px)}
+.catalog-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:15px}
+.catalog-detail h3{font-size:21px;font-weight:900;letter-spacing:-.03em;margin:9px 0 5px}
+.catalog-detail .subtext{color:#b2bac5;font-size:13px;line-height:1.5;margin-bottom:14px}
+.variant-list{display:grid;gap:12px}
+.variant-card{padding:15px;border:1px solid #414752;border-radius:16px;background:linear-gradient(130deg,#222933,#1c222b);display:grid;gap:12px}
+.variant-card[data-chosen=true]{border-color:#fb923c;background:linear-gradient(130deg,#3b2e26,#222833)}
+.variant-card .group-visual{min-height:172px}
+.variant-card .group-visual svg{height:163px;max-width:315px}
+.variant-card h4{font-size:16px;margin:0 0 6px}
+.variant-card p{font-size:12px;color:#b9c0c9;line-height:1.55;margin:0}
+.variant-card button{width:100%}
+.subtle-tag{font-size:11px;font-weight:800;color:#ffa66d;letter-spacing:.05em}
+.build-heading .group-visual{height:62px;width:78px;min-height:unset;flex-shrink:0}
+.build-heading .group-visual svg{height:61px;width:78px}
+.build-heading{align-items:center}
+.build-heading small{display:block;color:#aeb6c4;font-size:11px;margin-top:5px}
+.build-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:13px}
+.build-actions button{min-width:0;font-size:12px;padding:10px 5px}
+.catalog-back{border:1px solid #656d79;background:#272c35;color:#eceff2;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:750}
+.empty .empty-heading{color:white}
+.btn-primary:active,.btn-outline:active,.catalog-back:active,.group-card:active,.remove-btn:active{transform:scale(.98)}
+@media(hover:hover) and (pointer:fine){.group-card:hover{border-color:#fb923c;transform:translateY(-2px);box-shadow:0 11px 26px #0005}}
+@media(max-width:540px){.group-card{min-height:230px;padding:10px;gap:9px}.group-card h4{font-size:13px}.group-card p{font-size:11px}.group-visual{min-height:116px}.group-visual svg{height:112px}.variant-card .group-visual svg{height:145px}}
+@media(prefers-reduced-motion:reduce){.product-grid,.group-card,.btn-primary,.btn-outline{transition:none!important;transform:none!important}.product-grid.is-transitioning{opacity:1!important;transform:none!important}}
 </style>
 </head>
 <body>
@@ -117,7 +153,7 @@ footer a:hover{color:var(--accent)}
  <section class="bike-hero" aria-label="Modelo de moto em destaque">
   <div class="bike-visual">
    <img id="fz25Foto" src="https://yamahamotors.fbitsstatic.net/img/p/fazer-fz25-connected-155370/352536-1.jpg" loading="eager" alt="Yamaha Fazer FZ25 Connected, foto de catálogo" referrerpolicy="no-referrer">
-   <div id="fz25Fallback" class="fallback" aria-hidden="true"><span>🏍️</span></div>
+   <div id="fz25Fallback" class="fallback" aria-hidden="true"><span style="font-size:30px;font-weight:900;letter-spacing:-.05em">FAZER FZ25</span></div>
   </div>
   <div class="bike-hero-main">
    <div><h2>Yamaha Fazer FZ25</h2><p class="muted">Primeiro modelo do catálogo de acessórios</p></div>
@@ -137,96 +173,249 @@ footer a:hover{color:var(--accent)}
     <button type="button" data-cat="protecao" aria-pressed="false">Proteção</button>
     <button type="button" data-cat="estilo" aria-pressed="false">Estilo</button>
    </div>
-   <div id="motoProdutos" class="product-grid" aria-live="polite"></div>
-   <button type="button" id="btnVerMontagem" class="btn-primary catalog-action">Ver minha montagem (0) →</button>
+   <div id="catalogBrowse">
+    <div id="motoProdutos" class="product-grid" aria-live="polite"></div>
+    <button type="button" id="btnVerMontagem" class="btn-primary catalog-action">Ver minha montagem (0) →</button>
+   </div>
+   <section id="catalogDetail" class="catalog-detail" aria-label="Escolher modelo do acessório" hidden>
+    <div class="catalog-head"><button type="button" id="btnVoltarCategorias" class="catalog-back">← Voltar às categorias</button><span class="subtle-tag" id="modelCount">MODELOS</span></div>
+    <h3 id="detailTitle">Escolha o modelo</h3>
+    <p class="subtext" id="detailDescription"></p>
+    <div id="motoModelos" class="variant-list"></div>
+    <button type="button" id="btnMontagemDetalhe" class="btn-outline catalog-action">Ver minha moto →</button>
+   </section>
   </div>
   <div id="painelMinha" role="tabpanel" aria-labelledby="tabMinha" hidden>
    <div class="section-title"><h3>Minha FZ25</h3><span id="myCount">0 acessórios escolhidos</span></div>
    <div id="motoMontagem" class="build-list" aria-live="polite"></div>
    <button type="button" id="btnMais" class="btn-outline catalog-action">＋ Adicionar mais acessórios</button>
   </div>
-  <p class="notice">Catálogo inicial de demonstração. A compatibilidade de cada acessório com o ano e a versão da FZ25 deve ser conferida antes da compra. Os links de afiliado da Shopee e do Mercado Livre serão disponibilizados após o cadastro das ofertas reais.</p>
+  <p class="notice">Catálogo de demonstração: as opções ainda não são anúncios reais. Antes de qualquer compra, será necessário verificar a compatibilidade com o ano e a versão da FZ25. Links de afiliado serão habilitados somente após cadastrarmos ofertas verificadas.</p>
  </section>
 </main>
 <footer><div class="wrap"><strong>ASPHALT <span style="color:#fb923c">BOYS</span></strong><span>Sua moto, seu estilo.</span><a href="index.html#destinos">Voltar às viagens ↗</a></div></footer>
 <script>
 (()=>{
- 'use strict';
- const products=[
-  {id:'suporte',name:'Suporte para celular',desc:'Ideal para usar o GPS nas viagens.',category:'viagem',icon:'📱'},
-  {id:'bau',name:'Baú traseiro',desc:'Mais espaço para levar bagagens.',category:'viagem',icon:'🧳'},
-  {id:'protetor',name:'Protetor de motor',desc:'Opção de proteção para sua moto.',category:'protecao',icon:'🛡️'},
-  {id:'bolsa',name:'Bolsa de tanque',desc:'Objetos pequenos ao alcance.',category:'viagem',icon:'🎒'},
-  {id:'manoplas',name:'Manoplas',desc:'Personalização e conforto.',category:'estilo',icon:'🧤'},
-  {id:'bolha',name:'Bolha esportiva',desc:'Personalização frontal.',category:'estilo',icon:'💨'}
- ];
- const KEY='asphalt-boys-fz25-montagem-v1';
- const byId=id=>document.getElementById(id);
- let selected=new Set(),category='todos',tab='catalogo',openShop='';
- try{const prior=JSON.parse(localStorage.getItem(KEY)||'[]');if(Array.isArray(prior))selected=new Set(prior.filter(id=>products.some(p=>p.id===id)))}catch{}
- const escapeHTML=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const counts=()=>{
-  byId('tabMinha').textContent='Minha moto ('+selected.size+')';
-  byId('myCount').textContent=selected.size+' acessório'+(selected.size===1?' escolhido':'s escolhidos');
-  byId('btnVerMontagem').textContent='Ver minha montagem ('+selected.size+') →';
+'use strict';
+const groups=[
+ {id:'suporte',name:'Suporte para celular',type:'viagem',description:'3 modelos para sua navegação'},
+ {id:'bau',name:'Baú traseiro',type:'viagem',description:'2 opções para bagagens'},
+ {id:'bolsa',name:'Bolsa de tanque',type:'viagem',description:'2 opções para objetos'},
+ {id:'protetor',name:'Protetor de motor',type:'protecao',description:'2 modelos de proteção'},
+ {id:'manoplas',name:'Manoplas',type:'estilo',description:'2 modelos de acabamento'},
+ {id:'bolha',name:'Bolha esportiva',type:'estilo',description:'2 modelos de visual'}
+];
+const variants={
+ suporte:[
+  {id:'trava',name:'Suporte com trava de segurança',desc:'Fixação no guidão com mecanismo de travamento.'},
+  {id:'antivibracao',name:'Suporte antivibração',desc:'Modelo com sistema para reduzir vibrações.'},
+  {id:'impermeavel',name:'Suporte com capa impermeável',desc:'Capa com proteção contra respingos.'}
+ ],
+ bau:[
+  {id:'bau35',name:'Baú compacto de 35 L',desc:'Uma opção para deslocamentos e passeios.'},
+  {id:'bau45',name:'Baú de 45 L',desc:'Mais espaço para bagagens de viagem.'}
+ ],
+ bolsa:[
+  {id:'bolsa10',name:'Bolsa compacta',desc:'Espaço prático para pequenos objetos.'},
+  {id:'bolsa18',name:'Bolsa expansível',desc:'Opção maior para carregar seus pertences.'}
+ ],
+ protetor:[
+  {id:'slider',name:'Slider de proteção',desc:'Opção de proteção lateral.'},
+  {id:'tubular',name:'Protetor tubular',desc:'Estrutura metálica externa de proteção.'}
+ ],
+ manoplas:[
+  {id:'borracha',name:'Manoplas de borracha',desc:'Acabamento discreto e confortável.'},
+  {id:'premium',name:'Manoplas esportivas',desc:'Estilo personalizado para o guidão.'}
+ ],
+ bolha:[
+  {id:'fume',name:'Bolha fumê',desc:'Visual escurecido e esportivo.'},
+  {id:'transparente',name:'Bolha transparente',desc:'Acabamento discreto para a frente da moto.'}
+ ]
+};
+const KEY='asphalt-boys-fz25-montagem-v2',OLD_KEY='asphalt-boys-fz25-montagem-v1';
+const q=id=>document.getElementById(id);
+let selected={},category='todos',tab='catalogo',activeGroup='',openShop='',renderEpoch=0,fadeTimer=null;
+const safe=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function haptic(){
+ // Web Vibration API: funciona somente em aparelhos/navegadores compatíveis.
+ // iOS Safari geralmente não disponibiliza esta API. Sem suporte, nenhum efeito físico é forçado.
+ try{if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function')navigator.vibrate(9)}catch{}
+}
+function visual(type,model=''){
+ const shapes={
+ suporte: model==='impermeavel'
+ ?'<rect x="58" y="13" width="78" height="94" rx="13" fill="#232c34" stroke="#f6bd7c" stroke-width="5"/><rect x="65" y="21" width="64" height="75" rx="5" fill="#99b5c3" stroke="#e0ecef" stroke-width="2"/><path d="M70 37h53M70 77h53" stroke="#526c81" stroke-width="4"/><circle cx="98" cy="102" r="3" fill="#ffc77e"/>'
+ :'<rect x="71" y="10" width="58" height="94" rx="10" fill="#1c252c" stroke="#f7a854" stroke-width="5"/><rect x="78" y="19" width="44" height="73" rx="5" fill="#b4c9d2"/><path d="M82 34h36M82 68h36" stroke="#66899b" stroke-width="3"/><circle cx="100" cy="98" r="2.5" fill="#efb878"/>',
+ bau:'<path d="M39 47Q39 29 58 29H147Q164 29 164 47V93Q164 107 150 107H52Q39 107 39 93Z" fill="#242a30" stroke="#d4dae0" stroke-width="4"/><path d="M40 53H164" stroke="#f4a853" stroke-width="6"/><rect x="88" y="74" width="29" height="12" rx="3" fill="#a7b3bd"/><path d="M62 29V20H142V29" fill="none" stroke="#f4a853" stroke-width="5"/>',
+ bolsa:'<path d="M62 30L143 32L162 100H43Z" fill="#242a32" stroke="#cad4db" stroke-width="4" stroke-linejoin="round"/><path d="M69 41L134 42L146 86H57Z" fill="#4d5b69" stroke="#f4a853" stroke-width="4"/><path d="M75 50L128 51" stroke="#e7edf2" stroke-width="3"/><rect x="94" y="92" width="22" height="7" rx="2" fill="#e6a463"/>',
+ protetor:'<path d="M50 25H144L165 49V87L144 110H56L35 85V52Z" fill="none" stroke="#cad2db" stroke-width="9" stroke-linejoin="round"/><circle cx="99" cy="68" r="30" fill="#222a32" stroke="#efaa6d" stroke-width="6"/><path d="M99 44V92M77 68H120" stroke="#8496a7" stroke-width="6"/><circle cx="99" cy="68" r="8" fill="#121920"/>',
+ manoplas:'<rect x="38" y="43" width="124" height="42" rx="21" fill="#20272e" stroke="#d2d9df" stroke-width="4"/><path d="M55 45V82M68 45V82M81 45V82M94 45V82M107 45V82M120 45V82M133 45V82" stroke="#626e7b" stroke-width="5"/><rect x="145" y="40" width="17" height="49" rx="6" fill="#f2a85b"/><rect x="37" y="40" width="12" height="49" rx="5" fill="#f2a85b"/>',
+ bolha:'<path d="M98 15Q151 25 158 67L140 114H59L42 67Q48 25 98 15Z" fill="#84a0ae" fill-opacity=".67" stroke="#d9e5eb" stroke-width="4"/><path d="M99 26Q130 33 141 63L132 97H68L57 63Q67 32 99 26Z" fill="#2c3b4a" fill-opacity=".75" stroke="#f2ab64" stroke-width="3"/><path d="M67 104H132" stroke="#f2ab64" stroke-width="7"/><circle cx="78" cy="105" r="4" fill="#1c252c"/><circle cx="122" cy="105" r="4" fill="#1c252c"/>'
  };
- function renderProducts(){
-  const shown=products.filter(p=>category==='todos'||p.category===category);
-  byId('catalogCount').textContent=shown.length+' opç'+(shown.length===1?'ão':'ões');
-  byId('motoProdutos').innerHTML=shown.map(p=>{
-   const yes=selected.has(p.id);
-   return '<article class="product-card" aria-selected="'+yes+'">'+
-    '<div><div class="product-top"><span class="product-icon" aria-hidden="true">'+p.icon+'</span>'+(yes?'<span class="selected-check" aria-hidden="true">✓</span>':'')+'</div>'+
-    '<h4>'+escapeHTML(p.name)+'</h4><p>'+escapeHTML(p.desc)+'</p></div>'+
-    '<button type="button" class="btn-primary" data-toggle="'+p.id+'" aria-pressed="'+yes+'">'+(yes?'✓ Adicionado':'＋ Adicionar')+'</button></article>';
-  }).join('');
+ const supportBase='<path d="M100 104V124M70 124H130" fill="none" stroke="#d7e1e5" stroke-width="8" stroke-linecap="round"/><path d="M68 52H56V78H68M132 52H144V78H132" fill="none" stroke="#faad62" stroke-width="7" stroke-linecap="round"/>';
+ const extra=type==='suporte'?supportBase+(model==='antivibracao'?'<path d="M87 109L94 115L102 109L110 115" stroke="#f1b26e" stroke-width="4" fill="none"/>':''):'';
+ return '<svg viewBox="0 0 200 135" role="img" aria-label="Desenho de '+safe(groups.find(g=>g.id===type)?.name||'acessório')+'" xmlns="http://www.w3.org/2000/svg"><ellipse cx="100" cy="120" rx="70" ry="7" fill="#060c12" opacity=".33"/>'+ (shapes[type]||'')+extra+'</svg>';
+}
+function loadSaved(){
+ try{
+  const prior=JSON.parse(localStorage.getItem(KEY)||'null');
+  if(prior&&typeof prior==='object'&&!Array.isArray(prior)){
+   for(const group of groups)if(variants[group.id].some(v=>v.id===prior[group.id]))selected[group.id]=prior[group.id];
+   return;
+  }
+ }catch{}
+ try{
+  // Seleções antigas eram só categorias; não criar um modelo específico sem escolha do visitante.
+  const previous=JSON.parse(localStorage.getItem(OLD_KEY)||'[]');
+  if(Array.isArray(previous))for(const id of previous)if(groups.some(g=>g.id===id))selected[id]='';
+ }catch{}
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(selected))}catch{}}
+function chosenCount(){return Object.keys(selected).length}
+function renderCounts(){
+ const n=chosenCount();
+ q('tabMinha').textContent='Minha moto ('+n+')';
+ q('myCount').textContent=n+' acessório'+(n===1?' escolhido':'s escolhidos');
+ q('btnVerMontagem').textContent='Ver minha montagem ('+n+') →';
+ q('btnMontagemDetalhe').textContent='Ver minha moto ('+n+') →';
+}
+function renderGroups(){
+ const items=groups.filter(g=>category==='todos'||g.type===category);
+ q('catalogCount').textContent=items.length+' categoria'+(items.length===1?'':'s');
+ q('motoProdutos').innerHTML=items.map(g=>{
+  const has=Object.prototype.hasOwnProperty.call(selected,g.id);
+  return '<button type="button" class="group-card" data-group="'+g.id+'" data-chosen="'+has+'" aria-label="Escolher modelo de '+safe(g.name)+'">'+
+   '<div class="group-visual">'+visual(g.id)+'</div>'+
+   '<div><h4>'+safe(g.name)+'</h4><p>'+variants[g.id].length+' modelos disponíveis para escolher</p></div>'+
+   '<div class="group-bottom"><span>'+(has?(selected[g.id]?'✓ Modelo escolhido':'Escolher modelo'):'Escolher modelo')+'</span><strong aria-hidden="true">›</strong></div></button>';
+ }).join('');
+}
+function renderDetail(){
+ const group=groups.find(g=>g.id===activeGroup);
+ q('catalogBrowse').hidden=!!group;
+ q('catalogDetail').hidden=!group;
+ q('motoFiltros').hidden=!!group;
+ q('catalogCount').hidden=!!group;
+ if(!group)return;
+ q('detailTitle').textContent=group.name;
+ q('detailDescription').textContent='Escolha uma opção para adicionar à sua FZ25. Os modelos abaixo são exemplos e precisam ter sua compatibilidade confirmada.';
+ q('modelCount').textContent=variants[group.id].length+' MODELOS';
+ q('motoModelos').innerHTML=variants[group.id].map(v=>{
+  const yes=selected[group.id]===v.id;
+  return '<article class="variant-card" data-chosen="'+yes+'">'+
+   '<div class="group-visual">'+visual(group.id,v.id)+'</div>'+
+   '<div><h4>'+safe(v.name)+'</h4><p>'+safe(v.desc)+'</p></div>'+
+   '<button type="button" class="'+(yes?'btn-outline':'btn-primary')+'" data-model="'+v.id+'" aria-pressed="'+yes+'">'+
+    (yes?'✓ Selecionado — tocar para retirar':'＋ Escolher este modelo')+'</button></article>';
+ }).join('');
+}
+function renderBuild(){
+ const list=groups.filter(g=>Object.prototype.hasOwnProperty.call(selected,g.id));
+ if(!list.length){
+  q('motoMontagem').innerHTML='<div class="empty"><span class="icon" aria-hidden="true">◇</span><strong class="empty-heading">Sua montagem está vazia</strong><span>Escolha um modelo de acessório para personalizar sua moto.</span></div>';
+  return;
  }
- function renderBuild(){
-  const chosen=products.filter(p=>selected.has(p.id));
-  if(!chosen.length){byId('motoMontagem').innerHTML='<div class="empty"><span class="icon" aria-hidden="true">📦</span><strong>Sua montagem está vazia</strong><span>Selecione acessórios para personalizar sua FZ25.</span></div>';return}
-  byId('motoMontagem').innerHTML=chosen.map(p=>'<article class="build-item">'+
-    '<div class="build-header"><div class="build-heading"><span class="product-icon" aria-hidden="true">'+p.icon+'</span><strong>'+escapeHTML(p.name)+'</strong></div>'+
-    '<button type="button" class="remove-btn" data-remove="'+p.id+'" aria-label="Remover '+escapeHTML(p.name)+' da montagem">×</button></div>'+
-    '<button type="button" class="btn-outline offer-toggle" data-shops="'+p.id+'" aria-expanded="'+(openShop===p.id)+'">🛍️ '+(openShop===p.id?'Ocultar lojas':'Ver opções de compra')+'</button>'+
-    (openShop===p.id?'<div class="offer-panel"><div class="shop-options"><button type="button" disabled title="Link de afiliado ainda não cadastrado">Shopee · em breve</button><button type="button" disabled title="Link de afiliado ainda não cadastrado">Mercado Livre · em breve</button></div><p>Os links de afiliado serão ativados após o cadastro das ofertas reais.</p></div>':'')+
-    '</article>').join('');
- }
- function render(){counts();renderProducts();renderBuild()}
- function setTab(next){
-  if(!['catalogo','minha'].includes(next))return;
-  tab=next;const mine=tab==='minha';
-  byId('motoTabs').style.setProperty('--idx',mine?'1':'0');
-  byId('tabAcessorios').setAttribute('aria-selected',String(!mine));
-  byId('tabMinha').setAttribute('aria-selected',String(mine));
-  byId('painelAcessorios').hidden=mine;byId('painelMinha').hidden=!mine;
-  render();
- }
- function setCategory(next){
-  const cats=['todos','viagem','protecao','estilo'];
-  if(!cats.includes(next))return;
-  category=next;byId('motoFiltros').style.setProperty('--idx',String(cats.indexOf(next)));
-  byId('motoFiltros').querySelectorAll('[data-cat]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.cat===next)));
-  renderProducts();
- }
- function toggle(id){
-  if(!products.some(p=>p.id===id))return;
-  if(selected.has(id)){selected.delete(id);if(openShop===id)openShop=''}
-  else selected.add(id);
-  try{localStorage.setItem(KEY,JSON.stringify([...selected]))}catch{}
-  render();
- }
- byId('motoTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)setTab(b.dataset.tab)});
- byId('motoFiltros').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b)setCategory(b.dataset.cat)});
- byId('motoProdutos').addEventListener('click',e=>{const b=e.target.closest('[data-toggle]');if(b)toggle(b.dataset.toggle)});
- byId('motoMontagem').addEventListener('click',e=>{
-  const remove=e.target.closest('[data-remove]');if(remove){toggle(remove.dataset.remove);return}
-  const shops=e.target.closest('[data-shops]');if(shops){openShop=openShop===shops.dataset.shops?'':shops.dataset.shops;renderBuild()}
- });
- byId('btnVerMontagem').onclick=()=>setTab('minha');
- byId('btnMais').onclick=()=>setTab('catalogo');
- const img=byId('fz25Foto');
- img.onerror=()=>{if(img.dataset.fallback)return;img.dataset.fallback='1';img.src='https://production.autoforce.com/uploads/version/profile_image/11636/model_main_webp_comprar-titanium-grey-cinza-fosco_64db317cef.png.webp';img.onerror=()=>{img.hidden=true;byId('fz25Fallback').style.display='flex'}};
+ q('motoMontagem').innerHTML=list.map(g=>{
+  const variant=variants[g.id].find(v=>v.id===selected[g.id]);
+  const title=variant?.name||g.name;
+  return '<article class="build-item"><div class="build-header"><div class="build-heading">'+
+   '<div class="group-visual">'+visual(g.id,variant?.id||'')+'</div>'+
+   '<span><strong>'+safe(title)+'</strong><small>'+safe(g.name)+(variant?'':' · modelo pendente')+'</small></span></div>'+
+   '<button type="button" class="remove-btn" data-remove="'+g.id+'" aria-label="Remover '+safe(g.name)+'">×</button></div>'+
+   '<div class="build-actions"><button type="button" class="btn-outline" data-change="'+g.id+'">'+(variant?'Trocar modelo':'Escolher modelo')+'</button>'+
+   '<button type="button" class="btn-outline" data-shops="'+g.id+'" aria-expanded="'+(openShop===g.id)+'" '+(variant?'':'disabled')+'>Lojas</button></div>'+
+   (openShop===g.id&&variant?'<div class="offer-panel"><div class="shop-options"><button type="button" disabled>Shopee · em breve</button><button type="button" disabled>Mercado Livre · em breve</button></div><p>Links de afiliados ainda não cadastrados.</p></div>':'')+'</article>';
+ }).join('');
+}
+function render(){renderCounts();renderGroups();renderDetail();renderBuild()}
+function setTab(next){
+ if(!['catalogo','minha'].includes(next))return;
+ haptic();
+ tab=next;
+ const mine=tab==='minha';
+ q('motoTabs').style.setProperty('--idx',mine?'1':'0');
+ q('tabAcessorios').setAttribute('aria-selected',String(!mine));
+ q('tabMinha').setAttribute('aria-selected',String(mine));
+ q('painelAcessorios').hidden=mine;
+ q('painelMinha').hidden=!mine;
  render();
+}
+function setCategory(next){
+ const cats=['todos','viagem','protecao','estilo'];
+ if(!cats.includes(next)||category===next)return;
+ haptic();category=next;
+ const target=++renderEpoch;
+ q('motoFiltros').style.setProperty('--idx',String(cats.indexOf(next)));
+ q('motoFiltros').querySelectorAll('[data-cat]').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.cat===next)));
+ const grid=q('motoProdutos');
+ if(fadeTimer)clearTimeout(fadeTimer);
+ if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches){
+  grid.classList.remove('is-transitioning');renderGroups();return;
+ }
+ grid.classList.add('is-transitioning');
+ fadeTimer=setTimeout(()=>{
+  if(target!==renderEpoch)return;
+  renderGroups();
+  requestAnimationFrame(()=>grid.classList.remove('is-transitioning'));
+ },125);
+}
+function openGroup(id){
+ if(!groups.some(g=>g.id===id))return;
+ haptic();activeGroup=id;tab='catalogo';setTab('catalogo');renderDetail();
+ q('catalogDetail').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function choose(model){
+ const all=variants[activeGroup]||[];
+ if(!all.some(v=>v.id===model))return;
+ haptic();
+ if(selected[activeGroup]===model)delete selected[activeGroup];
+ else selected[activeGroup]=model;
+ save();renderCounts();renderDetail();renderBuild();
+}
+function remove(group){
+ if(!Object.prototype.hasOwnProperty.call(selected,group))return;
+ haptic();delete selected[group];if(openShop===group)openShop='';
+ save();render(); 
+}
+q('motoTabs').addEventListener('click',e=>{
+ const button=e.target.closest('[data-tab]');if(button)setTab(button.dataset.tab);
+});
+q('motoFiltros').addEventListener('click',e=>{
+ const button=e.target.closest('[data-cat]');if(button)setCategory(button.dataset.cat);
+});
+q('motoProdutos').addEventListener('click',e=>{
+ const button=e.target.closest('[data-group]');if(button)openGroup(button.dataset.group);
+});
+q('motoModelos').addEventListener('click',e=>{
+ const button=e.target.closest('[data-model]');if(button)choose(button.dataset.model);
+});
+q('motoMontagem').addEventListener('click',e=>{
+ const rem=e.target.closest('[data-remove]');
+ if(rem){remove(rem.dataset.remove);return}
+ const change=e.target.closest('[data-change]');
+ if(change){openGroup(change.dataset.change);return}
+ const shops=e.target.closest('[data-shops]');
+ if(shops&&!shops.disabled){
+  haptic();openShop=openShop===shops.dataset.shops?'':shops.dataset.shops;
+  renderBuild();
+ }
+});
+q('btnVoltarCategorias').onclick=()=>{
+ haptic();activeGroup='';renderDetail();
+};
+q('btnVerMontagem').onclick=()=>setTab('minha');
+q('btnMontagemDetalhe').onclick=()=>setTab('minha');
+q('btnMais').onclick=()=>{
+ activeGroup='';setTab('catalogo');
+};
+const img=q('fz25Foto');
+img.onerror=()=>{
+ if(img.dataset.fallback)return;
+ img.dataset.fallback='1';
+ img.src='https://production.autoforce.com/uploads/version/profile_image/11636/model_main_webp_comprar-titanium-grey-cinza-fosco_64db317cef.png.webp';
+ img.onerror=()=>{img.hidden=true;q('fz25Fallback').style.display='flex'};
+};
+loadSaved();render();
 })();
 </script>
 </body>
