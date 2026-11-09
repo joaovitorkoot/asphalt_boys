@@ -8,11 +8,11 @@
 <p class="text-orange-400 text-xs font-black tracking-widest uppercase">Roteiros para motociclistas</p><h2 class="text-3xl sm:text-4xl font-black mt-2 mb-6">Planeje sua próxima viagem</h2>
 
 <div class="grid sm:grid-cols-2 gap-3">
-<button type="button" data-pick="guaramiranga" class="rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-black p-4 text-left">🌄 Planejar Guaramiranga</button>
-<button type="button" data-pick="canoa" class="rounded-xl bg-[#242932] hover:bg-[#343a45] border border-zinc-600 font-bold p-4 text-left">🏖️ Planejar Canoa Quebrada</button>
+<button type="button" data-pick="guaramiranga" class="abPlanPick rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-black p-4 text-left">🌄 Planejar Guaramiranga</button>
+<button type="button" data-pick="canoa" class="abPlanPick rounded-xl bg-[#242932] hover:bg-[#343a45] border border-zinc-600 font-bold p-4 text-left">🏖️ Planejar Canoa Quebrada</button>
 </div><p class="text-zinc-500 text-xs mt-4">Confira os pontos no Google Maps antes de sair.</p>
 </div></section>
-<section class="max-w-7xl mx-auto px-5 py-12"><div class="grid md:grid-cols-3 gap-4"><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">🧭</div><h3 class="font-extrabold text-lg">Origem personalizada</h3><p class="text-zinc-400 text-sm mt-2">Comece pela sua localização atual ou escolha outra cidade.</p></div><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">🛣️</div><h3 class="font-extrabold text-lg">Caminhos diferentes</h3><p class="text-zinc-400 text-sm mt-2">Compare trajetos sugeridos e abra a navegação no seu app.</p></div><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">📍</div><h3 class="font-extrabold text-lg">Paradas especiais</h3><p class="text-zinc-400 text-sm mt-2">Encontre mirantes e atrações para aproveitar melhor o passeio.</p></div></div></section>
+<section class="max-w-7xl mx-auto px-5 py-12"><div class="grid md:grid-cols-3 gap-4"><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">🧭</div><h3 class="font-extrabold text-lg">Origem personalizada</h3><p class="text-zinc-400 text-sm mt-2">Comece pela localização atual ou confirme um ponto de saída no Maps.</p></div><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">🛣️</div><h3 class="font-extrabold text-lg">Caminhos diferentes</h3><p class="text-zinc-400 text-sm mt-2">Compare trajetos sugeridos e abra a navegação no seu app.</p></div><div class="soft p-6 rounded-2xl"><div class="text-3xl mb-4">📍</div><h3 class="font-extrabold text-lg">Paradas especiais</h3><p class="text-zinc-400 text-sm mt-2">Encontre mirantes e atrações para aproveitar melhor o passeio.</p></div></div></section>
 <section id="avaliacoes" class="max-w-7xl mx-auto px-5 py-14"><div class="border-t border-white/10 pt-12 flex flex-col md:flex-row md:items-center justify-between gap-7"><div><p class="text-orange-400 font-black text-xs tracking-widest uppercase">Sua experiência importa</p><h2 class="text-3xl font-black mt-2">Como foi a viagem?</h2><p class="text-zinc-400 mt-3 max-w-xl">Avalie o destino. Sua nota fica salva neste aparelho.</p></div><div class="soft p-6 rounded-2xl min-w-[270px]"><label for="avaliarDestino" class="text-sm font-bold block mb-3">Destino avaliado</label><select id="avaliarDestino" class="field rounded-lg p-3 w-full"></select><div class="flex gap-2 mt-4" id="estrelas" aria-label="Avaliação de uma a cinco estrelas"></div><p id="nota" aria-live="polite" class="text-xs text-zinc-400 mt-3">Selecione uma nota.</p></div></div></section>
 <section id="sobre" class="bg-[#13161b] border-t border-white/10 mt-8"><div class="max-w-7xl mx-auto px-5 py-14 flex flex-col md:flex-row justify-between gap-8"><div><div class="text-2xl font-black italic">ASPHALT <span class="text-orange-500">BOYS</span></div><p class="text-zinc-400 max-w-lg mt-4">Um grupo de amigos apaixonados por motos, aventura, liberdade e pelas histórias que surgem em cada estrada.</p><p class="text-sm italic text-zinc-300 mt-5">“Lembre: a 1ª é pra baixo. O resto é pra cima...”</p></div><div class="text-sm text-zinc-400 md:text-right"><p class="font-bold text-white mb-3">Explore</p><a class="block mb-2 hover:text-white" href="#destinos">Destinos</a><a class="block mb-2 hover:text-white" href="#planejador">Planejador</a><p class="mt-8">Horizonte · Ceará</p></div></div><div class="max-w-7xl mx-auto px-5 py-5 border-t border-white/10 text-xs text-zinc-500">© <span id="ano"></span> Asphalt Boys · Feito para quem vive a estrada.</div></section></main>
 <script>
@@ -24,7 +24,7 @@ const abSafeUrl=value=>{try{const u=new URL(value);return u.protocol==='https:'?
 const abEl=id=>document.getElementById(id);
 const abEsc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 function renderAsphaltCards(){
- abEl('cards').innerHTML=lugares.map(l=>'<article class="soft overflow-hidden rounded-2xl group"><div class="relative"><img class="cardpic group-hover:scale-[1.03] transition duration-500" loading="lazy" src="'+abEsc(l.img)+'" alt="Imagem de '+abEsc(l.nome)+'"><span class="absolute right-3 bottom-3 bg-black/70 backdrop-blur px-3 py-1 rounded-full text-[11px]">'+abEsc(l.note||'Destino')+'</span></div>'+ (l.fotoLicenca?'<details class="text-xs text-zinc-400 px-3 pt-1"><summary class="cursor-pointer select-none" title="Créditos da foto" aria-label="Créditos da foto">ⓘ</summary><p class="mt-1 mb-1">'+abEsc(l.fotoAutor||'Autor informado na fonte')+' · '+abEsc(l.fotoLicenca)+(abSafeUrl(l.fotoFonteUrl)?' · <a class="underline" target="_blank" rel="noopener noreferrer" href="'+abEsc(abSafeUrl(l.fotoFonteUrl))+'">Original</a>':'')+(abSafeUrl(l.fotoLicencaUrl)?' · <a class="underline" target="_blank" rel="noopener noreferrer" href="'+abEsc(abSafeUrl(l.fotoLicencaUrl))+'">Licença</a>':'')+' · foto adaptada</p></details>':'')+'<div class="p-6"><h3 class="text-2xl font-black mt-1">'+abEsc(l.nome)+'</h3><p class="text-zinc-400 text-sm mt-2 min-h-11">'+abEsc(l.sub)+'</p><button type="button" data-pick="'+abEsc(l.id)+'" class="mt-5 text-orange-400 font-bold hover:text-orange-300">Planejar viagem ↗</button></div></article>').join('');
+ abEl('cards').innerHTML=lugares.map(l=>'<article class="soft abDestinationCard overflow-hidden rounded-2xl group"><div class="relative"><img class="cardpic group-hover:scale-[1.03] transition duration-500" loading="lazy" src="'+abEsc(l.img)+'" alt="Imagem de '+abEsc(l.nome)+'"><span class="absolute right-3 bottom-3 bg-black/70 backdrop-blur px-3 py-1 rounded-full text-[11px]">'+abEsc(l.note||'Destino')+'</span></div>'+ (l.fotoLicenca?'<details class="text-xs text-zinc-400 px-3 pt-1"><summary class="cursor-pointer select-none" title="Créditos da foto" aria-label="Créditos da foto">ⓘ</summary><p class="mt-1 mb-1">'+abEsc(l.fotoAutor||'Autor informado na fonte')+' · '+abEsc(l.fotoLicenca)+(abSafeUrl(l.fotoFonteUrl)?' · <a class="underline" target="_blank" rel="noopener noreferrer" href="'+abEsc(abSafeUrl(l.fotoFonteUrl))+'">Original</a>':'')+(abSafeUrl(l.fotoLicencaUrl)?' · <a class="underline" target="_blank" rel="noopener noreferrer" href="'+abEsc(abSafeUrl(l.fotoLicencaUrl))+'">Licença</a>':'')+' · foto adaptada</p></details>':'')+'<div class="p-6"><h3 class="text-2xl font-black mt-1">'+abEsc(l.nome)+'</h3><p class="text-zinc-400 text-sm mt-2 min-h-11">'+abEsc(l.sub)+'</p><button type="button" data-pick="'+abEsc(l.id)+'" class="mt-5 text-orange-400 font-bold hover:text-orange-300">Planejar viagem ↗</button></div></article>').join('');
  document.querySelectorAll('#cards img').forEach(img=>{img.onerror=()=>{const l=lugares.find(p=>img.alt==='Imagem de '+p.nome);img.onerror=null;if(l&&l.fallbackImg){img.src=l.fallbackImg;const tag=img.nextElementSibling;if(tag)tag.textContent='Foto ilustrativa';}}});
  abEl('avaliarDestino').innerHTML=lugares.map(l=>'<option value="'+abEsc(l.id)+'">'+abEsc(l.nome)+'</option>').join('');
  renderAsphaltRatings();
@@ -103,7 +103,9 @@ renderAsphaltCards();
 .tripDayAdd:disabled{opacity:.5;cursor:not-allowed}
 /* Estados visuais do planejador: movimento sutil, sem alterar o layout ou os eventos. */
 .tripOriginChoice,.tripTab,.tripCat,.tripStop,.tripPicked,.tripNavBtn,.tripBtn,
-.tripPresetCard,.tripDayCard,.tripDayAdd{transition:transform .19s ease,box-shadow .19s ease,border-color .19s ease,background-color .19s ease,filter .19s ease}
+.tripPresetCard,.tripDayCard,.tripDayAdd,.abDestinationCard,.abPlanPick{transition:transform .19s ease,box-shadow .19s ease,border-color .19s ease,background-color .19s ease,filter .19s ease}
+.abDestinationCard{border:1px solid #3d434d;background:linear-gradient(140deg,#1b222b,#12171e)}
+.abPlanPick{box-shadow:0 2px 13px #0003}
 .tripOriginChoice[aria-pressed="true"],.tripTab[aria-selected="true"],.tripCat[aria-pressed="true"]{
  background:linear-gradient(135deg,rgba(249,115,22,.29),rgba(74,39,26,.45) 70%,rgba(26,31,39,.9));
  border-color:#fb923c;color:#ffd4b0;box-shadow:inset 0 1px 0 #ffcc9b18,0 0 0 1px #fb923c19,0 7px 23px #fb923c0b
@@ -131,6 +133,10 @@ renderAsphaltCards();
   transform:translateY(-1px) scale(1.025);border-color:#fb923c;background-image:linear-gradient(125deg,#62402b,#332a2a);color:#ffd1ac;box-shadow:0 6px 16px #0005
  }
  .tripBtn:not(:disabled):hover{transform:translateY(-2px) scale(1.02);filter:brightness(1.08);box-shadow:0 10px 22px #f9731640}
+ .abDestinationCard:hover{transform:translateY(-3px) scale(1.005);border-color:#f7a66f;
+  box-shadow:0 15px 35px #0007,0 0 0 1px #fb923c18;
+  background-image:linear-gradient(140deg,#3e302a,#1c232d 72%)}
+ .abPlanPick:hover{transform:translateY(-2px) scale(1.015);box-shadow:0 9px 20px #0006}
  .tripNavBtn[data-add-stop][aria-pressed="true"]:hover{transform:none;background-image:linear-gradient(120deg,#ffb25e,#f97316);color:#1b1714}
  /* A aba selecionada mantém o laranja também quando o mouse passa. */
  .tripTab[aria-selected="true"]:hover,.tripCat[aria-pressed="true"]:hover,.tripOriginChoice[aria-pressed="true"]:hover{
@@ -141,7 +147,7 @@ renderAsphaltCards();
 }
 @media (prefers-reduced-motion:reduce){
  .tripOriginChoice,.tripTab,.tripCat,.tripStop,.tripPicked,.tripNavBtn,.tripBtn,
- .tripPresetCard,.tripDayCard,.tripDayAdd,.tripOriginCandidate{transition:none!important;transform:none!important}
+ .tripPresetCard,.tripDayCard,.tripDayAdd,.tripOriginCandidate,.abDestinationCard,.abPlanPick{transition:none!important;transform:none!important}
 }
 
 .tripPresetCard{border:1px solid #434953;padding:16px;background:#1b2028;border-radius:13px}
