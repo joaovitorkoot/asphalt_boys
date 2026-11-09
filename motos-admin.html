@@ -70,7 +70,7 @@ button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity
  <form id="productForm" hidden style="margin-top:20px">
   <h2 id="productFormHeading">Cadastrar modelo</h2>
   <div class="grid">
-   <div class="field"><label for="productBike">Moto compatível</label><select id="productBike" required></select></div>
+   <div class="field"><label for="productUniversal">Compatibilidade</label><label style="display:flex;gap:9px;align-items:center"><input type="checkbox" id="productUniversal" style="width:21px;min-height:21px"> Produto universal (todas as motos)</label><label for="productBike">Moto específica</label><select id="productBike" required></select></div>
    <div class="field"><label for="productGroup">Tipo de acessório</label><select id="productGroup" required>
     <option value="suporte">Suporte para celular</option><option value="bau">Baú traseiro</option><option value="bolsa">Bolsa de tanque</option><option value="protetor">Protetor de motor</option><option value="manoplas">Manoplas</option><option value="bolha">Bolha esportiva</option>
    </select></div>
@@ -205,8 +205,8 @@ function render(){
  q('bikes').innerHTML=catalog.motos.map(m=>'<div class="item"><div class="line"><div><strong>'+esc(m.nome)+'</strong> <span class="tag">'+esc(m.status)+'</span><p>'+esc(m.descricao||'Sem descrição')+'</p></div><button type="button" data-bike-edit="'+esc(m.id)+'">Editar</button></div></div>').join('');
  const bikeId=q('filterBike').value,cat=q('filterCategory').value;
  const gs=(catalog.grupos?.[bikeId]||groups.map(([id,nome,categoria])=>({id,nome,categoria,modelos:[]}))).filter(g=>!cat||g.categoria===cat);
- q('groupCards').innerHTML=gs.map(g=>'<article class="item"><div class="line"><div><strong>'+esc(g.nome)+'</strong><p>'+((catalog.acessorios||[]).filter(a=>a.bikeId===bikeId&&a.grupoId===g.id).length)+' modelos cadastrados</p></div><div class="actions" style="margin:0"><button type="button" data-open-group="'+esc(g.id)+'">'+(openedGroup===g.id?'Fechar':'Abrir')+'</button><button type="button" data-edit-group="'+esc(g.id)+'">Editar categoria</button></div></div>'+(g.foto?'<img class="preview" style="margin-top:8px" src="'+esc(g.foto)+'" alt="'+esc(g.nome)+'">':'')+'</article>').join('');
- const rows=(catalog.acessorios||[]).filter(a=>a.bikeId===bikeId&&a.grupoId===openedGroup);
+ q('groupCards').innerHTML=gs.map(g=>'<article class="item"><div class="line"><div><strong>'+esc(g.nome)+'</strong><p>'+((catalog.acessorios||[]).filter(a=>(a.universal||a.bikeId==='universal'||a.bikeId===bikeId)&&a.grupoId===g.id).length)+' modelos cadastrados</p></div><div class="actions" style="margin:0"><button type="button" data-open-group="'+esc(g.id)+'">'+(openedGroup===g.id?'Fechar':'Abrir')+'</button><button type="button" data-edit-group="'+esc(g.id)+'">Editar categoria</button></div></div>'+(g.foto?'<img class="preview" style="margin-top:8px" src="'+esc(g.foto)+'" alt="'+esc(g.nome)+'">':'')+'</article>').join('');
+ const rows=(catalog.acessorios||[]).filter(a=>(a.universal||a.bikeId==='universal'||a.bikeId===bikeId)&&a.grupoId===openedGroup);
  q('products').hidden=!openedGroup;
  q('products').innerHTML=openedGroup?'<div class="line"><h2>'+esc(gs.find(g=>g.id===openedGroup)?.nome||groups.find(g=>g[0]===openedGroup)?.[1]||'Modelos')+'</h2><button type="button" data-add-group="'+esc(openedGroup)+'">＋ Adicionar modelo</button></div>'+(rows.length?rows.map(a=>'<article class="item"><div class="line"><div><strong>'+esc(a.nome)+'</strong> <span class="tag">'+esc(a.status)+'</span><p>'+(a.shopee?'Shopee ✓ ':'')+(a.mercadolivre?'Mercado Livre ✓':'')+'</p></div><div class="actions" style="margin:0"><button type="button" data-edit="'+esc(a.id)+'">Editar</button><button type="button" data-delete="'+esc(a.id)+'">Excluir</button></div></div></article>').join(''):'<p>Sem produtos cadastrados.</p>'):'';
 
@@ -227,8 +227,9 @@ q('groupForm').onsubmit=async e=>{e.preventDefault();const button=e.target.query
  }catch(err){note(err.message)}finally{button.disabled=false}};
 q('newBike').onclick=()=>{bikeEditing='';q('bikeForm').reset();showImagePreview('bikeImage');q('bikeForm').hidden=false;q('bikeFormHeading').textContent='Cadastrar moto';q('bikeForm').scrollIntoView({behavior:'smooth',block:'nearest'})};
 q('cancelBike').onclick=()=>q('bikeForm').hidden=true;
-q('newProduct').onclick=()=>{productEditing='';productPhotos=[];q('productForm').reset();showImagePreview('productImage');renderGallery();q('productStatus').value='rascunho';q('productBike').value=q('filterBike').value;if(openedGroup)q('productGroup').value=openedGroup;q('productFormHeading').textContent='Cadastrar modelo';q('productForm').hidden=false;q('productForm').scrollIntoView({behavior:'smooth',block:'nearest'})};
+q('newProduct').onclick=()=>{productEditing='';productPhotos=[];q('productForm').reset();q('productUniversal').checked=false;q('productBike').disabled=false;showImagePreview('productImage');renderGallery();q('productStatus').value='rascunho';q('productBike').value=q('filterBike').value;if(openedGroup)q('productGroup').value=openedGroup;q('productFormHeading').textContent='Cadastrar modelo';q('productForm').hidden=false;q('productForm').scrollIntoView({behavior:'smooth',block:'nearest'})};
 q('cancelProduct').onclick=()=>q('productForm').hidden=true;
+q('productUniversal').onchange=()=>{q('productBike').disabled=q('productUniversal').checked};
 q('filterBike').onchange=()=>{openedGroup='';q('groupForm').hidden=true;render()};
 q('filterCategory').onchange=()=>{openedGroup='';render()};
 q('bikes').onclick=e=>{
@@ -248,7 +249,7 @@ q('products').onclick=async e=>{
   return;
  }
  productEditing=id;
- q('productBike').value=item.bikeId;q('productGroup').value=item.grupoId;q('productName').value=item.nome;
+ q('productUniversal').checked=!!item.universal||item.bikeId==='universal';q('productBike').disabled=q('productUniversal').checked;q('productBike').value=q('productUniversal').checked?q('filterBike').value:item.bikeId;q('productGroup').value=item.grupoId;q('productName').value=item.nome;
  q('productDescription').value=item.descricao||'';productPhotos=[...new Set((item.fotos?.length?item.fotos:[item.foto]).filter(Boolean))].slice(0,5);q('productImage').value=productPhotos[0]||'';showImagePreview('productImage');renderGallery();
  q('productShopee').value=item.shopee||'';q('productMercado').value=item.mercadolivre||'';q('productStatus').value=item.status;
  q('productFormHeading').textContent='Editar '+item.nome;q('productForm').hidden=false;q('productForm').scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -270,7 +271,7 @@ q('productForm').onsubmit=async e=>{
   const group=q('productGroup').value;
   const main=q('productImage').value.trim();
   if(main&&(!productPhotos.length||productPhotos[0]!==main))syncPrincipalGallery();
-  await request('POST',{kind:'acessorio',record:{id:productEditing||newId('part'),bikeId:q('productBike').value,grupoId:group,categoria:groupCategory(group),nome:q('productName').value,descricao:q('productDescription').value,foto:productPhotos[0]||'',fotos:productPhotos,shopee:q('productShopee').value,mercadolivre:q('productMercado').value,status:q('productStatus').value}});
+  await request('POST',{kind:'acessorio',record:{id:productEditing||newId('part'),bikeId:q('productBike').value,universal:q('productUniversal').checked,grupoId:group,categoria:groupCategory(group),nome:q('productName').value,descricao:q('productDescription').value,foto:productPhotos[0]||'',fotos:productPhotos,shopee:q('productShopee').value,mercadolivre:q('productMercado').value,status:q('productStatus').value}});
   q('productForm').hidden=true;await reload();
  }catch(err){note(err.message)}finally{button.disabled=false}
 };
