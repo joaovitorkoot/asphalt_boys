@@ -1,3 +1,4 @@
+import {sessionFor,sameOrigin} from './auth.js';
 // Asphalt Boys: upload autenticado de imagens otimizadas, usando o D1 já existente.
 // Não precisa configurar outra conta ou armazenamento externo.
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
@@ -16,7 +17,9 @@ async function auth(req,env){
 }
 export async function onRequestPost({request,env}){
  if(!env.DB)return json({error:"Banco de imagens não configurado."},503);
- if(!(await auth(request,env)))return json({error:"Conecte ao banco com o token de administrador."},401);
+ const legacy=await auth(request,env);
+ if(!legacy&&!(sameOrigin(request)&&await sessionFor(request,env)))
+  return json({error:"Entre no painel administrativo para enviar fotos."},401);
  const mime=(request.headers.get("Content-Type")||"").toLowerCase().split(";")[0].trim();
  if(!["image/webp","image/jpeg","image/png"].includes(mime))return json({error:"Use imagem WebP, JPEG ou PNG."},415);
  if(Number(request.headers.get("Content-Length")||0)>220000)return json({error:"Imagem muito grande. Tente outra imagem."},413);
