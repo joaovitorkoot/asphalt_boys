@@ -60,6 +60,11 @@ renderAsphaltCards();
 #tripCategories{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
 .tripCat{min-height:45px;padding:9px 5px;border:1px solid #464c56;border-radius:11px;background:#212630;text-align:center;font-size:12px;font-weight:700}
 .tripCat[aria-pressed=true]{border-color:#fb923c;background:#f9731624;color:#ffb677}
+.tripCategorySearch{display:flex;align-items:center;gap:7px;background:#20252d;border:1px solid #454b55;padding:5px 8px;border-radius:12px}
+.tripCategorySearch .tripField{flex:1;min-width:0;border:0;background:transparent;padding:8px;font-size:16px;min-height:40px}
+.tripCategorySearch .tripField:focus-visible{outline:none}
+.tripCategorySearch:focus-within{outline:2px solid #fb923c;outline-offset:1px}
+.tripCategorySearch button{min-height:35px;min-width:36px;font-size:22px;padding:4px}
 .tripStop{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;align-items:center;padding:12px;border:1px solid #3a414b;border-radius:13px;background:#1a1f26}
 .tripStop img,.tripFallback{width:80px;height:88px;object-fit:contain;background:#242b33;border-radius:10px}
 .tripFallback{background:#292e38;display:grid;place-items:center;font-size:28px}
@@ -175,7 +180,13 @@ renderAsphaltCards();
 <p id="tripDataStatus" class="tripTiny" role="status">Carregando paradas disponíveis…</p>
 <div id="tripCustomSection">
 <h3 class="font-black text-lg mb-1">Escolha suas paradas</h3><p class="tripTiny mb-3">Escolha uma categoria, toque em Prévia para conhecer o local e adicione ao roteiro.</p>
-<div id="tripCategories" class="mb-4"></div>
+<div id="tripCategories" class="mb-3"></div>
+<div class="tripCategorySearch mb-2" role="search" aria-label="Pesquisar locais da categoria atual">
+ <span aria-hidden="true">🔎</span>
+ <input id="tripSearch" type="search" class="tripField" autocomplete="off" aria-label="Pesquisar paradas nesta categoria" placeholder="Pesquisar nesta categoria">
+ <button id="tripSearchClear" type="button" class="tripNavBtn" aria-label="Limpar pesquisa" title="Limpar pesquisa">×</button>
+</div>
+<p id="tripSearchCount" class="tripTiny mb-3" role="status" aria-live="polite"></p>
 <div id="tripAvailable" class="space-y-2"></div>
 <p class="tripTiny mt-3">Escolha até 20 paradas. O Asphalt Boys organiza a viagem automaticamente em etapas de até 9 paradas, sempre na mesma ordem.</p>
 </div>
@@ -270,5 +281,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261108-auto9"></script>
+<script src="planejador.js?v=20261109-searchscroll"></script>
 </body></html>
