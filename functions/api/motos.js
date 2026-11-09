@@ -59,7 +59,12 @@ function clean(kind,input){
  if(!categories.includes(categoria))throw Error('Categoria inválida.');
  const grupoId=String(input.grupoId||'').trim();
  if(!ids(grupoId))throw Error('Categoria de acessório inválida.');
- return {id,nome,descricao:String(input.descricao||'').trim().slice(0,500),foto:cleanUrl(input.foto,{image:true}),status,bikeId,categoria,grupoId,shopee:cleanUrl(input.shopee),mercadolivre:cleanUrl(input.mercadolivre),order:Math.max(0,Math.min(9999,Number(input.order)||0))};
+ const fotosRaw=Array.isArray(input.fotos)?input.fotos:[],fotos=[];
+ for(const raw of fotosRaw.slice(0,5)){const photo=cleanUrl(raw,{image:true});if(photo&&!fotos.includes(photo))fotos.push(photo)}
+ const foto=cleanUrl(input.foto,{image:true});
+ if(foto&&!fotos.includes(foto))fotos.unshift(foto);
+ fotos.length=Math.min(fotos.length,5);
+ return {id,nome,descricao:String(input.descricao||'').trim().slice(0,500),foto:fotos[0]||foto,fotos,status,bikeId,categoria,grupoId,shopee:cleanUrl(input.shopee),mercadolivre:cleanUrl(input.mercadolivre),order:Math.max(0,Math.min(9999,Number(input.order)||0))};
 }
 async function load(db,all=false){
  await dbInit(db);
