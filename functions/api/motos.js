@@ -47,6 +47,11 @@ function clean(kind,input){
  const nome=String(input.nome||'').trim().slice(0,120);
  if(!nome)throw Error('Informe o nome.');
  const status=input.status==='publicado'?'publicado':'rascunho';
+ if(kind==='grupo'){
+  const bikeId=String(input.bikeId||'').trim(),grupoId=String(input.grupoId||'').trim();
+  if(!ids(bikeId)||!initialGroups.some(g=>g.id===grupoId))throw Error('Moto ou categoria inválida.');
+  return {id:'grupo-'+bikeId+'-'+grupoId,nome,descricao:'',foto:cleanUrl(input.foto,{image:true}),status:'publicado',bikeId,grupoId,categoria:initialGroups.find(g=>g.id===grupoId).categoria};
+ }
  if(kind==='moto')return {id,nome,descricao:String(input.descricao||'').trim().slice(0,320),foto:cleanUrl(input.foto,{image:true}),status,order:Math.max(0,Math.min(9999,Number(input.order)||0))};
  const bikeId=String(input.bikeId||'').trim();
  if(!ids(bikeId))throw Error('Selecione uma moto.');
@@ -59,34 +64,27 @@ function clean(kind,input){
 async function load(db,all=false){
  await dbInit(db);
  const rows=(await db.prepare("SELECT kind,payload FROM ab_motos_catalog ORDER BY updated_at ASC").all()).results||[];
- const motos=[],acessorios=[],registeredBikes=new Set();
+ const motos=[],acessorios=[],groupOverrides=[],registeredBikes=new Set();
  for(const row of rows)try{
   const value=JSON.parse(row.payload);
   if(row.kind==='moto')registeredBikes.add(value.id);
   if(!all&&value.status!=='publicado')continue;
   if(row.kind==='moto')motos.push(value);
   else if(row.kind==='acessorio')acessorios.push(value);
+  else if(row.kind==='grupo')groupOverrides.push(value);
  }catch{}
  for(const bike of initialBikes)if(!registeredBikes.has(bike.id))motos.push({...bike});
  motos.sort((a,b)=>(a.order||0)-(b.order||0));
  const grupos={};
  for(const bike of motos){
-  grupos[bike.id]=initialGroups.map(g=>({...g,modelos:[]}));
+  grupos[bike.id]=initialGroups.map(g=>{const override=groupOverrides.find(x=>x.bikeId===bike.id&&x.grupoId===g.id);return {...g,nome:override?.nome||g.nome,foto:override?.foto||'',modelos:[]}});
  }
  for(const item of acessorios){
   const arr=grupos[item.bikeId];if(!arr)continue;
   const group=arr.find(x=>x.id===item.grupoId);if(group)group.modelos.push(item);
  }
- for(const bike of motos){
-  // Exemplos de interface disponíveis somente enquanto a moto não tem itens cadastrados.
-  if(acessorios.some(x=>x.bikeId===bike.id))continue;
-  for(const group of grupos[bike.id]){
-   group.modelos=demoVariants[group.id].map(([id,nome,descricao])=>({
-    id:bike.id+'-'+id,nome,descricao,foto:'',shopee:'',mercadolivre:'',demo:true,grupoId:group.id,bikeId:bike.id,categoria:group.categoria,status:'publicado'
-   }));
-  }
- }
- return {motos,grupos,acessorios,demo:acessorios.length===0};
+
+ return {motos,grupos,acessorios,demo:false};
 }
 async function requireAdmin(request,env){
  if(!sameOrigin(request))return false;
@@ -108,15 +106,15 @@ export async function onRequestPost({request,env}){
  try{
   if(Number(request.headers.get('content-length')||0)>12000)return json({error:'Cadastro muito grande.'},413);
   const body=await request.json();
-  if(!['moto','acessorio'].includes(body.kind))return json({error:'Tipo inválido.'},400);
+  if(!['moto','acessorio','grupo'].includes(body.kind))return json({error:'Tipo inválido.'},400);
   const value=clean(body.kind,body.record);
   await dbInit(env.DB);
-  if(body.kind==='acessorio'){
+  if(body.kind==='acessorio'||body.kind==='grupo'){
    const motos=await load(env.DB,true);
    if(!motos.motos.some(x=>x.id===value.bikeId))return json({error:'Moto não encontrada.'},400);
   }
   await env.DB.prepare("INSERT INTO ab_motos_catalog(id,kind,bike_id,status,payload,updated_at) VALUES(?,?,?,?,?,datetime('now')) ON CONFLICT(id) DO UPDATE SET kind=excluded.kind,bike_id=excluded.bike_id,status=excluded.status,payload=excluded.payload,updated_at=datetime('now')")
-  .bind(value.id,body.kind,body.kind==='acessorio'?value.bikeId:'',value.status,JSON.stringify(value)).run();
+  .bind(value.id,body.kind,body.kind==='moto'?'':value.bikeId,value.status,JSON.stringify(value)).run();
   return json({ok:true,record:value});
  }catch(e){return json({error:String(e.message||e).slice(0,220)},400)}
 }
