@@ -99,7 +99,7 @@ renderAsphaltCards();
 .tripDayRename{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}
 .tripDayRename input{flex:1 1 175px;min-width:100px;font-size:16px}
 .tripDayEditor{border:1px solid #fb923c6b;border-radius:13px;padding:13px;background:#33261e4d}
-.tripDayAdd{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;border:1px dashed #f5a76a;border-radius:12px;min-height:48px;font-weight:800;color:#ffbc86;background:#2b2523}
+.tripDayAdd{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;padding:7px 11px;border:1px dashed #f5a76a;border-radius:10px;min-height:37px;font-size:12px;font-weight:800;color:#ffbc86;background:#2b2523}
 .tripDayAdd:disabled{opacity:.5;cursor:not-allowed}
 .tripPresetCard{border:1px solid #434953;padding:16px;background:#1b2028;border-radius:13px}
 .tripPresetStops{margin:13px 0 0 20px;list-style:decimal;color:#c5cbd4;font-size:13px}
@@ -209,7 +209,13 @@ renderAsphaltCards();
 <h3 class="font-black text-lg mb-3">Rotas prontas do grupo</h3><div id="tripPresets" class="space-y-3"></div>
 </div>
 <div id="tripMineSection" hidden>
-<div class="flex flex-wrap gap-2 justify-between items-center"><h3 class="font-black text-lg">Meu roteiro</h3><span id="tripCount" class="tripTiny">0 paradas</span></div>
+<div class="flex flex-wrap gap-2 justify-between items-center">
+ <h3 class="font-black text-lg">Meu roteiro</h3>
+ <div class="flex flex-wrap gap-2 items-center">
+  <span id="tripCount" class="tripTiny">0 paradas</span>
+  <button id="tripCreateDay" type="button" class="tripDayAdd" title="Guardar as paradas atuais neste dia e começar o próximo" aria-label="Guardar paradas e criar próximo dia">＋ Novo dia</button>
+ </div>
+</div>
 <p class="tripTiny mt-1 mb-3">Use ↑ ↓ para ordenar. Roteiro salvo automaticamente.</p>
 <div id="tripDayGroups" class="space-y-2 mb-3" hidden aria-label="Dias planejados da viagem"></div>
 <div id="tripDayEditor" class="tripDayEditor mb-3" hidden>
@@ -224,7 +230,6 @@ renderAsphaltCards();
  </div>
 </div>
 <div id="tripChosen" class="space-y-2"></div>
-<button id="tripCreateDay" type="button" class="tripDayAdd mt-3">＋ Criar próximo dia</button>
 <p id="tripDayMessage" class="tripTiny mt-2" role="status" aria-live="polite"></p>
 <p id="tripRouteSummary" class="font-bold text-sm mt-4"></p>
 <div class="flex gap-2 flex-wrap mt-4">
