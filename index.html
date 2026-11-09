@@ -122,6 +122,13 @@ renderAsphaltCards();
 .tripDayEditor .tripField:focus{border-color:#fb923c;outline:2px solid #fb923c4d;outline-offset:1px}
 .tripDayCard .tripDayExpand{min-width:0}
 .tripDayCard .tripDayBody[hidden]{display:none!important}
+.tripMinePicker[hidden]{display:none!important}
+.tripMinePicker{padding:12px;border:1px solid #6c513f;border-radius:12px;background:linear-gradient(130deg,#242931,#1b2028)}
+.tripMineOption{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:9px;border:1px solid #404854;border-radius:11px;padding:10px 12px;background:#20262e;transition:background-color .18s ease,border-color .18s ease}
+.tripMineOption[data-selected="true"]{border-color:#f9944b;background:linear-gradient(115deg,#493025,#252b34)}
+.tripMineOption .tripNavBtn{flex-shrink:0}
+@media (hover:hover) and (pointer:fine){.tripMineOption:hover{border-color:#ffae70;background:linear-gradient(115deg,#40312b,#242a33)}}
+
 /* Estados visuais do planejador: movimento sutil, sem alterar o layout ou os eventos. */
 .tripOriginChoice,.tripTab,.tripCat,.tripStop,.tripPicked,.tripNavBtn,.tripBtn,
 .tripPresetCard,.tripDayCard,.tripDayAdd,.abDestinationCard,.abPlanPick{transition:transform .19s ease,box-shadow .19s ease,border-color .19s ease,background-color .19s ease,filter .19s ease}
@@ -316,6 +323,16 @@ renderAsphaltCards();
   <button type="button" id="tripSaveDay" class="tripBtn tripSaveDay">✓ Salvar dia</button>
   <button type="button" id="tripCancelDay" class="tripNavBtn">Cancelar</button>
  </div>
+ <div id="tripMinePicker" class="tripMinePicker mt-3" hidden>
+  <p class="font-semibold text-sm mb-2">Escolha as paradas deste dia</p>
+  <div id="tripMineCategories" class="flex flex-wrap gap-2 mb-3" aria-label="Filtrar paradas por categoria"></div>
+  <div class="tripCategorySearch mb-2" role="search" aria-label="Pesquisar paradas do dia">
+   <span aria-hidden="true">🔎</span>
+   <input id="tripMineSearch" type="search" class="tripField" autocomplete="off" placeholder="Pesquisar locais" aria-label="Pesquisar paradas para o dia">
+   <button type="button" id="tripMineSearchClear" class="tripNavBtn" aria-label="Limpar pesquisa" title="Limpar pesquisa">×</button>
+  </div>
+  <div id="tripMineAvailable" class="space-y-2" aria-label="Adicionar ou remover paradas do dia"></div>
+ </div>
 </div>
 <div id="tripChosen" class="space-y-2"></div>
 <p id="tripDayMessage" class="tripTiny mt-2" role="status" aria-live="polite"></p>
@@ -403,5 +420,5 @@ renderAsphaltCards();
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261109-days-saveflow"></script>
+<script src="planejador.js?v=20261109-toggle-inline"></script>
 </body></html>
