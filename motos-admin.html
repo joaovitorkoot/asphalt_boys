@@ -142,5 +142,11 @@ q('productForm').onsubmit=async e=>{
  }catch(err){note(err.message)}finally{button.disabled=false}
 };
 reload().catch(e=>{note('Não foi possível carregar a administração: '+e.message)});
+ if(typeof ResizeObserver!=='undefined'){
+  const observer=new ResizeObserver(()=>{
+   try{parent.postMessage({asphaltMotosHeight:document.documentElement.scrollHeight},location.origin)}catch{}
+  });
+  observer.observe(document.querySelector('main'));
+ }
 })();
 </script></body></html>
