@@ -792,11 +792,12 @@
   }
   if(localPreview)u.searchParams.set('preview','local');
   const url=u.href;q('tripShareLink').value=url;q('tripShareBox').hidden=false;
-  const detail=tripDays.length>1?
-   tripDays.map(d=>d.title+': '+(d.stops.map(id=>stopById(id)?.nome||id).join(' → ')||'A definir')).join('\n'):
-   'Paradas: '+(selected.map(id=>stopById(id)?.nome||id).join(' → ')||'rota direta');
-  const msg='🏍️ Roteiro Asphalt Boys — '+destination.nome+
-   '\nOrigem: '+(origin?originLabel():'localização de cada participante')+'\n'+detail+'\n'+url;
+  // Compartilhamento compacto: as paradas e os dias completos ficam no link,
+  // sem repetir essas informações na mensagem do WhatsApp.
+  const msg='🏍️ Asphalt Boys'+
+   '\n📍 Destino: '+destination.nome+
+   (tripDays.length>1?'\n📅 Viagem de '+tripDays.length+' dias':'')+
+   '\n🔗 Ver roteiro: '+url;
   q('tripShareWhats').href='https://api.whatsapp.com/send?text='+encodeURIComponent(msg);
   q('tripNote').textContent=localPreview?
    'Link de teste: paradas locais ainda não publicadas não aparecem para outros usuários.':
