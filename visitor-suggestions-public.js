@@ -17,11 +17,16 @@
  #abSuggest .boxform{border-top:1px solid #40464f;padding-top:8px;margin-top:18px}
  #abSuggest .photos{border:1px dashed #666f7b;background:#252a32;padding:12px;border-radius:10px;min-width:0;overflow-wrap:anywhere}
  #abSuggest .photoTitle{display:block;font-size:13px;font-weight:800;margin:16px 0 6px}
+ #abSuggest .photoTitle .optional{margin-left:8px;font-size:12px;font-weight:600;color:#bec5d1}
  #abSuggest .photoPicker{display:inline-flex;align-items:center;justify-content:center;max-width:100%;min-height:44px;margin:0;padding:10px 16px;border:1px solid #fb923c;border-radius:10px;color:#ffba8a;font-size:14px;font-weight:800;cursor:pointer;white-space:nowrap}
  #abSuggest .photoPicker:focus-within{outline:2px solid #fb923c;outline-offset:2px}
  #abSuggest .photoPicker input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
  #abSuggest .thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
- #abSuggest .thumbs img{height:90px;width:100%;object-fit:cover;border-radius:9px}
+ #abSuggest .thumbs:empty{display:none}
+ #abSuggest .photoTile{position:relative;min-width:0;aspect-ratio:1/1}
+ #abSuggest .thumbs img{display:block;height:100%;width:100%;object-fit:cover;border-radius:9px}
+ #abSuggest .removePhoto{position:absolute;top:4px;right:4px;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid #fff8;border-radius:50%;background:#17191ee8;color:white;font-size:24px!important;line-height:1;box-shadow:0 1px 6px #0008;z-index:1}
+ #abSuggest .removePhoto:hover,#abSuggest .removePhoto:focus-visible{background:#c2410c;outline:2px solid #fff;outline-offset:1px}
  #abSuggest [hidden]{display:none!important}
  #abSuggest .note{font-size:12px;color:#cbd5e1;line-height:1.55}
  #abSuggest #abSuggestMsg:empty{display:none}
@@ -52,7 +57,7 @@
     <div id="abSuggestNewArea" hidden><label for="abSuggestNew">Nome do novo destino *</label>
      <input id="abSuggestNew" maxlength="120" placeholder="Ex.: Morro Branco">
      <p class="note">Esse nome será exibido ao administrador.</p></div>
-    <span class="photoTitle">4. Fotos (opcional)</span>
+    <span class="photoTitle">4. Fotos (até 3) <span class="optional">Opcional</span></span>
     <div class="photos"><label class="photoPicker"><input id="abSuggestPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>Escolher arquivos</label>
      <div id="abSuggestThumbs" class="thumbs" aria-live="polite"></div></div>
     <p id="abSuggestMsg" role="status" aria-live="polite" class="note"></p>
@@ -63,7 +68,7 @@
  const $=id=>wrap.querySelector('#'+id);
  const area=$('abSuggestArea'),open=$('abSuggestOpen'),maps=$('abSuggestMaps'),dest=$('abSuggestDestination');
  const newArea=$('abSuggestNewArea'),newName=$('abSuggestNew'),photos=$('abSuggestPhotos'),thumbs=$('abSuggestThumbs'),msg=$('abSuggestMsg'),send=$('abSuggestSend');
- let previewURLs=[];
+ let previewURLs=[],selectedPhotos=[];
  function official(raw){
   try{const u=new URL(raw.trim()),h=u.hostname.toLowerCase(),domains=['google.com','google.com.br','google.pt','google.co.uk','google.es','google.ca','google.fr','google.de','google.com.mx','google.com.ar'];
    const google=domains.some(d=>h===d||h.endsWith('.'+d));
@@ -79,9 +84,26 @@
   for(const d of data.destinos||[]){if(!d?.id||!d.nome||known.has(d.id))continue;known.add(d.id);const o=document.createElement('option');o.value=d.id;o.textContent=d.nome;dest.insertBefore(o,dest.lastElementChild)}
  }catch{}})();
  function clearPreviews(){previewURLs.forEach(x=>URL.revokeObjectURL(x));previewURLs=[];thumbs.replaceChildren()}
- photos.onchange=()=>{clearPreviews();const files=Array.from(photos.files||[]);if(files.length>3){photos.value='';msg.textContent='Selecione no máximo três fotos.';return}
-  if(files.some(f=>f.size>10*1024*1024||!['image/jpeg','image/png','image/webp'].includes(f.type))){msg.textContent='Use fotos JPEG, PNG ou WebP com até 10 MB.';return}
-  msg.textContent='';files.forEach(f=>{const url=URL.createObjectURL(f),img=document.createElement('img');previewURLs.push(url);img.src=url;img.alt='Prévia de '+f.name;thumbs.append(img)})};
+ function renderPreviews(){
+  clearPreviews();
+  selectedPhotos.forEach((file,index)=>{
+   const tile=document.createElement('div');tile.className='photoTile';
+   const img=document.createElement('img'),url=URL.createObjectURL(file);
+   previewURLs.push(url);img.src=url;img.alt='Prévia de '+file.name;
+   const remove=document.createElement('button');remove.type='button';remove.className='removePhoto';
+   remove.textContent='×';remove.title='Remover foto';
+   remove.setAttribute('aria-label','Remover foto '+(index+1)+': '+file.name);
+   remove.onclick=()=>{selectedPhotos.splice(index,1);renderPreviews();msg.textContent=''};
+   tile.append(img,remove);thumbs.append(tile)
+  });
+ }
+ photos.onchange=()=>{
+  const incoming=Array.from(photos.files||[]);photos.value='';
+  if(!incoming.length)return;
+  if(incoming.some(f=>f.size>10*1024*1024||!['image/jpeg','image/png','image/webp'].includes(f.type))){msg.textContent='Use fotos JPEG, PNG ou WebP com até 10 MB.';return}
+  if(selectedPhotos.length+incoming.length>3){msg.textContent='É possível enviar até três fotos. Remova uma foto para adicionar outra.';return}
+  selectedPhotos.push(...incoming);msg.textContent='';renderPreviews();
+ };
  async function compress(file){
   let bitmap=null,source=null;
   try{
@@ -104,12 +126,12 @@
  }
  $('abSuggestForm').onsubmit=async e=>{
   e.preventDefault();if(send.disabled)return;
-  const url=official(maps.value),name=$('abSuggestName').value.trim(),files=Array.from(photos.files||[]);
+  const url=official(maps.value),name=$('abSuggestName').value.trim(),files=selectedPhotos.slice();
   if(!url){msg.textContent='Informe um link verdadeiro do Google Maps.';return}
   if(name&&name.length<3){msg.textContent='Se preencher o nome do local, use pelo menos 3 caracteres.';return}
   if(dest.value==='__novo'&&newName.value.trim().length<3){msg.textContent='Informe o nome do novo destino.';return}
   if(files.length>3||files.some(f=>f.size>10*1024*1024||!['image/jpeg','image/png','image/webp'].includes(f.type))){msg.textContent='Escolha até três fotos JPEG, PNG ou WebP de no máximo 10 MB.';return}
-  send.disabled=true;msg.textContent='Otimizando fotos e enviando...';
+  send.disabled=true;msg.textContent=files.length?'Otimizando fotos e enviando...':'Enviando sugestão...';
   try{
    const data=new FormData();data.set('placeName',name);data.set('mapsUrl',url);
    data.set('destinationMode',dest.value==='__novo'?'novo':'existente');data.set('destinationId',dest.value==='__novo'?'':dest.value);
@@ -118,7 +140,7 @@
    const r=await fetch('/api/visitor-suggestions',{method:'POST',credentials:'same-origin',cache:'no-store',body:data});
    const result=await r.json();if(!r.ok)throw Error(result.error||'Falha no envio.');
    msg.textContent='✓ Sugestão recebida! Será analisada antes de aparecer no site.';
-   $('abSuggestForm').reset();clearPreviews();newArea.hidden=true;maps.oninput();
+   $('abSuggestForm').reset();selectedPhotos=[];clearPreviews();newArea.hidden=true;maps.oninput();
   }catch(error){msg.textContent='⚠️ '+String(error.message||error)}
   finally{send.disabled=false}
  };
