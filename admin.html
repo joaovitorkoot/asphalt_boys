@@ -101,7 +101,7 @@ body.admin-suggestion-view #editor,body.admin-suggestion-view #listing,body.admi
 </nav>
 <section id="adminTravelWorkspace" class="box p-4 sm:p-6 min-w-0"><h2 id="sectionTitle" class="text-2xl font-black">Destinos</h2><p id="sectionHelp" class="muted text-sm mt-1 mb-5">Cadastre os destinos do grupo.</p><div id="editor"></div><details id="locationAudit" class="rounded-xl border border-orange-500/35 bg-[#181e26] p-4 mt-5">
  <summary class="cursor-pointer font-black text-lg text-orange-200">🧭 Diagnóstico dos pontos do Google Maps</summary>
- <p class="tiny mt-2 mb-3">Confere cada parada publicada com o Google Places e identifica coordenadas, links e nomes divergentes. Nada será alterado sem sua confirmação. A consulta utiliza a API do Google.</p>
+ 
  <button id="runLocationAudit" type="button" class="btn text-sm">🔎 Conferir todas as paradas</button>
  <button id="downloadLocationAudit" type="button" class="subbtn text-sm ml-2" hidden>📄 Baixar relatório</button>
  <p id="locationAuditProgress" class="tiny mt-3" role="status" aria-live="polite"></p>
@@ -110,11 +110,11 @@ body.admin-suggestion-view #editor,body.admin-suggestion-view #listing,body.admi
  <div class="flex flex-wrap justify-between items-start gap-3 mb-4"><div>
   <p class="text-orange-400 text-xs font-black tracking-widest">CENTRAL DE PUBLICAÇÃO</p>
   <h2 class="text-2xl font-black mt-1">📋 Falta publicar</h2>
-  <p class="muted text-sm mt-1">Veja tudo que você salvou e ainda não publicou. Publique aqui, sem procurar nas categorias.</p>
+  
  </div><div id="publicationQueueCounts" class="text-sm text-zinc-300 font-semibold"></div></div>
  <p id="publicationQueueMessage" class="tiny mb-3" role="status"></p>
  <div id="publicationQueueList" class="space-y-4"></div>
- <p class="tiny mt-4">Nenhum item é publicado automaticamente. O botão <strong>Publicar no site</strong> confirma e envia somente o cadastro já salvo.</p>
+ 
 </section><div id="listing" class="mt-6"></div></section><section id="adminMotoWorkspace" class="box p-2 min-w-0" hidden><iframe id="adminMotoFrame" title="Administração de motos e afiliados" style="display:block;width:100%;height:1550px;border:0;border-radius:12px;background:#15191f" loading="lazy"></iframe></section>
 </div>
 </div>
@@ -152,12 +152,12 @@ function stopCategoriesMarkup(record={}){
  const values=categoriesForStop({...record,categoria:record.categoria||selectedStopCategory});
  const primary=values.includes(record.categoria)?record.categoria:values[0];
  return '<fieldset id="stopCategoryChoices" class="mt-3 rounded-xl border border-zinc-600 p-3">'+
-  '<legend class="lbl px-1">Categorias da parada (marque uma ou várias)</legend>'+
-  '<p class="tiny mb-3">O mesmo local e a mesma foto aparecerão em todas as categorias marcadas, sem duplicar o cadastro.</p>'+
+  '<legend class="lbl px-1">Categorias da parada</legend>'+
+  ''+
   '<input id="f_categoria" type="hidden" name="categoria" value="'+esc(primary)+'">'+
   '<div class="grid sm:grid-cols-2 gap-2">'+stopCategories.map(([id,label])=>
    '<label class="photoFrameChoice"><input type="checkbox" name="categorias" value="'+id+'" '+(values.includes(id)?'checked':'')+'><span class="font-bold text-sm">'+esc(label)+'</span></label>').join('')+
-  '</div><p id="categorySelectionStatus" class="tiny mt-2" role="status">Marque todas as categorias em que esta parada deve aparecer.</p>'+
+  '</div><p id="categorySelectionStatus" class="tiny mt-2" role="status"></p>'+
   '<div id="categorySuggestBox" class="rounded-xl bg-[#1c2229] border border-orange-500/30 p-3 mt-3" hidden>'+
    '<strong class="text-sm text-orange-200">✨ Sugestões do Google Maps</strong>'+
    '<p id="categorySuggestStatus" class="tiny mt-1" role="status"></p>'+
@@ -194,8 +194,8 @@ function routeStops(destId){
 function stopCategoryTabs(){
   if(tab!=='paradas')return '';
   return '<section id="stopCategoryBar" class="rounded-xl border border-zinc-600 bg-[#1d2027] p-4 mb-4" aria-label="Categorias de paradas">'+
-   '<h3 class="text-lg font-black">2. Filtrar paradas por categoria</h3>'+
-   '<p class="tiny mt-1 mb-3">Os botões filtram a lista. No cadastro abaixo você pode marcar várias categorias para um mesmo local.</p>'+
+   '<h3 class="text-lg font-black">Filtrar por categoria</h3>'+
+   ''+
    '<div class="grid grid-cols-2 md:grid-cols-3 gap-2">'+stopCategories.map(([id,label])=>
      '<button type="button" data-stop-category="'+id+'" aria-pressed="'+(selectedStopCategory===id)+'" class="subbtn text-left text-sm transition '+(selectedStopCategory===id?'!border-orange-400 !bg-orange-500/15 !text-orange-300':'')+'">'+esc(label)+' <span class="text-xs opacity-70">('+editableStops(selectedDestId).filter(p=>hasStopCategory(p,id)).length+')</span></button>').join('')+'</div>'+
    '</section>';
@@ -234,8 +234,8 @@ function destinationPicker(){
       '<span class="block text-sm font-bold mt-2 '+(active?'text-orange-300':'text-zinc-300')+'">'+(active?'✓ Card selecionado':'Selecionar este card')+'</span></button>';
  }).join('');
  return '<section id="destinationPicker" class="rounded-xl border border-zinc-600 bg-[#1d2027] p-4 mb-5">'+
-   '<h3 class="font-black text-lg">1. Escolha o card da viagem</h3>'+
-   '<p class="tiny mt-1 mb-3">Escolha a cidade da viagem. Pico Alto e outros locais específicos devem ser cadastrados em Paradas, não no título da viagem.</p>'+
+   '<h3 class="font-black text-lg">Escolha o destino</h3>'+
+   ''+
    '<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">'+cards+'</div>'+
    (tab==='destinos'?'<button id="newDestinationButton" type="button" class="subbtn mt-3">+ Criar novo card de viagem</button>':'')+
    (creatingNewDestination?'<p class="mt-3 text-orange-300 text-sm font-bold">Você está criando um card novo. Nenhum card existente será alterado.</p>':
@@ -665,13 +665,13 @@ function placeLookupMarkup(){
  const label=tab==='rotas'?'Cole um link de trajeto ou rota do Google Maps.':'Cole o link de um destino ou lugar no Google Maps.';
  return '<section id="googlePlaceLookup" class="rounded-xl border border-orange-500/35 bg-orange-500/5 p-4 mb-4">'+
  '<h3 class="font-black text-base">📍 Preencher pelo Google Maps</h3>'+
- '<p class="tiny mt-1">'+label+' Os dados encontrados ficam editáveis antes de salvar.</p>'+
+ ''+
  '<label class="lbl" for="mapsImportUrl">Link do Google Maps</label>'+
  '<div class="grid sm:grid-cols-[1fr_auto] gap-2"><input class="field" id="mapsImportUrl" type="url" maxlength="1800" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://maps.app.goo.gl/..." value="'+esc(mapsLinkDraft[tab]||'')+'">'+
  '<button id="mapsImportButton" class="btn" type="button">Preencher pelo link</button></div>'+
- '<p id="mapsImportStatus" class="tiny mt-3" role="status">'+(enabled?'Cole o link e toque em Preencher pelo link.':'Pode colar o link agora. Depois conecte ao banco acima para importar.')+'</p>'+
+ '<p id="mapsImportStatus" class="tiny mt-3" role="status">'+(enabled?'':'Pode colar o link agora. Depois conecte ao banco acima para importar.')+'</p>'+
  '<div id="mapsImportResults" class="space-y-2 mt-3"></div>'+
- '<p class="tiny mt-3">A importação não salva nem publica automaticamente. Revise os campos; após salvar, o link da importação ficará vazio para o próximo cadastro.</p>'+
+ ''+
  '</section>';
 }
 function form(){
@@ -681,7 +681,7 @@ function form(){
  const f=(n,l,t='text',req=false)=>makeField(n,l,d[n]||'',t,req);
  let fields='';
  if(tab==='destinos')fields=f('nome','Nome do destino','text',true)+f('descricao','Descrição (pode editar após importar)','textarea')+f('mapa','Localização para navegação')+f('maps','Link do destino no Google Maps','url')+f('googlePlaceId','Place ID (preenchido pela importação)')+f('foto','URL de foto autorizada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup(d);
- if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+stopCategoriesMarkup(d)+f('maps','Link exato do Google Maps (será respeitado no site)','url')+'<div class="flex gap-2 items-center flex-wrap mt-2"><button type="button" id="testExactMapsLink" class="subbtn text-sm">📍 Testar ponto compartilhado</button><span id="coordinatesStatus" class="tiny">'+(d.mapCoordinates?'GPS confirmado: '+esc(d.mapCoordinates):'O link original será aberto sem substituição.')+'</span></div><input type="hidden" id="f_mapCoordinates" name="mapCoordinates" value="'+esc(d.mapCoordinates||'')+'"><input type="hidden" id="f_mapCoordinatesSource" name="mapCoordinatesSource" value="'+esc(d.mapCoordinatesSource||'')+'"><p class="tiny mt-1">O botão acima abre o link exatamente como foi colado. Ao salvar, o site tenta usar as coordenadas exatas também no roteiro, sem buscar um ponto com nome parecido.</p>'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup(d)+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
+ if(tab==='paradas')fields='<input type="hidden" name="googlePhotoIndex" id="f_googlePhotoIndex" value="'+esc(String(Math.max(0,Math.min(9,Number(d.googlePhotoIndex)||0))))+'"><input type="hidden" id="f_destinoId" name="destinoId" value="'+esc(selectedDestId)+'"><p class="tiny text-orange-300">Essa parada será adicionada somente a '+esc(currentDestination()?.nome||selectedDestId)+'.</p>'+f('nome','Nome do local','text',true)+stopCategoriesMarkup(d)+f('maps','Link exato do Google Maps (será respeitado no site)','url')+'<div class="flex gap-2 items-center flex-wrap mt-2"><button type="button" id="testExactMapsLink" class="subbtn text-sm">📍 Testar ponto compartilhado</button><span id="coordinatesStatus" class="tiny">'+(d.mapCoordinates?'GPS confirmado: '+esc(d.mapCoordinates):'O link original será aberto sem substituição.')+'</span></div><input type="hidden" id="f_mapCoordinates" name="mapCoordinates" value="'+esc(d.mapCoordinates||'')+'"><input type="hidden" id="f_mapCoordinatesSource" name="mapCoordinatesSource" value="'+esc(d.mapCoordinatesSource||'')+'">'+f('endereco','Endereço ou nome exato para calcular a rota','text',true)+f('descricao','Descrição opcional','textarea')+f('foto','Foto licenciada (opcional)','url')+photoCreditFields(d)+photoPickerMarkup(d)+f('horario','Horário (opcional, informação manual)')+f('googlePlaceId','Place ID do Google (preenchido automaticamente pela busca)');
  if(tab==='rotas'){
   const dest=selectedDestId;
   const previous=String(d.maps||'');
@@ -699,7 +699,7 @@ function form(){
    f('nome','Nome da rota pronta','text',true)+f('descricao','Descrição opcional','textarea');
  }
  fields+=drop('status','Situação',[['rascunho','Rascunho (não aparece ao público)'],['publicado','Publicado (aparece no site quando conectado)']],d.status||'rascunho');
- return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3><p id="autoDraftNotice" class="tiny text-orange-300 mt-2" role="status">Seus campos são preservados neste aparelho durante a edição.</p>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
+ return destinationPicker()+stopCategoryTabs()+listHtml()+placeLookupMarkup()+'<form id="recordForm" class="border border-zinc-700 rounded-xl p-4"><h3 class="font-bold text-lg">'+(tab==='destinos'?(creatingNewDestination?'Novo card de viagem':'Editar card: '+esc(currentDestination()?.nome||'')):(editing?'Editar cadastro':'Novo cadastro'))+'</h3><p id="autoDraftNotice" class="tiny text-orange-300 mt-2" role="status"></p>'+fields+'<div class="flex flex-wrap gap-2 mt-5"><button class="btn" type="submit">'+(remote?'Salvar no banco':'Salvar rascunho')+'</button><button class="subbtn" type="button" id="cancel">Limpar formulário</button></div></form>';
 }
 function parseAsphaltRouteLink(text){
  const links=String(text||'').match(/https:\/\/[^\s<>"']+/gi)||[];
@@ -770,7 +770,7 @@ function listHtml(){
  const heading=tab==='paradas'?category+' · '+items.length+' local(is)':tab==='rotas'?'Rotas cadastradas · '+items.length:'Dados do card · '+items.length;
  return '<section class="mb-5 rounded-xl border border-zinc-700 p-4 bg-[#14171c]" id="existingRecords">'+
    '<div class="flex flex-wrap gap-2 justify-between items-center mb-3"><div><h3 class="font-black text-lg">'+esc(heading)+'</h3>'+
-   '<p class="tiny mt-1">'+(tab==='paradas'?'Somente paradas publicadas aparecem no site. Para divulgar uma parada, clique em Publicar no site.':'Abra um cadastro existente para editar sem criar outro.')+'</p></div>'+
+   '</div>'+
    (tab==='paradas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova parada</button>':tab==='rotas'?'<button type="button" id="newRecordButton" class="btn text-sm">+ Nova rota</button>':'')+
    '</div>'+
    (items.length?items.map(x=>{
@@ -1480,9 +1480,7 @@ async function publishQueuedRecord(kind,id,button){
   const primary=$('#f_categoria');
   if(primary&&!checked.includes(primary.value))primary.value=checked[0]||'';
   const info=$('#categorySelectionStatus');
-  if(info)info.textContent=checked.length?
-   '✓ Aparecerá em '+checked.map(categoryLabel).join(' e ')+' — uma foto e um cadastro.':
-   'Marque ao menos uma categoria antes de salvar.';
+  if(info)info.textContent=checked.length?'':'Marque ao menos uma categoria antes de salvar.';
  };
  choices.forEach(x=>x.addEventListener('change',()=>{categoryUserEdited=true;syncCategoryChoice()}));
  if(choices.length)syncCategoryChoice();
