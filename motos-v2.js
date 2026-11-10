@@ -16,10 +16,14 @@ const options=id=>{const group=data?.grupos?.[bike().id]?.find(g=>g.id===id);ret
 const mlItem=link=>{const m=String(link||'').match(/MLB[- ]?(\d{6,15})/i);return m?'MLB'+m[1]:''};
 const ratingsCache={};
 function ratingLinks(m){
- const ml=url(m.mercadolivre),sh=url(m.shopee),item=mlItem(ml);
- const link=(href,label)=>'<a href="'+esc(href)+'" target="_blank" rel="sponsored noopener noreferrer">'+label+' ↗</a>';
- return '<div class="external-ratings">'+(sh?link(sh,'Avaliações na Shopee'):'')+(ml?'<span class="ml-ratings" data-ml-item="'+esc(item)+'">'+(item&&ratingsCache[item]?.available?'★ '+ratingsCache[item].rating.toLocaleString('pt-BR',{maximumFractionDigits:1})+' · '+ratingsCache[item].count.toLocaleString('pt-BR')+' avaliações no Mercado Livre':'')+'</span>'+link(ml,'Ver no Mercado Livre'):'')+'</div>'
+ const item=mlItem(url(m.mercadolivre));
+ if(!item)return '';
+ const rating=ratingsCache[item];
+ return '<div class="external-ratings"><span class="ml-ratings" data-ml-item="'+esc(item)+'">'+
+  (rating?.available?'★ '+rating.rating.toLocaleString('pt-BR',{maximumFractionDigits:1})+' · '+rating.count.toLocaleString('pt-BR')+' avaliações no Mercado Livre':'')+
+  '</span></div>';
 }
+
 async function fetchRatings(){
  const nodes=[...$('motoModelos').querySelectorAll('[data-ml-item]')];
  for(const node of nodes){const item=node.dataset.mlItem;if(!item)continue;
