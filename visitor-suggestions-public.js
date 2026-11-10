@@ -30,6 +30,10 @@
  #abSuggest [hidden]{display:none!important}
  #abSuggest .note{font-size:12px;color:#cbd5e1;line-height:1.55}
  #abSuggest #abSuggestMsg:empty{display:none}
+ #abSuggest #abSuggestMsg.success{margin:16px 0 14px}
+ #abSuggest #abSuggestMsg .successTitle{display:flex;align-items:center;gap:10px;font-size:20px;line-height:1.35;font-weight:850;color:#f7f7f7}
+ #abSuggest #abSuggestMsg .successCheck{display:inline-flex;flex:none;width:30px;height:30px;align-items:center;justify-content:center;background:#1e4232;border:1px solid #42946b;border-radius:50%;color:#a7f3d0;font-size:20px;font-weight:900}
+ #abSuggest #abSuggestMsg .successThanks{margin:7px 0 0 40px;font-size:14px;line-height:1.5;color:#cbd5e1}
  @media(max-width:500px){#abSuggest{padding:16px}#abSuggest .primary{width:100%}}
  `;
  document.head.append(css);
@@ -60,7 +64,7 @@
     <span class="photoTitle">4. Fotos (até 3) <span class="optional">Opcional</span></span>
     <div class="photos"><label class="photoPicker"><input id="abSuggestPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>Escolher arquivos</label>
      <div id="abSuggestThumbs" class="thumbs" aria-live="polite"></div></div>
-    <p id="abSuggestMsg" role="status" aria-live="polite" class="note"></p>
+    <div id="abSuggestMsg" role="status" aria-live="polite" class="note"></div>
     <button type="submit" id="abSuggestSend" class="primary">Enviar sugestão</button>
    </form>
   </div>`;
@@ -147,6 +151,7 @@
  }
  $('abSuggestForm').onsubmit=async e=>{
   e.preventDefault();if(send.disabled)return;
+  msg.classList.remove('success');
   const url=official(maps.value),name=$('abSuggestName').value.trim(),files=selectedPhotos.slice();
   if(!url){msg.textContent='Informe um link verdadeiro do Google Maps.';return}
   if(name&&name.length<3){msg.textContent='Se preencher o nome do local, use pelo menos 3 caracteres.';return}
@@ -160,7 +165,8 @@
    for(const f of files)data.append('photos',await compress(f));
    const r=await fetch('/api/visitor-suggestions',{method:'POST',credentials:'same-origin',cache:'no-store',body:data});
    const result=await r.json();if(!r.ok)throw Error(result.error||'Falha no envio.');
-   msg.textContent='✓ Sugestão recebida! Será analisada antes de aparecer no site.';
+   msg.classList.add('success');
+   msg.innerHTML='<div class="successTitle"><span class="successCheck" aria-hidden="true">✓</span><strong>Sugestão recebida!</strong></div><p class="successThanks">Obrigado por compartilhar esse lugar com a gente! Vamos analisar sua indicação antes de publicá-la no site.</p>';
    $('abSuggestForm').reset();selectedPhotos=[];clearPreviews();newArea.hidden=true;maps.oninput();
   }catch(error){msg.textContent='⚠️ '+String(error.message||error)}
   finally{send.disabled=false}
