@@ -8,7 +8,7 @@ const demo={suporte:[['trava','Suporte com trava','Fixação com trava de segura
 const outlines={suporte:'<rect x="8" y="2" width="8" height="16" rx="2"/><path d="M7 8H4v8h3M17 8h3v8h-3"/>',bau:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M3 12h18"/>',bolsa:'<path d="M4 8h16l1 12H3L4 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',protetor:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',manoplas:'<rect x="2" y="8" width="20" height="8" rx="4"/><path d="M6 8v8M9 8v8M12 8v8M15 8v8M18 8v8"/>',bolha:'<path d="M4 17c4-1 6-6 8-13 2 7 4 12 8 13M6 20h12M8 16h8"/>'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const url=s=>{try{const u=new URL(s||'',location.origin);return u.protocol==='https:'&&!u.username&&!u.password?u.href:''}catch{return''}};
-let bikes=[...bikesDefault],data=null,index=0,chosen={},tab='catalogo',category='todos',active='',shops='',fade=null,tick=0;
+let bikes=[...bikesDefault],data=null,index=0,chosen={},tab='catalogo',category='todos',active='',shops='',fade=null,tick=0,sharedModel='',sharedLink='';
 const galleryIndexes={},galleryPhotos=m=>[...new Set([...(Array.isArray(m.fotos)?m.fotos:[]),m.foto].filter(x=>url(x)))].slice(0,5);
 const bike=()=>bikes[index];
 const groupList=()=>defs.map(([id,name,type])=>{const saved=data?.grupos?.[bike().id]?.find(g=>g.id===id);return{id,name:saved?.nome||name,type:saved?.categoria||type,foto:saved?.foto||''}});
@@ -53,7 +53,7 @@ function detailRender(){
  $('motoModelos').innerHTML=options(g.id).map(m=>{
   const photos=galleryPhotos(m),idx=Math.min(galleryIndexes[m.id]||0,Math.max(0,photos.length-1));galleryIndexes[m.id]=idx;
   const media=photos.length?'<div class="photo-gallery" data-gallery="'+esc(m.id)+'"><img class="gallery-main-img" loading="lazy" src="'+esc(photos[idx])+'" alt="'+esc(m.name)+' - foto '+(idx+1)+'" data-photo-zoom="'+esc(m.id)+'" tabindex="0" role="button" aria-label="Ampliar foto do produto">'+(photos.length>1?'<button type="button" class="gallery-arrow left" data-photo-step="-1" data-photo-id="'+esc(m.id)+'" aria-label="Foto anterior">‹</button><button type="button" class="gallery-arrow right" data-photo-step="1" data-photo-id="'+esc(m.id)+'" aria-label="Próxima foto">›</button><div class="gallery-dots">'+photos.map((_,i)=>'<button type="button" data-photo-index="'+i+'" data-photo-id="'+esc(m.id)+'" class="'+(i===idx?'active':'')+'" aria-label="Ver foto '+(i+1)+'"></button>').join('')+'</div>':'')+'</div>':image(g.id,m);
-  return '<article class="variant-card" data-chosen="'+(chosen[g.id]===m.id)+'"><div class="group-visual">'+media+'</div><div><h4>'+esc(m.name)+'</h4><p>'+esc(m.desc)+'</p>'+(m.demo?'<p class="subtle-tag">Exemplo · sem anúncio cadastrado</p>':'')+ratingLinks(m)+'</div><button type="button" class="'+(chosen[g.id]===m.id?'btn-outline':'btn-primary')+'" data-model="'+esc(m.id)+'">'+(chosen[g.id]===m.id?'✓ Selecionado — retirar':'＋ Escolher este modelo')+'</button></article>'
+  return '<article class="variant-card" data-model-card="'+esc(m.id)+'" data-shared="'+(sharedModel===m.id)+'" data-chosen="'+(chosen[g.id]===m.id)+'"><div class="group-visual">'+media+'</div><div><h4>'+esc(m.name)+'</h4><p>'+esc(m.desc)+'</p>'+(m.demo?'<p class="subtle-tag">Exemplo · sem anúncio cadastrado</p>':'')+ratingLinks(m)+'</div><button type="button" class="'+(chosen[g.id]===m.id?'btn-outline':'btn-primary')+'" data-model="'+esc(m.id)+'">'+(chosen[g.id]===m.id?'✓ Selecionado — retirar':'＋ Escolher este modelo')+'</button><button type="button" class="variant-share" data-share-model="'+esc(m.id)+'">↗ Compartilhar produto</button></article>'
  }).join('');
  fetchRatings();
 }
@@ -74,8 +74,43 @@ function photo(){
  img.onerror=()=>{if(b.id==='fz25'&&!img.dataset.backup){img.dataset.backup='1';img.src='https://production.autoforce.com/uploads/version/profile_image/11636/model_main_webp_comprar-titanium-grey-cinza-fosco_64db317cef.png.webp'}else{img.hidden=true;$('fz25Fallback').style.display='flex'}};
  const src=url(b.foto)||url(bikesDefault.find(x=>x.id===b.id)?.foto);if(src)img.src=src;else img.onerror();img.alt=b.nome;
 }
-function bikeChange(n){if(bikes.length<2)return;vibe();index=(index+n+bikes.length)%bikes.length;category='todos';active='';shops='';tab='catalogo';read();photo();$('motoFiltros').style.setProperty('--idx','0');$('motoFiltros').querySelectorAll('[data-cat]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.cat==='todos')));$('motoTabs').style.setProperty('--idx','0');$('tabAcessorios').setAttribute('aria-selected','true');$('tabMinha').setAttribute('aria-selected','false');$('painelAcessorios').hidden=false;$('painelMinha').hidden=true;render()}
-async function load(){try{const res=await fetch('./api/motos',{cache:'no-store'});if(!res.ok)return;const json=await res.json();if(!json.motos?.length||!json.grupos)return;const old=bike().id;data=json;bikes=json.motos;index=Math.max(0,bikes.findIndex(x=>x.id===old));read();photo();render()}catch{}}
+function bikeChange(n){if(bikes.length<2)return;sharedModel='';$('productShareHint').hidden=true;vibe();index=(index+n+bikes.length)%bikes.length;category='todos';active='';shops='';tab='catalogo';read();photo();$('motoFiltros').style.setProperty('--idx','0');$('motoFiltros').querySelectorAll('[data-cat]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.cat==='todos')));$('motoTabs').style.setProperty('--idx','0');$('tabAcessorios').setAttribute('aria-selected','true');$('tabMinha').setAttribute('aria-selected','false');$('painelAcessorios').hidden=false;$('painelMinha').hidden=true;render()}
+
+function productUrl(groupId,modelId){
+ const u=new URL('motos.html',location.href);
+ u.search='';u.hash='';
+ u.searchParams.set('moto',bike().id);u.searchParams.set('grupo',groupId);u.searchParams.set('produto',modelId);
+ return u.href;
+}
+function openShare(modelId){
+ const model=options(active).find(m=>m.id===modelId);if(!model)return;
+ const dialog=$('productShareDialog');
+ sharedLink=productUrl(active,model.id);
+ $('productShareName').textContent=model.name+' · '+bike().nome;
+ $('productShareLink').value=sharedLink;
+ $('productShareWhats').href='https://api.whatsapp.com/send?text='+encodeURIComponent('🏍️ Veja este acessório no Asphalt Boys: '+sharedLink);
+ $('productShareStatus').textContent='';
+ if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
+}
+function closeShare(){const d=$('productShareDialog');if(d.open&&typeof d.close==='function')d.close();else d.removeAttribute('open')}
+function applySharedProduct(){
+ const query=new URLSearchParams(location.search);
+ const bikeId=query.get('moto'),groupId=query.get('grupo'),modelId=query.get('produto');
+ if(!bikeId||!groupId||!modelId)return;
+ if([bikeId,groupId,modelId].some(s=>!/^[A-Za-z0-9_-]{1,120}$/.test(s)))return;
+ const nextIndex=bikes.findIndex(b=>b.id===bikeId);
+ if(nextIndex<0)return;
+ index=nextIndex;active=groupId;
+ if(!options(groupId).some(x=>x.id===modelId)){active='';return}
+ sharedModel=modelId;category='todos';shops='';
+ read();photo();switchTab('catalogo');
+ $('productShareHint').hidden=false;
+ requestAnimationFrame(()=>{
+  const card=[...$('motoModelos').querySelectorAll('[data-model-card]')].find(el=>el.dataset.modelCard===modelId);
+  if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+ });
+}
+async function load(){try{const res=await fetch('./api/motos',{cache:'no-store'});if(!res.ok)return;const json=await res.json();if(!json.motos?.length||!json.grupos)return;const old=bike().id;data=json;bikes=json.motos;index=Math.max(0,bikes.findIndex(x=>x.id===old));read();photo();render();applySharedProduct()}catch{}}
 $('bikePrev').onclick=()=>bikeChange(-1);$('bikeNext').onclick=()=>bikeChange(1);
 $('motoTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)switchTab(b.dataset.tab)});
 $('motoFiltros').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b)switchCategory(b.dataset.cat)});
@@ -111,9 +146,20 @@ $('photoLightbox').addEventListener('click',e=>{
  const b=e.target.closest('[data-light-step]');if(b){changeGalleryPhoto(light.dataset.model,Number(b.dataset.lightStep));updateLightbox()}
 });
 document.addEventListener('keydown',e=>{const light=$('photoLightbox');if(light.hidden)return;if(e.key==='Escape'){light.hidden=true}else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){changeGalleryPhoto(light.dataset.model,e.key==='ArrowRight'?1:-1);updateLightbox()}});
-$('motoModelos').addEventListener('click',e=>{const b=e.target.closest('[data-model]');if(!b)return;const m=options(active).find(x=>x.id===b.dataset.model);if(!m)return;vibe();if(chosen[active]===m.id)delete chosen[active];else chosen[active]=m.id;save();counts();detailRender();buildRender()});
+$('motoModelos').addEventListener('click',e=>{const share=e.target.closest('[data-share-model]');if(share){openShare(share.dataset.shareModel);return}const b=e.target.closest('[data-model]');if(!b)return;const m=options(active).find(x=>x.id===b.dataset.model);if(!m)return;vibe();if(chosen[active]===m.id)delete chosen[active];else chosen[active]=m.id;save();counts();detailRender();buildRender()});
 $('motoMontagem').addEventListener('click',e=>{const b=e.target.closest('[data-remove],[data-change],[data-shops]');if(!b)return;vibe();if(b.dataset.remove){delete chosen[b.dataset.remove];save();render()}else if(b.dataset.change){active=b.dataset.change;switchTab('catalogo');detailRender()}else if(b.dataset.shops){shops=shops===b.dataset.shops?'':b.dataset.shops;buildRender()}});
-$('btnVoltarCategorias').onclick=()=>{active='';detailRender()};
+$('btnVoltarCategorias').onclick=()=>{sharedModel='';$('productShareHint').hidden=true;active='';detailRender()};
 $('btnVerMontagem').onclick=()=>switchTab('minha');$('btnMontagemDetalhe').onclick=()=>switchTab('minha');$('btnMais').onclick=()=>{active='';switchTab('catalogo')};
+$('productShareClose').onclick=closeShare;
+$('productShareDialog').addEventListener('click',e=>{if(e.target===$('productShareDialog'))closeShare()});
+$('productShareCopy').onclick=async()=>{
+ const field=$('productShareLink');
+ try{await navigator.clipboard.writeText(field.value);$('productShareStatus').textContent='✓ Link copiado com sucesso!'}
+ catch{field.focus();field.select();$('productShareStatus').textContent='Selecione o link e copie.'}
+};
+$('productShareNative').onclick=async()=>{
+ if(navigator.share){try{await navigator.share({title:'Acessório Asphalt Boys',url:sharedLink})}catch{}}
+ else{const field=$('productShareLink');field.focus();field.select();$('productShareStatus').textContent='Copie o link e compartilhe no aplicativo desejado.'}
+};
 read();photo();render();load();
 })();

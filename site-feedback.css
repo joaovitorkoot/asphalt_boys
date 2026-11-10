@@ -1,0 +1,20 @@
+/* Asphalt Boys · formulários de sugestões (estilo dark + laranja aprovado) */
+.abFeedback{max-width:1100px;margin:36px auto 55px;padding:0 20px;color:#f8fafc;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+.abFeedbackCard{background:linear-gradient(145deg,#1f252d,#171b22);border:1px solid #414752;border-radius:20px;padding:23px;box-shadow:0 10px 26px #0002}
+.abFeedbackHead{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.abFeedbackIcon{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:12px;background:#382820;color:#fb923c;font-size:24px;flex:none}
+.abFeedback h2{font-size:clamp(19px,2.4vw,24px);font-weight:850;line-height:1.2;margin:0;color:#fff}
+.abFeedback p{color:#b8c0cb;font-size:13px;line-height:1.6;margin:5px 0 0}
+.abFeedback form{display:grid;gap:14px}
+.abFeedback label{font-size:13px;font-weight:750;color:#d6dce4;display:grid;gap:6px}
+.abFeedback input,.abFeedback select,.abFeedback textarea{width:100%;box-sizing:border-box;background:#252b34;color:#fff;border:1px solid #565e6b;border-radius:10px;padding:13px;min-height:48px;font:inherit;font-size:15px;outline:0}
+.abFeedback textarea{min-height:125px;resize:vertical}
+.abFeedback input:focus,.abFeedback select:focus,.abFeedback textarea:focus{border-color:#fb923c;box-shadow:0 0 0 2px #fb923c38}
+.abFeedback input::placeholder,.abFeedback textarea::placeholder{color:#9ba5b4}
+.abFeedback button[type=submit]{display:flex;align-items:center;justify-content:center;gap:8px;min-height:49px;border:0;border-radius:11px;background:linear-gradient(105deg,#ffb25e,#f97316);color:#161616;font-size:14px;font-weight:850;cursor:pointer}
+.abFeedback button:disabled{opacity:.55;cursor:wait}
+.abFeedbackStatus:empty{display:none}
+.abFeedbackStatus{font-size:13px;color:#fca5a5;line-height:1.5}
+.abFeedbackStatus[data-ok=true]{border:1px solid #3d7657;background:#20372b;color:#b5f1cd;padding:12px;border-radius:10px}
+@media(max-width:600px){.abFeedback{padding:0 16px;margin:25px auto 40px}.abFeedbackCard{padding:17px;border-radius:16px}}
+@media(prefers-reduced-motion:reduce){.abFeedback *{scroll-behavior:auto}}

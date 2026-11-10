@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#090b0f">
 <meta name="description" content="Asphalt Boys Motos: conheça a Yamaha Fazer FZ25 e explore acessórios para suas viagens.">
 <title>Motos & Acessórios | Asphalt Boys</title>
+<link rel="stylesheet" href="./site-feedback.css?v=20261110-1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -163,6 +164,24 @@ footer a:hover{color:var(--accent)}
 .external-ratings{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px;font-size:13px}
 .external-ratings a{color:#ffb57b;text-decoration:underline;text-underline-offset:3px}
 .external-ratings .ml-ratings:not(:empty){color:#fcd34d;font-weight:650}
+
+/* Compartilhamento de produto: mesmo acabamento da prévia */
+.variant-share{margin-top:8px;min-height:45px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #fb923c;background:#21242b;border-radius:11px;color:#ffb781;font-size:13px;font-weight:800;transition:background .18s,border-color .18s}
+.variant-share:hover{background:#3a2a21}
+.variant-card[data-shared=true]{border:2px solid #fb923c;box-shadow:0 0 0 2px #fb923c30}
+.product-share-banner{border:1px solid #378357;background:#1b3c2c;color:#b8f7d1;border-radius:11px;padding:12px;font-size:13px;font-weight:700;margin:0 0 14px}
+.product-share-banner[hidden]{display:none!important}
+.product-share-modal{width:min(520px,calc(100% - 28px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #fb923c77;border-radius:20px;background:#1e242c;color:#f7f7f7;padding:24px;box-shadow:0 20px 65px #0009}
+.product-share-modal::backdrop{background:#030509d9;backdrop-filter:blur(4px)}
+.share-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.share-head h2{margin:0;font-size:20px;font-weight:850}
+.share-close{border:1px solid #5c646e;border-radius:10px;background:#29303a;color:#fff;padding:8px 12px;font-size:17px}
+.share-link{display:flex;gap:9px;align-items:center;justify-content:space-between;background:#11161d;border:1px solid #4d5865;border-radius:11px;padding:12px;margin:14px 0;overflow:hidden}
+.share-link input{width:100%;min-width:0;flex:1;color:#d7e1eb;background:none;border:0;outline:0;font-size:12px}
+.share-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.share-options a,.share-options button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:47px;border-radius:11px;border:1px solid #53606d;background:#2b323c;color:#fff;font-size:13px;font-weight:800;text-decoration:none}
+.share-options .whatsapp{background:#136a3d;border-color:#289a61}
+#productShareStatus{font-size:13px;color:#b4efc9;margin:12px 0 0;min-height:17px}
 </style>
 </head>
 <body>
@@ -218,6 +237,7 @@ footer a:hover{color:var(--accent)}
     <div class="catalog-head"><button type="button" id="btnVoltarCategorias" class="catalog-back">← Voltar às categorias</button><span class="subtle-tag" id="modelCount">MODELOS</span></div>
     <h3 id="detailTitle">Escolha o modelo</h3>
     <p class="subtext" id="detailDescription"></p>
+    <div id="productShareHint" class="product-share-banner" role="status" hidden>🔗 Produto compartilhado — você já está no acessório certo!</div>
     <div id="motoModelos" class="variant-list"></div>
     <button type="button" id="btnMontagemDetalhe" class="btn-outline catalog-action">Ver minha moto →</button>
    </section>
@@ -229,8 +249,16 @@ footer a:hover{color:var(--accent)}
   </div>
   
  </section>
+<section id="abSuggestAccessoriesMount"></section>
+<section id="abSuggestImprovementMount"></section>
 </main>
 <footer><div class="wrap"><strong>ASPHALT <span style="color:#fb923c">BOYS</span></strong><span>Sua moto, seu estilo.</span><a href="index.html#destinos">Voltar às viagens ↗</a></div></footer>
+<dialog id="productShareDialog" class="product-share-modal" aria-labelledby="productShareTitle">
+ <div class="share-head"><h2 id="productShareTitle">↗ Compartilhar produto</h2><button type="button" class="share-close" id="productShareClose" aria-label="Fechar compartilhamento">×</button></div>
+ <p id="productShareName" class="muted" style="font-size:13px;line-height:1.5;margin:12px 0">Envie este acessório para alguém ver no Asphalt Boys.</p>
+ <div class="share-link"><input id="productShareLink" readonly aria-label="Link do produto"><button type="button" id="productShareCopy" class="btn-outline">Copiar</button></div>
+ <div class="share-options"><a id="productShareWhats" href="https://api.whatsapp.com/" class="whatsapp" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a><button type="button" id="productShareNative">Outros apps ↗</button></div><p id="productShareStatus" role="status"></p>
+</dialog>
 <div id="photoLightbox" class="photo-lightbox" role="dialog" aria-modal="true" aria-label="Foto ampliada do acessório" hidden>
  <button type="button" data-light-close aria-label="Fechar foto">×</button>
  <button type="button" data-light-step="-1" aria-label="Foto anterior">‹</button>
@@ -238,6 +266,7 @@ footer a:hover{color:var(--accent)}
  <button type="button" data-light-step="1" aria-label="Próxima foto">›</button>
  <span class="lightbox-counter"></span>
 </div>
-<script src="./motos-v2.js?v=20261109-review-links-clean"></script>
+<script src="./motos-v2.js?v=20261110-compartilhar-modelo"></script>
+<script src="./site-feedback-public.js?v=20261110-1"></script>
 </body>
 </html>

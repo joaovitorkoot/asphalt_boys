@@ -37,8 +37,10 @@ jobs:
           assert(block.includes('Enviar sugestão</button>'),'Submit button must remain');
           assert(!block.includes('Nada é publicado sem aprovação.'),'Footer note must not appear under send');
           assert(!block.includes('<p class="note">Até 3 fotos.</p>'),'Extra photo text must not wrap');
-          assert(js.includes("if(files.length>3){photos.value='';"),'Selecting over 3 photos must be rejected and cleared');
+          assert(js.includes('selectedPhotos.length+incoming.length>3'),'Selecting more than three photos must be rejected');
+          assert(js.includes('selectedPhotos.push(...incoming)'),'Added photos must be retained after choosing files');
+          assert(js.includes("remove.textContent='×'"),'Each preview must offer a remove button');
           assert(js.includes('if(files.length>3||files.some('),'Submission must enforce three-photo limit');
-          assert(html.includes('visitor-suggestions-public.js?v=20261109-photo-picker-mobile'),'Cache-busting link missing');
+          assert(html.includes('visitor-suggestions-public.js?v='),'Versioned public script missing');
           console.log('PASS: syntax, compact mobile picker, three-photo limit, previews, footer removed');
           NODE

@@ -9,12 +9,13 @@
 .abPhotoZoom::backdrop{background:#000e}
 .abPhotoZoom img{display:block;max-width:96vw;max-height:80dvh;object-fit:contain;border-radius:12px}
 .abPhotoZoom button{position:absolute;right:20px;top:20px;border:1px solid #666;background:#1a1e25;color:#fff;border-radius:999px;width:44px;height:44px;font-size:25px}
-.abPhotoZoom p{font-size:13px;color:#d5d6d9;font-weight:700}.field{background:#191c22;border:1px solid #353a43;outline:0}.field:focus{border-color:#fb923c}.tabon{background:#f97316;color:#111}.soft{border:1px solid #292e36;background:#14171c}.routepick:checked+span{border-color:#fb923c;background:#f9731615}.logo svg{height:46px;width:46px}.star{font-size:25px;color:#fb923c}.star[aria-pressed="false"]{color:#525763}@media(max-width:640px){.hero{background-position:center}.cardpic{height:auto}}</style><script>/* A imagem final já contém a marca d’água; oculta a sobreposição quando o arquivo for enviado. */(function(){const imagem=new Image();imagem.onload=function(){document.documentElement.classList.add('asphalt-hero-pronto')};imagem.src='imagens/asphalt-hero.jpg';})();</script><style>.asphalt-hero-pronto .hero-watermark{display:none}</style></head>
+.abPhotoZoom p{font-size:13px;color:#d5d6d9;font-weight:700}.field{background:#191c22;border:1px solid #353a43;outline:0}.field:focus{border-color:#fb923c}.tabon{background:#f97316;color:#111}.soft{border:1px solid #292e36;background:#14171c}.routepick:checked+span{border-color:#fb923c;background:#f9731615}.logo svg{height:46px;width:46px}.star{font-size:25px;color:#fb923c}.star[aria-pressed="false"]{color:#525763}@media(max-width:640px){.hero{background-position:center}.cardpic{height:auto}}</style><script>/* A imagem final já contém a marca d’água; oculta a sobreposição quando o arquivo for enviado. */(function(){const imagem=new Image();imagem.onload=function(){document.documentElement.classList.add('asphalt-hero-pronto')};imagem.src='imagens/asphalt-hero.jpg';})();</script><style>.asphalt-hero-pronto .hero-watermark{display:none}</style><link rel="stylesheet" href="./site-feedback.css?v=20261110-1"></head>
 <body class="font-sans antialiased"><header class="sticky top-0 z-40 border-b border-white/10 glass"><div class="max-w-7xl mx-auto px-5 h-20 flex items-center justify-between gap-3"><a href="#inicio" class="logo flex items-center gap-3 shrink-0" aria-label="Asphalt Boys, início"><img src="imagens/mascote-tigre.svg" width="46" height="46" alt="Mascote tigre motociclista Asphalt Boys" class="h-[46px] w-[46px] object-contain shrink-0"><span class="text-lg sm:text-xl font-black italic tracking-tight">ASPHALT <span class="text-orange-500">BOYS</span></span></a><nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-zinc-300"><a href="#inicio" class="hover:text-white">Início</a><a href="#destinos" class="text-orange-400">Viagens</a><a href="motos.html" class="hover:text-white">Motos</a><a href="#sobre" class="hover:text-white">O grupo</a></nav><a href="#destinos" class="bg-orange-500 hover:bg-orange-400 text-black font-extrabold rounded-xl px-4 py-3 text-xs sm:text-sm">Explorar rotas ↗</a></div>
 <nav class="md:hidden border-t border-white/10 flex justify-center gap-8 py-2 text-sm font-bold" aria-label="Seções do site"><a href="#destinos" class="text-orange-400 border-b-2 border-orange-500 px-4 py-1" aria-current="page">🗺️ Viagens</a><a href="motos.html" class="text-zinc-300 px-4 py-1">🏍️ Motos</a></nav></header>
 <main><section id="inicio" class="hero min-h-[560px] flex items-center"><div class="hero-watermark" aria-hidden="true"><img src="imagens/mascote-tigre.svg" alt=""><span>ASPHALT BOYS</span></div><div class="max-w-7xl mx-auto px-5 py-24 w-full relative z-10"><p class="text-orange-400 uppercase tracking-[.27em] text-xs font-black mb-5">A estrada é nossa casa</p><h1 class="text-5xl sm:text-7xl font-black tracking-tight leading-[1.04] max-w-3xl">NÃO É SÓ O <span class="text-orange-500">DESTINO.</span><br>É O CAMINHO.</h1><p class="text-zinc-300 text-base sm:text-lg max-w-xl mt-7 leading-relaxed">Escolha o destino, monte seu roteiro e aproveite a estrada.</p><div class="flex flex-wrap gap-3 mt-9"><a href="#destinos" class="bg-orange-500 hover:bg-orange-400 text-black px-6 py-4 rounded-xl font-extrabold">Ver destinos →</a></div></div></section>
 <section id="destinos" class="max-w-7xl mx-auto px-5 pt-20 pb-12"><div class="flex items-end justify-between gap-4 mb-9"><div><p class="text-orange-400 font-black tracking-widest text-xs uppercase">Explore o Ceará</p><h2 class="text-3xl sm:text-4xl font-black mt-2">Escolha seu próximo destino</h2></div></div><div id="cards" class="grid md:grid-cols-2 gap-5"></div></section>
 <section id="avaliacoes" class="max-w-7xl mx-auto px-5 py-14"><div class="border-t border-white/10 pt-12 flex flex-col md:flex-row md:items-center justify-between gap-7"><div><p class="text-orange-400 font-black text-xs tracking-widest uppercase">Sua experiência importa</p><h2 class="text-3xl font-black mt-2">Como foi a viagem?</h2><p class="text-zinc-400 mt-3 max-w-xl">Avalie o destino. Sua nota fica salva neste aparelho.</p></div><div class="soft p-6 rounded-2xl min-w-[270px]"><label for="avaliarDestino" class="text-sm font-bold block mb-3">Destino avaliado</label><select id="avaliarDestino" class="field rounded-lg p-3 w-full"></select><div class="flex gap-2 mt-4" id="estrelas" aria-label="Avaliação de uma a cinco estrelas"></div><p id="nota" aria-live="polite" class="text-xs text-zinc-400 mt-3">Selecione uma nota.</p></div></div></section>
+<section id="abSuggestImprovementMount"></section>
 <section id="sobre" class="bg-[#13161b] border-t border-white/10 mt-8"><div class="max-w-7xl mx-auto px-5 py-14 flex flex-col md:flex-row justify-between gap-8"><div><div class="text-2xl font-black italic">ASPHALT <span class="text-orange-500">BOYS</span></div><p class="text-zinc-400 max-w-lg mt-4">Um grupo de amigos apaixonados por motos, aventura, liberdade e pelas histórias que surgem em cada estrada.</p><p class="text-sm italic text-zinc-300 mt-5">“Lembre: a 1ª é pra baixo. O resto é pra cima...”</p></div><div class="text-sm text-zinc-400 md:text-right"><p class="font-bold text-white mb-3">Explore</p><a class="block mb-2 hover:text-white" href="#destinos">Destinos</a><a class="block mb-2 hover:text-white" href="#avaliacoes">Sua experiência</a><a class="block mb-2 hover:text-white" href="motos.html">Motos e acessórios</a><p class="mt-8">Horizonte · Ceará</p></div></div><div class="max-w-7xl mx-auto px-5 py-5 border-t border-white/10 text-xs text-zinc-500">© <span id="ano"></span> Asphalt Boys · Feito para quem vive a estrada.</div></section></main>
 <dialog id="abPhotoZoom" class="abPhotoZoom" aria-label="Foto do destino ampliada"><button id="abPhotoZoomClose" type="button" aria-label="Fechar foto ampliada">×</button><img id="abPhotoZoomImg" alt=""><p id="abPhotoZoomTitle"></p></dialog>
 <script>
@@ -277,6 +278,29 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
 @media(prefers-reduced-motion:reduce){.tripTabEnter{animation:none!important}}
 #tripPanel::-webkit-scrollbar{width:5px}#tripPanel::-webkit-scrollbar-thumb{background:#4e5661;border-radius:9px}
 @media(max-width:580px){#tripCategories{grid-template-columns:repeat(2,minmax(0,1fr))}.tripTab{font-size:11px;padding:8px 3px}.tripStop{grid-template-columns:62px minmax(0,1fr)}.tripStop img,.tripFallback{width:62px;height:76px}#tripPanel{border-radius:14px}}
+
+/* Calendário semanal de funcionamento — preto, laranja, verde/fechado vermelho */
+.abHoursWeek{display:grid;gap:7px;margin:12px 0 4px}
+.abHoursRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;background:#252a32;border:1px solid #454b56;border-radius:10px;color:#e8ebef}
+.abHoursRow:before{content:'';width:4px;height:28px;border-radius:5px;background:#6b7280;flex:none}
+.abHoursRow.open:before{background:#22c55e}
+.abHoursRow.closed:before{background:#ef4444}
+.abHoursDay{flex:1;font-size:13px;font-weight:750}
+.abHoursBadge{font-size:12px;font-weight:750;padding:6px 9px;border-radius:9px;background:#313844;color:#d1d5db;text-align:right;white-space:nowrap}
+.abHoursRow.open .abHoursBadge{background:#16452d;color:#a7f3c0}
+.abHoursRow.closed .abHoursBadge{background:#512226;color:#ffb4b4}
+.abHoursManual{font-size:13px;white-space:pre-line;line-height:1.5;color:#d0d7e2;background:#252a32;border:1px solid #454b56;border-radius:10px;padding:12px}
+@media(max-width:420px){.abHoursDay{font-size:12px}.abHoursBadge{font-size:11px;padding:6px 7px}.abHoursRow{gap:7px;padding:8px}}
+
+.abCustomAddBtn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:1px solid #fb923c;border-radius:12px;background:#33271f;color:#ffb784;font-size:14px;font-weight:800;margin:12px 0;transition:background .2s}
+.abCustomAddBtn:hover,.abCustomAddBtn[aria-expanded=true]{background:#493126}
+.abCustomAddPanel{border:1px solid #4b545f;background:#242a32;border-radius:13px;padding:15px;margin:10px 0 16px}
+.abCustomConfirmBtn{background:linear-gradient(105deg,#ffb25e,#f97316);border:0;color:#171717;font-weight:850;border-radius:11px;padding:12px;width:100%;min-height:45px}
+.abCustomConfirmBtn:disabled{opacity:.55}
+.abCustomCandidate{display:flex;align-items:center;gap:8px;justify-content:space-between;border:1px solid #515d6a;background:#1c232b;border-radius:11px;padding:11px}
+.abCustomCandidate strong{display:block;font-size:13px;color:#f1f5f9}
+.abCustomCandidate small{display:block;color:#b9c4d1;font-size:11px;line-height:1.4;margin-top:4px}
+.abCustomCandidate button{background:#fb923c;border-radius:9px;color:#171717;font-weight:850;font-size:12px;min-height:41px;padding:9px;flex:none}
 </style>
 <div id="tripModal" hidden role="dialog" aria-modal="true" aria-labelledby="tripTitle">
 <div id="tripPanel" tabindex="-1">
@@ -337,6 +361,15 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
   <span id="tripCount" class="tripTiny">0 paradas</span>
   <button id="tripCreateDay" type="button" class="tripDayAdd" title="Montar e salvar um dia de viagem" aria-label="Criar novo dia">＋ Novo dia</button>
  </div>
+</div>
+<button type="button" id="tripAddCustomStop" class="abCustomAddBtn" aria-expanded="false">✚ Adicionar parada personalizada</button>
+<div id="tripCustomAddPanel" class="abCustomAddPanel" hidden>
+ <div class="flex items-center justify-between gap-2 mb-3"><strong>📍 Nova parada pelo Google Maps</strong><button id="tripCustomClose" type="button" class="tripNavBtn" aria-label="Fechar">×</button></div>
+ <label for="tripCustomLink" class="block text-sm font-semibold mb-2">Link do Google Maps</label>
+ <input id="tripCustomLink" class="tripField" type="url" autocomplete="off" maxlength="1800" inputmode="url" placeholder="https://maps.app.goo.gl/...">
+ <button id="tripCustomCheck" type="button" class="abCustomConfirmBtn mt-3">📍 Conferir ponto no Maps</button>
+ <p id="tripCustomStatus" class="tripTiny mt-2" role="status" aria-live="polite"></p>
+ <div id="tripCustomCandidates" class="space-y-2 mt-3"></div>
 </div>
 <p class="tripTiny mt-1 mb-3">Monte sua rota normalmente. Use Novo dia apenas quando quiser guardar um dia da viagem.</p>
 <div id="tripDayGroups" class="space-y-2 mb-3" hidden aria-label="Dias salvos da viagem"></div>
@@ -411,8 +444,8 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
       </div>
       <p id="tripPreviewDesc" class="tripPlaceDescription"></p>
       <details id="tripHoursDetails" class="tripPlaceHours" hidden>
-        <summary>Ver horários de funcionamento</summary>
-        <p id="tripPreviewHours"></p>
+        <summary>📅 Horários de funcionamento</summary>
+        <div id="tripPreviewHours" class="abHoursWeek" aria-label="Horários por dia da semana"></div>
       </details>
       <details id="tripReviewDetails" class="tripPlaceReviews" hidden>
         <summary>✨ O que dizem os visitantes</summary>
@@ -448,6 +481,7 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
   </article>
 </section>
 </div></div>
-<script src="planejador.js?v=20261109-tabs-scroll-smooth"></script>
+<script src="planejador.js?v=20261110-personalizado-calendario"></script>
 <script src="./visitor-suggestions-public.js?v=20261110-mensagem-agradecimento"></script>
+<script src="./site-feedback-public.js?v=20261110-1"></script>
 </body></html>

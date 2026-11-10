@@ -35,7 +35,7 @@
  // Aviso de possíveis erros de geolocalização nos destinos da serra.
  // Nunca trocar automaticamente um local por outro de nome parecido.
  function suspectStop(p){
-  if(!p)return '';
+  if(!p||p.custom)return '';
   const address=String(p.endereco||'').trim();
   if(/^(?:CE|BR)[-\s]?\d{2,3}(?:\s*,\s*\d+)?$/i.test(address))
    return 'Endereço contém somente o nome de uma rodovia.';
@@ -56,7 +56,7 @@
  const searchText=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
  let originMode='gps',originPoint=null,originRequestEpoch=0,activeLegIndex=0,tripDays=[],activeDayId='',dayDraftMode='',dayDraftTitle='',dayDraftPrevious=null,minePickerOpen=false,mineCategory='turismo';
   const expandedDayIds=new Set();
- let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null,previewReturnScroll=0;
+ let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],customStops=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null,previewReturnScroll=0;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
  function safeStore(k,v){try{localStorage.setItem(k,v)}catch{}}
@@ -99,7 +99,7 @@
  function saveRoute(){
   if(!destination)return;
   safeStore(draftKey(destination.id),JSON.stringify({
-   v:3,stops:[...selected],days:tripDays.map(d=>({
+   v:3,stops:[...selected],customStops:customStops.slice(0,MAX_ROUTE_STOPS),days:tripDays.map(d=>({
     id:d.id,title:d.title,stops:[...d.stops],legIndex:d.legIndex||0
    })),draftMode:dayDraftMode,activeDayId:dayDraftMode==='edit'?activeDayId:'',
    draftTitle:dayDraftMode?dayDraftTitle:'',draftPrevious:dayDraftMode==='edit'?dayDraftPrevious:null,
@@ -112,6 +112,7 @@
   if(!destination)return false;
   let saved;try{saved=JSON.parse(safeRead(draftKey(destination.id))||'null')}catch{return false}
   if(!saved||![1,2,3].includes(saved.v)||!Array.isArray(saved.stops))return false;
+  customStops=normalizeCustomStops(saved.customStops);
   const oldStops=validDayStops(saved.stops);
   const restored=Array.isArray(saved.days)&&saved.days.length<=MAX_TRIP_DAYS
    ?saved.days.map((d,i)=>{
@@ -267,13 +268,89 @@
   if(destination)q('tripRouteSummary').textContent=routeSummaryText();
  }
  function mergeData(a){if(!a||!['destinos','paradas','rotas'].every(k=>Array.isArray(a[k])))return false;data=a;return true}
+
+ function normalizeCustomStops(items){
+  if(!Array.isArray(items))return [];
+  return items.slice(0,MAX_ROUTE_STOPS).map(raw=>{
+   if(!raw||typeof raw!=='object')return null;
+   const id=String(raw.id||''),name=String(raw.nome||'').trim().slice(0,100);
+   const gps=validCoords(raw.mapCoordinates);
+   if(!/^pessoal-[a-zA-Z0-9_-]{8,80}$/.test(id)||!gps||name.length<2)return null;
+   const link=originMapURL(raw.maps)||'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(gps);
+   return {id,nome:name,endereco:String(raw.endereco||gps).trim().slice(0,300),
+    maps:link,mapCoordinates:gps,mapCoordinatesSource:'google-places',
+    googlePlaceId:validPlaceId(raw.googlePlaceId)||'',categoria:'turismo',custom:true,
+    destinoId:mapping(destination?.id||'')};
+  }).filter(Boolean).filter((p,i,arr)=>arr.findIndex(q=>q.id===p.id)===i);
+ }
+ function receiveSharedCustom(raw){
+  if(!raw||raw.length>6000)return [];
+  try{
+   const items=JSON.parse(raw);
+   if(!Array.isArray(items))return [];
+   return normalizeCustomStops(items.map(x=>Array.isArray(x)&&x.length===4?{
+    id:x[0],nome:x[1],mapCoordinates:x[2],googlePlaceId:x[3]
+   }:null));
+  }catch{return []}
+ }
+ function addPersonalPoint(candidate,link){
+  if(selected.length>=MAX_ROUTE_STOPS){q('tripCustomStatus').textContent='Máximo de 20 paradas por roteiro.';return}
+  const coordinate=validCoords(candidate.coordinate);
+  if(!coordinate){q('tripCustomStatus').textContent='Este local não possui GPS confirmado. Confira outro link.';return}
+  if(customStops.some(p=>p.mapCoordinates===coordinate)){
+   q('tripCustomStatus').textContent='Este ponto já foi adicionado ao seu roteiro.';return;
+  }
+  const name=String(candidate.name||'Parada personalizada').slice(0,100).trim();
+  const id='pessoal-'+crypto.randomUUID();
+  const point=normalizeCustomStops([{id,nome:name,endereco:candidate.address||coordinate,
+   maps:link,mapCoordinates:coordinate,googlePlaceId:candidate.placeId||''}])[0];
+  if(!point){q('tripCustomStatus').textContent='Não foi possível validar este ponto.';return}
+  customStops.push(point);selected.push(id);presetId='';activeLegIndex=0;tab='mine';
+  q('tripCustomLink').value='';q('tripCustomCandidates').replaceChildren();
+  q('tripCustomStatus').textContent='';q('tripCustomAddPanel').hidden=true;
+  q('tripAddCustomStop').setAttribute('aria-expanded','false');
+  q('tripDayMessage').textContent='✓ '+point.nome+' adicionada ao final do roteiro.';
+  render();q('tripChosen').scrollIntoView({behavior:'smooth',block:'nearest'});
+ }
+ async function checkPersonalLink(){
+  const link=q('tripCustomLink').value.trim();
+  const official=originMapURL(link);
+  const status=q('tripCustomStatus'),results=q('tripCustomCandidates');
+  results.replaceChildren();
+  if(!official||link.length>1800){status.textContent='Use um link HTTPS oficial do Google Maps.';return}
+  const button=q('tripCustomCheck');button.disabled=true;status.textContent='Conferindo ponto no Google Maps...';
+  try{
+   const res=await fetch('./api/origin-point',{method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({input:official})});
+   const data=await res.json();
+   if(q('tripCustomLink').value.trim()!==link)return;
+   if(!res.ok)throw Error(data.error||'Não foi possível identificar o local.');
+   const candidates=Array.isArray(data.results)?data.results.filter(p=>validCoords(p.coordinate)).slice(0,5):[];
+   if(!candidates.length)throw Error('Não encontrei um ponto exato. Confira o link.');
+   status.textContent='Confira o local antes de adicioná-lo ao roteiro.';
+   for(const point of candidates){
+    const row=document.createElement('div');row.className='abCustomCandidate';
+    const info=document.createElement('div');info.className='min-w-0 flex-1';
+    const name=document.createElement('strong');name.textContent=String(point.name||'Ponto personalizado');
+    const address=document.createElement('small');address.textContent=String(point.address||point.coordinate);
+    const map=document.createElement('a');map.className='tripStopCheck text-xs';
+    map.href=originMapURL(point.maps)||'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(point.coordinate);
+    map.target='_blank';map.rel='noopener noreferrer';map.textContent='Ver no Maps ↗';
+    info.append(name,address,map);
+    const add=document.createElement('button');add.type='button';add.textContent='+ Adicionar';
+    add.onclick=()=>addPersonalPoint(point,official);
+    row.append(info,add);results.append(row);
+   }
+  }catch(error){status.textContent='⚠️ '+String(error.message||error).slice(0,200)}
+  finally{button.disabled=false}
+ }
  function currentStops(){
    if(!destination)return[];
    const destId=mapping(destination.id);
    return data.paradas.filter(p=>p.destinoId===destId);
  }
  function currentRoutes(){return destination?data.rotas.filter(r=>r.destinoId===mapping(destination.id)):[]}
- function stopById(id){return currentStops().find(p=>p.id===id)}
+ function stopById(id){return customStops.find(p=>p.id===id)||currentStops().find(p=>p.id===id)}
  function showTab(next,animateOnTabClick=false){
   if(!['custom','preset','mine'].includes(next))return;
   const changed=tab!==next;
@@ -430,11 +507,10 @@
   }).join('');
  }
  function renderChosen(){
-  const stops=currentStops();
   q('tripChosen').innerHTML=selected.length?selected.map((id,i)=>{
-   const p=stops.find(s=>s.id===id);
+   const p=stopById(id);
    const categoryNames=p?stopCategories(p).map(cat=>categories.find(([key])=>key===cat)?.[1]).filter(Boolean):[];
-   const chips=categoryNames.map(name=>'<span class="tripPickedChip">'+esc(name)+'</span>').join('');
+   const chips=p?.custom?'<span class="tripPickedChip">📍 Personalizada</span>':categoryNames.map(name=>'<span class="tripPickedChip">'+esc(name)+'</span>').join('');
    const suspect=suspectStop(p);
    const original=p?mapLink(p):'';
    const check=original?'<a class="tripStopCheck" href="'+esc(original)+'" target="_blank" rel="noopener noreferrer" aria-label="Conferir local original no Google Maps: '+esc(p.nome)+'">📍 Ver ponto no Maps ↗</a>':'';
@@ -476,7 +552,7 @@
    category=categories.some(([cat])=>cat===requestedCategory)?requestedCategory:'turismo';
    Object.keys(categorySearches).forEach(k=>delete categorySearches[k]);
    q('tripSearch').value='';
-   selected=[];presetId='';activeLegIndex=0;expandedDayIds.clear();beginSingleDay();
+   selected=[];customStops=[];presetId='';activeLegIndex=0;expandedDayIds.clear();beginSingleDay();
    minePickerOpen=false;mineCategory='turismo';q('tripMineSearch').value='';
    q('tripDayMessage').textContent='';
    q('tripShareBox').hidden=true;
@@ -497,7 +573,8 @@
   }
   renderOriginPoint();
   setOriginMode(share&&share.origin?'manual':'gps');
-   if(!(share&&(share.route||share.stops||share.origin||share.days)))restoreRoute();
+   if(share?.custom)customStops=receiveSharedCustom(share.custom);
+   if(!(share&&(share.route||share.stops||share.origin||share.days||share.custom)))restoreRoute();
    if(share&&share.route){const r=currentRoutes().find(x=>x.id===share.route);if(r){selected=(r.paradas||[]).filter(id=>stopById(id)).slice(0,MAX_ROUTE_STOPS);presetId=r.id;tab='mine'}}
    else if(share&&share.days){
      if(initializeSharedDays(share.days))tab='mine';
@@ -508,6 +585,33 @@
  }
  function close(){saveRoute();forgetOpen();modal.hidden=true;document.body.style.overflow='';if(focusBefore&&focusBefore.focus)focusBefore.focus()}
 
+
+ function displayHours(source){
+  const host=q('tripPreviewHours');host.replaceChildren();
+  const lines=(Array.isArray(source)?source:String(source||'').split(/\n/)).filter(x=>typeof x==='string'&&x.trim()).slice(0,14);
+  const weekdays=[['segunda','Segunda-feira'],['terca','Terça-feira'],['quarta','Quarta-feira'],['quinta','Quinta-feira'],['sexta','Sexta-feira'],['sabado','Sábado'],['domingo','Domingo']];
+  const normalized=t=>String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const entries=new Map();
+  for(const line of lines){
+   const n=normalized(line);
+   const match=weekdays.find(([key])=>n.startsWith(key));
+   if(match){const pos=line.indexOf(':');entries.set(match[0],pos>=0?line.slice(pos+1).trim():line.trim())}
+  }
+  if(entries.size<4){
+   const manual=document.createElement('div');manual.className='abHoursManual';
+   manual.textContent=lines.join('\n');
+   host.append(manual);return;
+  }
+  for(const [key,label] of weekdays){
+   const value=entries.get(key)||'Não informado';
+   const closed=/\bfechad[oa]s?\b/i.test(value);
+   const open=!closed&&value!=='Não informado';
+   const row=document.createElement('div');row.className='abHoursRow'+(closed?' closed':open?' open':'');
+   const day=document.createElement('span');day.className='abHoursDay';day.textContent=label;
+   const badge=document.createElement('span');badge.className='abHoursBadge';badge.textContent=closed?'Fechado':value;
+   row.append(day,badge);host.append(row);
+  }
+ }
  function preview(id){
   const p=stopById(id);if(!p)return;
   previewReturnScroll=panel.scrollTop;
@@ -524,7 +628,7 @@
   hoursDetails.open=false;
   const savedHours=String(p.horario||'').trim();
   hoursDetails.hidden=!savedHours;
-  q('tripPreviewHours').textContent=savedHours?'Horário informado pelo grupo: '+savedHours:'';
+  displayHours(savedHours);
   // O resumo não é consultado automaticamente: evita custo por miniatura/visita.
   reviewRequestEpoch++;
   const reviewDetails=q('tripReviewDetails');
@@ -591,7 +695,7 @@
       q('tripGoogleRating').hidden=false;
     }
     if(Array.isArray(result.hours)&&result.hours.length){
-      q('tripPreviewHours').textContent=result.hours.filter(x=>typeof x==='string').slice(0,7).join('\n');
+      displayHours(result.hours.filter(x=>typeof x==='string').slice(0,7));
       hoursDetails.hidden=false;
     }
     // A foto própria (upload ou URL) sempre tem prioridade sobre fotos do Google.
@@ -793,17 +897,20 @@
  async function preparePreciseStops(stops){
   if(localPreview||!stops.length)return {stops,warnings:localPreview?
    ['Modo de rascunho: confira os pontos antes de navegar.']:[]};
+  const existing=stops.filter(p=>!p.custom);
+  if(!existing.length)return {stops,warnings:[]};
   try{
    const res=await fetch('./api/route-points',{
     method:'POST',credentials:'same-origin',cache:'no-store',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ids:stops.map(p=>p.id)})
+    body:JSON.stringify({ids:existing.map(p=>p.id)})
    });
    const payload=await res.json();
    if(!res.ok||!Array.isArray(payload.positions))
     throw Error(payload.error||'Verificação indisponível.');
    const byId=new Map(payload.positions.map(p=>[p.id,p]));
    const warnings=[],updated=stops.map(stop=>{
+    if(stop.custom)return stop;
     const point=byId.get(stop.id);
     if(!point||point.missing){
      warnings.push('Local não encontrado no banco: '+stop.nome);
@@ -864,6 +971,9 @@
    u.searchParams.set('dias',JSON.stringify(serialized));
   }else if(presetId)u.searchParams.set('rota',presetId);
   else if(selected.length)u.searchParams.set('stops',selected.join(','));
+  const used=new Set([...selected,...tripDays.flatMap(d=>d.stops)]);
+  const personal=customStops.filter(p=>used.has(p.id)).map(p=>[p.id,p.nome,p.mapCoordinates,p.googlePlaceId||'']);
+  if(personal.length)u.searchParams.set('pontos',JSON.stringify(personal));
   const origin=originValue();
   if(origin){
    u.searchParams.set('origem',origin.slice(0,150));
@@ -1059,6 +1169,20 @@
   q('tripOrigin').addEventListener('keydown',e=>{
    if(e.key==='Enter'){e.preventDefault();checkOriginPoint()}
   });
+
+ q('tripAddCustomStop').onclick=()=>{
+  const box=q('tripCustomAddPanel'),next=box.hidden;box.hidden=!next;
+  q('tripAddCustomStop').setAttribute('aria-expanded',String(next));
+  if(next)q('tripCustomLink').focus();
+ };
+ q('tripCustomClose').onclick=()=>{
+  q('tripCustomAddPanel').hidden=true;
+  q('tripAddCustomStop').setAttribute('aria-expanded','false');
+  q('tripCustomStatus').textContent='';q('tripCustomCandidates').replaceChildren();
+ };
+ q('tripCustomLink').oninput=()=>{q('tripCustomCandidates').replaceChildren();q('tripCustomStatus').textContent=''};
+ q('tripCustomLink').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();checkPersonalLink()}};
+ q('tripCustomCheck').onclick=checkPersonalLink;
  q('tripCreateDay').onclick=makeNextDay;
  q('tripSaveDay').onclick=saveCurrentDay;
  q('tripCancelDay').onclick=cancelCurrentDay;
@@ -1116,7 +1240,10 @@
  q('tripChosen').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let i;
   if(b.dataset.up!==undefined){i=+b.dataset.up;if(i>0)[selected[i-1],selected[i]]=[selected[i],selected[i-1]]}
   else if(b.dataset.down!==undefined){i=+b.dataset.down;if(i<selected.length-1)[selected[i],selected[i+1]]=[selected[i+1],selected[i]]}
-  else if(b.dataset.remove!==undefined)selected.splice(+b.dataset.remove,1);
+  else if(b.dataset.remove!==undefined){
+   const removed=selected.splice(+b.dataset.remove,1)[0];
+   if(removed?.startsWith('pessoal-')&&!tripDays.some(day=>day.stops.includes(removed)))customStops=customStops.filter(p=>p.id!==removed);
+  }
   presetId='';activeLegIndex=0;render();showTab('mine');
  });
  q('tripOpenMaps').onclick=()=>{prepareGoogleRoute().catch(()=>{q('tripNote').textContent='Erro ao preparar a rota. Confira sua conexão e tente novamente.';q('tripOpenMaps').disabled=false})};
@@ -1127,7 +1254,7 @@
  (async()=>{
   await fetchPublic();
   const id=urlParams.get('dest');
-  if(id){open(id,{origin:urlParams.get('origem')||'',originName:urlParams.get('origem_nome')||'',route:urlParams.get('rota'),stops:urlParams.get('stops'),days:urlParams.get('dias')})}
+  if(id){open(id,{origin:urlParams.get('origem')||'',originName:urlParams.get('origem_nome')||'',route:urlParams.get('rota'),stops:urlParams.get('stops'),days:urlParams.get('dias'),custom:urlParams.get('pontos')})}
   else {const wasOpen=readOpen();if(wasOpen)open(wasOpen)}
  })();
 })();
