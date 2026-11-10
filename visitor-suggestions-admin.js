@@ -73,7 +73,7 @@
    (x.destinationMode==='novo'?'__novo':x.destinationId);
   const wantedNew=x.chosenDestinationName||x.destinationName||'';
   const nameValue=x.approvedName||x.visitorName;
-  const selectedName=x.nameChoice||'visitante';
+  const selectedName=x.visitorName?(x.nameChoice||'visitante'):(x.nameChoice==='google'?'google':'manual');
   const googleName=google?.name||x.googleName||'';
   const gId=google?.id||x.googlePlaceId||'';
   const gps=google?.mapCoordinates||x.mapCoordinates||'';
@@ -81,7 +81,7 @@
   $('abVisitorDetail').innerHTML=`
    <article class="border border-zinc-600 bg-[#20252d] rounded-xl p-4">
     <div class="flex justify-between items-start flex-wrap gap-2 mb-3"><div>
-     <h3 class="font-black text-xl">${esc(x.visitorName)}</h3>
+     <h3 class="font-black text-xl">${esc(x.visitorName||'Local sem nome')}</h3>
      <p class="tiny">Sugestão ${esc(x.status)} · ${esc(x.createdAt||'')}</p></div>
      <span class="pill">${x.destinationMode==='novo'?'Novo destino':'Destino existente'}</span></div>
     <div class="border border-orange-500/30 bg-[#2b2927] rounded-xl p-3 mb-3">
@@ -102,7 +102,7 @@
       <p class="tiny" id="abGoogleCoord">${gps?'Coordenadas do ponto: '+esc(gps):''}</p>
       <button type="button" id="abGoogleRetry" class="subbtn text-sm mt-2" ${active?'':'disabled'}>Consultar Google Maps</button>
      </div>
-     <label class="pick mt-3"><input type="radio" name="abNameSource" value="visitante" ${selectedName==='visitante'?'checked':''} ${active?'':'disabled'}><span>Nome informado pelo visitante: <strong>${esc(x.visitorName)}</strong></span></label>
+     <label class="pick mt-3"><input type="radio" name="abNameSource" value="visitante" ${selectedName==='visitante'?'checked':''} ${active&&x.visitorName?'':'disabled'}><span>Nome informado pelo visitante: <strong>${esc(x.visitorName||'Não informado')}</strong></span></label>
      <label class="pick mt-2"><input type="radio" name="abNameSource" value="google" ${selectedName==='google'?'checked':''} ${googleName&&gId&&active?'':'disabled'}><span>Nome identificado no Google Maps: <strong id="abGoogleName">${esc(googleName||'Indisponível')}</strong></span></label>
      <label class="pick mt-2"><input type="radio" name="abNameSource" value="manual" ${selectedName==='manual'?'checked':''} ${active?'':'disabled'}><span>Digitar outro nome</span></label>
      <label class="lbl" for="abManualName">Nome personalizado (quando necessário)</label>
@@ -141,7 +141,7 @@
    status.textContent=identified?'✓ Nome oficial identificado: '+identified.name:'O Google não identificou um estabelecimento. Use o nome do visitante ou escreva outro.';
    const labels=detail.querySelector('#abGoogleName');if(labels)labels.textContent=identified?.name||'Indisponível';
    const coord=detail.querySelector('#abGoogleCoord');if(coord)coord.textContent=google.mapCoordinates?'Coordenadas do ponto: '+google.mapCoordinates:'';
-   const radio=detail.querySelector('input[name=abNameSource][value=google]');if(radio){radio.disabled=!identified;if(!identified&&radio.checked){radio.checked=false;detail.querySelector('input[name=abNameSource][value=visitante]').checked=true}}
+   const radio=detail.querySelector('input[name=abNameSource][value=google]');if(radio){radio.disabled=!identified;if(!identified&&radio.checked){radio.checked=false;detail.querySelector('input[name=abNameSource][value='+(x.visitorName?'visitante':'manual')+']').checked=true}}
   }catch(e){status.textContent='Não foi possível identificar o nome automaticamente: '+String(e.message||e)}
  }
  async function moderate(x,action){

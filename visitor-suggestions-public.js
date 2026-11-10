@@ -41,18 +41,18 @@
     <input id="abSuggestMaps" type="url" maxlength="1200" placeholder="Cole o link do Google Maps" autocomplete="off" required>
     <p class="note" id="abSuggestLinkInfo" role="status">Confira se o link abre o lugar correto.</p>
     <a id="abSuggestVerify" class="mapcheck" target="_blank" rel="noopener noreferrer" aria-disabled="true">↗ Ver no Google Maps</a>
-    <label for="abSuggestName">2. Nome do local *</label>
-    <input id="abSuggestName" minlength="3" maxlength="120" placeholder="Ex.: Cachoeira, mirante, restaurante" required>
+    <label for="abSuggestName">2. Nome do local (opcional)</label>
+    <input id="abSuggestName" minlength="3" maxlength="120" placeholder="Ex.: Cachoeira, mirante, restaurante">
     <label for="abSuggestDestination">3. Para qual viagem é a sugestão? *</label>
     <select id="abSuggestDestination" required>
      <option value="guaramiranga">Guaramiranga</option>
      <option value="canoa-quebrada">Canoa Quebrada</option>
-     <option value="__novo">Outro destino — sugerir novo card</option>
+     <option value="__novo">Outro destino</option>
     </select>
     <div id="abSuggestNewArea" hidden><label for="abSuggestNew">Nome do novo destino *</label>
      <input id="abSuggestNew" maxlength="120" placeholder="Ex.: Morro Branco">
      <p class="note">Esse nome será exibido ao administrador.</p></div>
-    <span class="photoTitle">4. Fotos (até 3)</span>
+    <span class="photoTitle">4. Fotos (opcional, até 3)</span>
     <div class="photos"><label class="photoPicker"><input id="abSuggestPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>Escolher arquivos</label>
      <div id="abSuggestThumbs" class="thumbs" aria-live="polite"></div></div>
     <p id="abSuggestMsg" role="status" aria-live="polite" class="note"></p>
@@ -105,7 +105,8 @@
  $('abSuggestForm').onsubmit=async e=>{
   e.preventDefault();if(send.disabled)return;
   const url=official(maps.value),name=$('abSuggestName').value.trim(),files=Array.from(photos.files||[]);
-  if(!url||name.length<3){msg.textContent='Informe nome e link verdadeiro do Google Maps.';return}
+  if(!url){msg.textContent='Informe um link verdadeiro do Google Maps.';return}
+  if(name&&name.length<3){msg.textContent='Se informar o nome do local, use pelo menos 3 caracteres.';return}
   if(dest.value==='__novo'&&newName.value.trim().length<3){msg.textContent='Informe o nome do novo destino.';return}
   if(files.length>3||files.some(f=>f.size>10*1024*1024||!['image/jpeg','image/png','image/webp'].includes(f.type))){msg.textContent='Escolha até três fotos JPEG, PNG ou WebP de no máximo 10 MB.';return}
   send.disabled=true;msg.textContent='Otimizando fotos e enviando...';
