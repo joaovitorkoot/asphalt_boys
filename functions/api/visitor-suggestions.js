@@ -1,4 +1,5 @@
 import {sessionFor,sameOrigin} from './auth.js';
+import {notifySuggestionReceived} from './suggestion-notifications.js';
 // Sugestões públicas separadas dos rascunhos administrativos e publicações existentes.
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const str=(v,max=120)=>String(v??'').trim().slice(0,max);
@@ -42,7 +43,7 @@ export async function onRequestGet({request,env}){
   return json({suggestions:rows.map(row=>{try{return {...JSON.parse(row.payload),id:row.id,status:row.status,createdAt:row.created_at,updatedAt:row.updated_at}}catch{return null}}).filter(Boolean)});
  }catch{return json({error:'Erro ao carregar sugestões.'},503)}
 }
-export async function onRequestPost({request,env}){
+export async function onRequestPost({request,env,context}){
  if(!env.DB)return json({error:'Banco de dados não configurado.'},503);
  if(!sameOrigin(request))return json({error:'Envie pelo formulário no Asphalt Boys.'},403);
  if(!String(request.headers.get('Content-Type')||'').toLowerCase().startsWith('multipart/form-data'))return json({error:'Formato de envio inválido.'},415);
@@ -80,6 +81,14 @@ export async function onRequestPost({request,env}){
    ...photos.map(p=>env.DB.prepare('INSERT INTO site_images(id,mime,data) VALUES(?,?,?)').bind(p.id,p.mime,p.bytes)),
    env.DB.prepare("INSERT INTO ab_visitor_suggestions(id,status,payload) VALUES(?,'pendente',?)").bind(id,JSON.stringify(payload))
   ]);
+  // O e-mail é apenas uma notificação: falhas nunca apagam ou bloqueiam a sugestão salva.
+  const task=notifySuggestionReceived(env,{
+   id,visitorName:name,destinationMode:mode,destinationName,
+   destinationLabel:destinationId==='guaramiranga'?'Guaramiranga':destinationId==='canoa-quebrada'?'Canoa Quebrada':destinationId,
+   photoCount:photos.length
+  }).catch(error=>console.error('Suggestion notification unavailable',String(error?.message||'Error')));
+  if(context?.waitUntil)context.waitUntil(task);
+  else await task;
   return json({ok:true,message:'Sugestão recebida! Será analisada antes de aparecer no site.'},201);
  }catch(e){
   console.error('Visitor suggestion error',String(e?.name||'Error'));
