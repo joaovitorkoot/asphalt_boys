@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import {onRequestPatch} from '../functions/api/visitor-suggestions.js';
+import {onRequestPatch,onRequestDelete} from '../functions/api/visitor-suggestions.js';
 import {onRequestPost as suggestCategories} from '../functions/api/category-suggest.js';
 
 const admin=fs.readFileSync('admin.html','utf8');
@@ -29,12 +29,15 @@ function mockDb(){
     async first(){
      if(sql.startsWith('SELECT expires_at'))return {expires_at:Math.floor(Date.now()/1000)+600};
      if(sql.startsWith('SELECT email,salt,password_hash'))return {email:'admin@example.test'};
-     if(sql.startsWith('SELECT status,payload FROM ab_visitor_suggestions'))return {...state.suggestion};
+     if(sql.startsWith('SELECT status,payload FROM ab_visitor_suggestions'))return state.suggestion?{...state.suggestion}:null;
+     if(sql.startsWith('SELECT status FROM ab_visitor_suggestions'))return state.suggestion?{status:state.suggestion.status}:null;
      if(sql.startsWith('SELECT id FROM site_content'))return null;
      return null;
     },
     async all(){return {results:[]}},
     async run(){
+     if(sql.startsWith("UPDATE ab_visitor_suggestions SET status='pendente'")){state.suggestion.status='pendente';}
+     if(sql.startsWith('DELETE FROM ab_visitor_suggestions')){state.suggestion=null;}
      if(sql.startsWith('UPDATE ab_visitor_suggestions SET payload=')){
       state.suggestion.payload=args[0];
       state.suggestion.status=sql.includes("status='rascunho'")?'rascunho':'publicado';
@@ -74,6 +77,10 @@ test('JS do painel e formulário de visitantes continuam com sintaxe válida',()
  assert(review.includes('name="abCategories"'));
  assert(review.includes("'/api/category-suggest'"));
  assert(review.includes('selectedPhoto,selectedCategories'));
+ assert(review.includes('id="abDeleteSuggestion"'));
+ assert(review.includes('id="abReopenSuggestion"'));
+ assert(review.includes('id="abOpenPublishedStop"'));
+ assert(review.includes('async function deleteSuggestion('));
  assert(admin.includes('.photoFrameChoice:has(input:checked)'));
  assert(admin.includes('.ab-category-check'));
 });
@@ -134,4 +141,53 @@ test('a API de categorias aceita somente sessão e origem autorizadas',async()=>
   assert(answer.suggestions.some(x=>x.id==='turismo'));
   assert(answer.hours.length>0);
  }finally{globalThis.fetch=previousFetch}
+});
+
+test('sugestão rejeitada pode ser reaberta para edição',async()=>{
+ const {db,state}=mockDb();
+ state.suggestion.status='rejeitada';
+ const response=await onRequestPatch({request:request({id,action:'reabrir'}),env:{DB:db}});
+ assert.equal(response.status,200);
+ assert.equal(state.suggestion.status,'pendente');
+});
+test('sugestão publicada permanece protegida contra reabertura e republicação',async()=>{
+ const {db,state}=mockDb();
+ state.suggestion.status='publicado';
+ const rejected=await onRequestPatch({request:request({id,action:'reabrir'}),env:{DB:db}});
+ assert.equal(rejected.status,409);
+ const published=await onRequestPatch({request:request(payload()),env:{DB:db}});
+ assert.equal(published.status,409);
+ assert.equal(state.stops.length,0);
+});
+function deleteRequest(body,origin='https://asphalt-boys.pages.dev',logged=true){
+ return new Request(url,{method:'DELETE',headers:{Origin:origin,
+  ...(logged?{Cookie:cookie}:{}),'Content-Type':'application/json'},
+  body:JSON.stringify(body)});
+}
+test('exclusão remove uma sugestão pendente e não toca nas paradas',async()=>{
+ const {db,state}=mockDb();
+ const response=await onRequestDelete({request:deleteRequest({id}),env:{DB:db}});
+ assert.equal(response.status,200);
+ assert.equal(state.suggestion,null);
+ assert.equal(state.stops.length,0);
+});
+test('histórico publicado só pode ser excluído explicitamente, sem apagar o cadastro',async()=>{
+ const {db,state}=mockDb();
+ state.suggestion.status='publicado';
+ state.stops.push({id:'parada-morro-branco',nome:'Restaurante Morro Branco'});
+ let response=await onRequestDelete({request:deleteRequest({id}),env:{DB:db}});
+ assert.equal(response.status,422);
+ assert.equal(state.stops.length,1);
+ response=await onRequestDelete({request:deleteRequest({id,deleteOnlyHistory:true}),env:{DB:db}});
+ assert.equal(response.status,200);
+ assert.equal(state.suggestion,null);
+ assert.equal(state.stops[0].nome,'Restaurante Morro Branco');
+});
+test('exclusão de sugestão exige sessão válida e origem correta',async()=>{
+ const {db,state}=mockDb();
+ let response=await onRequestDelete({request:deleteRequest({id},'https://evil.example'),env:{DB:db}});
+ assert.equal(response.status,403);
+ response=await onRequestDelete({request:deleteRequest({id},'https://asphalt-boys.pages.dev',false),env:{DB:db}});
+ assert.equal(response.status,401);
+ assert(state.suggestion);
 });
