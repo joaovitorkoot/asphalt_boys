@@ -65,8 +65,8 @@ jobs:
           // The category selector must allow one record in several categories.
           result=run("JSON.stringify({markup:stopCategoriesMarkup({categoria:'cafe',categorias:['cafe','almoco']}),labels:categoryLabelsForStop({categoria:'cafe',categorias:['cafe','almoco']})})");
           obj=JSON.parse(result);
-          assert(obj.markup.includes('name=\\"categorias\\" value=\\"cafe\\" checked'));
-          assert(obj.markup.includes('name=\\"categorias\\" value=\\"almoco\\" checked'));
+          assert(obj.markup.includes('name="categorias" value="cafe" checked'));
+          assert(obj.markup.includes('name="categorias" value="almoco" checked'));
           assert(obj.labels.includes('Almoço'));
           console.log('PASS: no ghost stops, D1 precedence, local drafts, categories, image preservation');
           NODE
