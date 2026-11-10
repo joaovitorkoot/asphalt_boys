@@ -104,10 +104,15 @@ export async function onRequestPatch({request,env}){
  try{
   await dbReady(env.DB);
   const body=await request.json(),id=str(body.id,60),action=str(body.action,20);
-  if(!/^[0-9a-f-]{36}$/.test(id)||!['salvar','publicar','rejeitar'].includes(action))return json({error:'Operação inválida.'},422);
+  if(!/^[0-9a-f-]{36}$/.test(id)||!['salvar','publicar','rejeitar','reabrir'].includes(action))return json({error:'Operação inválida.'},422);
   const row=await env.DB.prepare('SELECT status,payload FROM ab_visitor_suggestions WHERE id=?').bind(id).first();
   if(!row)return json({error:'Sugestão não encontrada.'},404);
-  if(!['pendente','rascunho'].includes(row.status))return json({error:'Sugestão já encerrada. Atualize a lista.'},409);
+  if(action==='reabrir'){
+   if(row.status!=='rejeitada')return json({error:'Somente sugestões rejeitadas podem ser reabertas.'},409);
+   const updated=await env.DB.prepare("UPDATE ab_visitor_suggestions SET status='pendente',updated_at=datetime('now') WHERE id=? AND status='rejeitada'").bind(id).run();
+   return Number(updated.meta?.changes)?json({ok:true,status:'pendente'}):json({error:'Sugestão já alterada. Atualize a lista.'},409);
+  }
+  if(!['pendente','rascunho'].includes(row.status))return json({error:'Essa sugestão já foi encerrada. Para editar uma publicação, use Destinos ou Paradas.'},409);
   const original=JSON.parse(row.payload);
   if(action==='rejeitar'){
    const rejected=await env.DB.prepare("UPDATE ab_visitor_suggestions SET status='rejeitada',updated_at=datetime('now') WHERE id=? AND status IN ('pendente','rascunho')").bind(id).run();
@@ -161,5 +166,31 @@ export async function onRequestPatch({request,env}){
  }catch(e){
   console.error('Visitor suggestion moderation error',String(e?.name||'Error'));
   return json({error:'Não foi possível concluir. Confira o cadastro e tente novamente.'},503);
+ }
+}
+/**
+ * Remove somente o registro de sugestão do histórico administrativo.
+ * Nunca exclui um destino/parada já publicado, nem suas fotos referenciadas.
+ */
+export async function onRequestDelete({request,env}){
+ if(!env.DB)return json({error:'Banco indisponível.'},503);
+ if(!sameOrigin(request))return json({error:'Origem não autorizada.'},403);
+ if(!await verifiedAdmin(request,env))return json({error:'Entre no painel para excluir sugestões.'},401);
+ if(Number(request.headers.get('content-length')||0)>2000)return json({error:'Solicitação muito longa.'},413);
+ try{
+  await dbReady(env.DB);
+  const body=await request.json(),id=str(body?.id,60);
+  if(!/^[0-9a-f-]{36}$/.test(id))return json({error:'Identificador inválido.'},422);
+  const row=await env.DB.prepare('SELECT status FROM ab_visitor_suggestions WHERE id=?').bind(id).first();
+  if(!row)return json({error:'Sugestão não encontrada.'},404);
+  if(row.status==='publicado'&&body.deleteOnlyHistory!==true)
+   return json({error:'Esta sugestão foi publicada. Confirme a exclusão somente do histórico.'},422);
+  const removed=await env.DB.prepare('DELETE FROM ab_visitor_suggestions WHERE id=?').bind(id).run();
+  return Number(removed.meta?.changes)?
+   json({ok:true,scope:'historico',wasPublished:row.status==='publicado'}):
+   json({error:'Sugestão já removida. Atualize a lista.'},409);
+ }catch(error){
+  console.error('Visitor suggestion removal failed',String(error?.name||'Error'));
+  return json({error:'Não foi possível excluir a sugestão. Tente novamente.'},503);
  }
 }
