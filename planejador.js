@@ -508,6 +508,33 @@
  }
  function close(){saveRoute();forgetOpen();modal.hidden=true;document.body.style.overflow='';if(focusBefore&&focusBefore.focus)focusBefore.focus()}
 
+
+ function displayHours(source){
+  const host=q('tripPreviewHours');host.replaceChildren();
+  const lines=(Array.isArray(source)?source:String(source||'').split(/\n/)).filter(x=>typeof x==='string'&&x.trim()).slice(0,14);
+  const weekdays=[['segunda','Segunda-feira'],['terca','Terça-feira'],['quarta','Quarta-feira'],['quinta','Quinta-feira'],['sexta','Sexta-feira'],['sabado','Sábado'],['domingo','Domingo']];
+  const normalized=t=>String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const entries=new Map();
+  for(const line of lines){
+   const n=normalized(line);
+   const match=weekdays.find(([key])=>n.startsWith(key));
+   if(match){const pos=line.indexOf(':');entries.set(match[0],pos>=0?line.slice(pos+1).trim():line.trim())}
+  }
+  if(entries.size<4){
+   const manual=document.createElement('div');manual.className='abHoursManual';
+   manual.textContent=lines.join('\n');
+   host.append(manual);return;
+  }
+  for(const [key,label] of weekdays){
+   const value=entries.get(key)||'Não informado';
+   const closed=/\bfechad[oa]s?\b/i.test(value);
+   const open=!closed&&value!=='Não informado';
+   const row=document.createElement('div');row.className='abHoursRow'+(closed?' closed':open?' open':'');
+   const day=document.createElement('span');day.className='abHoursDay';day.textContent=label;
+   const badge=document.createElement('span');badge.className='abHoursBadge';badge.textContent=closed?'Fechado':value;
+   row.append(day,badge);host.append(row);
+  }
+ }
  function preview(id){
   const p=stopById(id);if(!p)return;
   previewReturnScroll=panel.scrollTop;
@@ -524,7 +551,7 @@
   hoursDetails.open=false;
   const savedHours=String(p.horario||'').trim();
   hoursDetails.hidden=!savedHours;
-  q('tripPreviewHours').textContent=savedHours?'Horário informado pelo grupo: '+savedHours:'';
+  displayHours(savedHours);
   // O resumo não é consultado automaticamente: evita custo por miniatura/visita.
   reviewRequestEpoch++;
   const reviewDetails=q('tripReviewDetails');
@@ -591,7 +618,7 @@
       q('tripGoogleRating').hidden=false;
     }
     if(Array.isArray(result.hours)&&result.hours.length){
-      q('tripPreviewHours').textContent=result.hours.filter(x=>typeof x==='string').slice(0,7).join('\n');
+      displayHours(result.hours.filter(x=>typeof x==='string').slice(0,7));
       hoursDetails.hidden=false;
     }
     // A foto própria (upload ou URL) sempre tem prioridade sobre fotos do Google.
