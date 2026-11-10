@@ -53,7 +53,7 @@ export async function onRequestPost({request,env,context}){
   const f=await request.formData(),map=officialMaps(f.get('mapsUrl')),name=str(f.get('placeName'));
   const mode=f.get('destinationMode')==='novo'?'novo':'existente',destinationId=str(f.get('destinationId')),destinationName=str(f.get('destinationName'));
   if(!map)return json({error:'Use um link verdadeiro do Google Maps (https).'},422);
-  if(name.length<3)return json({error:'Informe o nome do local (mínimo 3 caracteres).'},422);
+  if(name&&name.length<3)return json({error:'O nome do local, quando informado, deve ter no mínimo 3 caracteres.'},422);
   if(mode==='novo'&&destinationName.length<3)return json({error:'Informe o nome do novo destino.'},422);
   if(mode==='existente'&&!await isPublishedDestination(env.DB,destinationId))return json({error:'Selecione um destino disponível.'},422);
   const uploaded=f.getAll('photos');
