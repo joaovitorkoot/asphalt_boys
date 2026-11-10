@@ -27,6 +27,6 @@ jobs:
           new vm.Script(js);
           new vm.Script(fs.readFileSync('planejador.js','utf8'));
           for (const m of ['function destinationPicker()', 'v.destinoId=selectedDestId;', "v.id=creatingNewDestination?slugForDestination(v.nome):selectedDestId;", 'async function onPhotoChosen('])assert(html.includes(m),'missing: '+m);
-          for(const file of ['functions/api/image-upload.js','functions/api/image.js'])await import('data:text/javascript;base64,'+Buffer.from(fs.readFileSync(file)).toString('base64'));
+          for(const file of ['functions/api/image-upload.js','functions/api/image.js']){const {execFileSync}=await import('node:child_process');execFileSync(process.execPath,['--check',file]);}
           console.log('PASS: admin and server scripts, card association');
           NODE
