@@ -2,6 +2,12 @@ name: Testar cards admin
 on:
   push:
     branches: [feature/admin-selecionar-card-viagem]
+  pull_request:
+    paths:
+      - 'admin.html'
+      - 'index.html'
+      - 'planejador.js'
+      - '.github/workflows/testar-cards-admin.yml'
   workflow_dispatch:
 jobs:
   verify:
@@ -17,7 +23,7 @@ jobs:
           import fs from 'node:fs';
           import vm from 'node:vm';
           const html=fs.readFileSync('admin.html','utf8');
-          const js=html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>'));
+          const js=(html.match(/<script>([\s\S]*?)<\/script>/)?.[1] || (()=>{throw Error('Inline JavaScript not found')})());
           new vm.Script(js);
           new vm.Script(fs.readFileSync('planejador.js','utf8'));
           for (const m of ['function destinationPicker()', 'v.destinoId=selectedDestId;', "v.id=creatingNewDestination?slugForDestination(v.nome):selectedDestId;", 'async function onPhotoChosen('])assert(html.includes(m),'missing: '+m);
