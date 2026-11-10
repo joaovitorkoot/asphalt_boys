@@ -1,0 +1,42 @@
+name: Testes seis melhorias Asphalt Boys
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'planejador.js'
+      - 'motos.html'
+      - 'motos-v2.js'
+      - 'admin.html'
+      - 'site-feedback-*'
+      - 'functions/api/site-feedback.js'
+      - 'tests/site-six-improvements.test.mjs'
+  push:
+    branches: [main, feature/asphalt-boys-6-melhorias-20261110]
+    paths:
+      - 'index.html'
+      - 'planejador.js'
+      - 'motos.html'
+      - 'motos-v2.js'
+      - 'admin.html'
+      - 'site-feedback-*'
+      - 'functions/api/site-feedback.js'
+      - 'tests/site-six-improvements.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxe dos scripts
+        run: |
+          node --check planejador.js
+          node --check motos-v2.js
+          node --check site-feedback-public.js
+          node --check site-feedback-admin.js
+          node --check functions/api/site-feedback.js
+      - name: Testar fluxo e segurança das seis melhorias
+        run: node --test tests/site-six-improvements.test.mjs
