@@ -56,7 +56,7 @@
  const searchText=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
  let originMode='gps',originPoint=null,originRequestEpoch=0,activeLegIndex=0,tripDays=[],activeDayId='',dayDraftMode='',dayDraftTitle='',dayDraftPrevious=null,minePickerOpen=false,mineCategory='turismo';
   const expandedDayIds=new Set();
- let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null,previewReturnScroll=0;
+ let data={destinos:[],paradas:[],rotas:[]},loaded=false,destination=null,tab='custom',category='turismo',selected=[],customStops=[],presetId='',previewId='',focusBefore=null,stopPhotoObserver=null,previewReturnScroll=0;
  const urlParams=new URLSearchParams(location.search);
  const localPreview=urlParams.get('preview')==='local';
  function safeStore(k,v){try{localStorage.setItem(k,v)}catch{}}
@@ -99,7 +99,7 @@
  function saveRoute(){
   if(!destination)return;
   safeStore(draftKey(destination.id),JSON.stringify({
-   v:3,stops:[...selected],days:tripDays.map(d=>({
+   v:3,stops:[...selected],customStops:customStops.slice(0,MAX_ROUTE_STOPS),days:tripDays.map(d=>({
     id:d.id,title:d.title,stops:[...d.stops],legIndex:d.legIndex||0
    })),draftMode:dayDraftMode,activeDayId:dayDraftMode==='edit'?activeDayId:'',
    draftTitle:dayDraftMode?dayDraftTitle:'',draftPrevious:dayDraftMode==='edit'?dayDraftPrevious:null,
@@ -112,6 +112,7 @@
   if(!destination)return false;
   let saved;try{saved=JSON.parse(safeRead(draftKey(destination.id))||'null')}catch{return false}
   if(!saved||![1,2,3].includes(saved.v)||!Array.isArray(saved.stops))return false;
+  customStops=normalizeCustomStops(saved.customStops);
   const oldStops=validDayStops(saved.stops);
   const restored=Array.isArray(saved.days)&&saved.days.length<=MAX_TRIP_DAYS
    ?saved.days.map((d,i)=>{
@@ -273,7 +274,7 @@
    return data.paradas.filter(p=>p.destinoId===destId);
  }
  function currentRoutes(){return destination?data.rotas.filter(r=>r.destinoId===mapping(destination.id)):[]}
- function stopById(id){return currentStops().find(p=>p.id===id)}
+ function stopById(id){return customStops.find(p=>p.id===id)||currentStops().find(p=>p.id===id)}
  function showTab(next,animateOnTabClick=false){
   if(!['custom','preset','mine'].includes(next))return;
   const changed=tab!==next;
@@ -430,11 +431,10 @@
   }).join('');
  }
  function renderChosen(){
-  const stops=currentStops();
   q('tripChosen').innerHTML=selected.length?selected.map((id,i)=>{
-   const p=stops.find(s=>s.id===id);
+   const p=stopById(id);
    const categoryNames=p?stopCategories(p).map(cat=>categories.find(([key])=>key===cat)?.[1]).filter(Boolean):[];
-   const chips=categoryNames.map(name=>'<span class="tripPickedChip">'+esc(name)+'</span>').join('');
+   const chips=p?.custom?'<span class="tripPickedChip">📍 Personalizada</span>':categoryNames.map(name=>'<span class="tripPickedChip">'+esc(name)+'</span>').join('');
    const suspect=suspectStop(p);
    const original=p?mapLink(p):'';
    const check=original?'<a class="tripStopCheck" href="'+esc(original)+'" target="_blank" rel="noopener noreferrer" aria-label="Conferir local original no Google Maps: '+esc(p.nome)+'">📍 Ver ponto no Maps ↗</a>':'';
@@ -476,7 +476,7 @@
    category=categories.some(([cat])=>cat===requestedCategory)?requestedCategory:'turismo';
    Object.keys(categorySearches).forEach(k=>delete categorySearches[k]);
    q('tripSearch').value='';
-   selected=[];presetId='';activeLegIndex=0;expandedDayIds.clear();beginSingleDay();
+   selected=[];customStops=[];presetId='';activeLegIndex=0;expandedDayIds.clear();beginSingleDay();
    minePickerOpen=false;mineCategory='turismo';q('tripMineSearch').value='';
    q('tripDayMessage').textContent='';
    q('tripShareBox').hidden=true;
@@ -820,17 +820,20 @@
  async function preparePreciseStops(stops){
   if(localPreview||!stops.length)return {stops,warnings:localPreview?
    ['Modo de rascunho: confira os pontos antes de navegar.']:[]};
+  const existing=stops.filter(p=>!p.custom);
+  if(!existing.length)return {stops,warnings:[]};
   try{
    const res=await fetch('./api/route-points',{
     method:'POST',credentials:'same-origin',cache:'no-store',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ids:stops.map(p=>p.id)})
+    body:JSON.stringify({ids:existing.map(p=>p.id)})
    });
    const payload=await res.json();
    if(!res.ok||!Array.isArray(payload.positions))
     throw Error(payload.error||'Verificação indisponível.');
    const byId=new Map(payload.positions.map(p=>[p.id,p]));
    const warnings=[],updated=stops.map(stop=>{
+    if(stop.custom)return stop;
     const point=byId.get(stop.id);
     if(!point||point.missing){
      warnings.push('Local não encontrado no banco: '+stop.nome);
