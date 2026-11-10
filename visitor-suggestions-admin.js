@@ -2,17 +2,18 @@
 (()=>{
  const workspace=document.getElementById('adminWorkspace'),shortcut=document.getElementById('pendingPublicationShortcut');
  if(!workspace||!shortcut)return;
- const button=document.createElement('button');button.id='abVisitorOpenAdmin';button.type='button';
- button.className='subbtn inline-flex items-center gap-2 text-sm ml-2 mt-2 sm:mt-0';
- button.textContent='📨 Sugestões dos visitantes';
- shortcut.insertAdjacentElement('afterend',button);
+ const button=document.getElementById('adminVisitorTab')||document.createElement('button');
+ if(!button.isConnected){
+  button.id='abVisitorOpenAdmin';button.type='button';
+  button.className='subbtn inline-flex items-center gap-2 text-sm ml-2 mt-2 sm:mt-0';
+  button.textContent='📨 Sugestões dos visitantes';
+  shortcut.insertAdjacentElement('afterend',button);
+ }
  const panel=document.createElement('section');panel.id='abVisitorAdmin';panel.hidden=true;
  panel.className='rounded-xl border border-orange-500/40 bg-[#171b21] p-4 sm:p-5 my-5 scroll-mt-5';
  panel.innerHTML=`
   <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
-   <div><p class="text-orange-400 text-xs font-black tracking-widest">MODERAÇÃO</p>
-    <h2 class="text-2xl font-black mt-1">📨 Sugestões dos visitantes</h2>
-    <p class="tiny">Separadas dos seus rascunhos. Nada é publicado automaticamente.</p></div>
+   <div><h2 class="text-2xl font-black">📨 Sugestões dos visitantes</h2></div>
    <div class="flex gap-2"><button type="button" class="subbtn" id="abVisitorRefresh">Atualizar</button>
     <button type="button" class="subbtn" id="abVisitorClose">Fechar</button></div>
   </div>
@@ -24,7 +25,8 @@
  const $=id=>panel.querySelector('#'+id);
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const safePhoto=s=>/^\/api\/image\?id=[0-9a-f-]{36}$/.test(String(s||''))?s:'';
- let suggestions=[],selectedId='',destinations=[],google=null;
+ const stopCategories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['cafe_tarde','🥐 Café da tarde'],['jantar','🌙 Jantar'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
+ let suggestions=[],selectedId='',destinations=[],google=null,categorySuggestions=[];
  const destinationName=(record)=>record.destinationMode==='novo'?record.destinationName:
   destinations.find(d=>d.id===record.destinationId)?.nome||record.destinationId||'Destino não informado';
  function note(s){$('abVisitorAdminStatus').textContent=s}
@@ -51,8 +53,8 @@
    <article class="border border-zinc-600 rounded-xl bg-[#232831] p-3">
     <div class="flex items-start justify-between gap-2"><strong class="break-words">${esc(x.visitorName||'Local sem nome')}</strong>
     <span class="pill">${esc(x.status||'pendente')}</span></div>
-    <p class="tiny mt-2">📍 ${esc(destinationName(x))}${x.destinationMode==='novo'?' · Novo card':''}</p>
-    <p class="tiny mt-1">${esc((x.photos||[]).length)} foto(s) recebida(s)</p>
+    <p class="text-sm text-zinc-300 mt-2">📍 ${esc(destinationName(x))}</p>
+    <p class="text-xs text-zinc-400 mt-1">📷 ${esc((x.photos||[]).length)} foto(s)</p>
     <button class="subbtn text-sm mt-3" type="button" data-abvisitor="${esc(x.id)}">Abrir sugestão</button>
    </article>`).join(''):'<p class="text-sm text-zinc-300">Nenhuma sugestão recebida.</p>';
   host.querySelectorAll('[data-abvisitor]').forEach(b=>b.onclick=()=>openSuggestion(b.dataset.abvisitor,true));
@@ -63,7 +65,7 @@
  }
  async function openSuggestion(id,fetchGoogle=true){
   selectedId=id;const x=suggestions.find(a=>a.id===id);if(!x)return;
-  google=null;
+  google=null;categorySuggestions=[];
   renderDetail(x);
   if(fetchGoogle&&['pendente','rascunho'].includes(x.status))await findGoogle(x);
  }
