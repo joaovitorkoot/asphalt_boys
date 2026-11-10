@@ -34,7 +34,7 @@ jobs:
           assert(!js.includes('selected.length>=3'),'Unexpected old three-stop cap');
           assert(!js.includes('selected.length>3||'),'Unexpected old three-stop navigation lock');
           assert(js.includes('slice(0,MAX_ROUTE_STOPS);presetId=r.id'), 'Ready routes should retain up to 20 stops');
-          assert(js.includes('slice(0,MAX_ROUTE_STOPS);if(selected.length)'), 'Shared custom routes should retain up to 20 stops');
+          assert(js.includes('validDayStops=items')&&js.includes('slice(0,MAX_ROUTE_STOPS)'), 'Day routes should retain up to 20 stops');
           const start=js.indexOf(' function routePoint(stop){'),end=js.indexOf(' function share(){',start);
           assert(start>0&&end>start);
           const pieces=js.slice(start,end);
