@@ -157,12 +157,61 @@
    el('abRejectSuggestion').onclick=()=>moderate(x,'rejeitar');
   }
  }
+
+ async function loadCategorySuggestions(x,placeId){
+  const root=$('abVisitorDetail'),box=root.querySelector('#abCategorySuggestBox');
+  if(!box||selectedId!==x.id)return;
+  const status=box.querySelector('#abCategorySuggestStatus');
+  const items=box.querySelector('#abCategorySuggestItems');
+  const apply=box.querySelector('#abApplyCategories');
+  const hoursBox=box.querySelector('#abGoogleHours');
+  const hoursList=box.querySelector('#abGoogleHoursList');
+  box.hidden=false;apply.hidden=true;hoursBox.hidden=true;
+  items.replaceChildren();hoursList.replaceChildren();
+  status.textContent='Consultando tipo de local e horários...';
+  if(!/^[a-zA-Z0-9_-]{5,250}$/.test(placeId)){
+   status.textContent='Sem ficha do estabelecimento. Selecione as categorias manualmente.';return;
+  }
+  try{
+   const response=await fetch('/api/category-suggest',{
+    method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({placeId})
+   });
+   const data=await response.json();
+   if(selectedId!==x.id||!box.isConnected)return;
+   if(!response.ok)throw Error(data.error||'Consulta indisponível');
+   const proposals=(Array.isArray(data.suggestions)?data.suggestions:[]).filter(p=>stopCategories.some(([id])=>id===p.id));
+   categorySuggestions=[...new Set(proposals.map(p=>p.id))];
+   status.textContent=data.note||'Revise as categorias sugeridas pelo Google.';
+   proposals.forEach(p=>{
+    const row=document.createElement('div');row.className='text-sm text-zinc-300';
+    row.textContent=(stopCategories.find(([id])=>id===p.id)?.[1]||p.id)+' · '+String(p.reason||'').slice(0,200);
+    items.append(row);
+   });
+   if(categorySuggestions.length){
+    apply.hidden=false;
+    apply.onclick=()=>{
+     root.querySelectorAll('input[name="abCategories"]').forEach(input=>{
+      input.checked=categorySuggestions.includes(input.value);
+     });
+     status.textContent='✓ Categorias aplicadas. Revise antes de publicar.';
+    };
+   }
+   if(Array.isArray(data.hours)&&data.hours.length){
+    hoursBox.hidden=false;
+    data.hours.slice(0,7).forEach(h=>{
+     const line=document.createElement('p');line.textContent=String(h).slice(0,170);hoursList.append(line);
+    });
+   }
+  }catch(error){status.textContent='Não foi possível consultar: '+String(error.message||error)+'. Selecione as categorias manualmente.'}
+ }
  async function findGoogle(x){
   const detail=$('abVisitorDetail');if(!detail)return;
   const status=detail.querySelector('#abGoogleStatus');status.textContent='Consultando o Google Maps...';
   try{
    const r=await fetch('/api/maps-import',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({url:x.mapsUrl})});
    const data=await r.json();if(!r.ok)throw Error(data.error||'Não foi possível consultar');
+   if(selectedId!==x.id)return;
    const candidates=Array.isArray(data.results)?data.results:[];
    const identified=candidates.find(p=>p.id&&p.name&&!p.name.startsWith('Ponto GPS'))||null;
    google={name:identified?.name||'',id:identified?.id||'',address:identified?.address||'',mapCoordinates:identified?.mapCoordinates||candidates[0]?.mapCoordinates||''};
@@ -170,6 +219,7 @@
    const labels=detail.querySelector('#abGoogleName');if(labels)labels.textContent=identified?.name||'Indisponível';
    const coord=detail.querySelector('#abGoogleCoord');if(coord)coord.textContent=google.mapCoordinates?'Coordenadas do ponto: '+google.mapCoordinates:'';
    const radio=detail.querySelector('input[name=abNameSource][value=google]');if(radio){radio.disabled=!identified;if(!identified&&radio.checked){radio.checked=false;detail.querySelector('input[name=abNameSource][value='+(x.visitorName?'visitante':'manual')+']').checked=true}}
+   if(identified?.id)await loadCategorySuggestions(x,identified.id);
   }catch(e){status.textContent='Não foi possível identificar o nome automaticamente: '+String(e.message||e)}
  }
  async function moderate(x,action){
@@ -179,7 +229,11 @@
   const choice=root.querySelector('input[name=abNameSource]:checked')?.value||'visitante';
   const gName=google?.name||x.googleName||'',gId=google?.id||x.googlePlaceId||'';
   const approved=choice==='visitante'?x.visitorName:choice==='google'?gName:root.querySelector('#abManualName').value.trim();
+  const selectedPhoto=root.querySelector('[data-abphoto][aria-pressed="true"]')?.dataset.abphoto||'';
+  const selectedCategories=[...root.querySelectorAll('input[name="abCategories"]:checked')].map(el=>el.value);
   if(action!=='rejeitar'&&(!approved||approved.length<3||(chosen==='__novo'&&root.querySelector('#abNewCardName').value.trim().length<3))){notice.textContent='Informe o nome escolhido e o destino antes de continuar.';return}
+  if(action==='publicar'&&!selectedCategories.length){notice.textContent='Selecione pelo menos uma categoria.';return}
+  if(action==='publicar'&&x.photos?.length&&!selectedPhoto){notice.textContent='Escolha a foto principal antes de publicar.';return}
   if(action==='publicar'){
    const msg=chosen==='__novo'?'Criar um novo card de viagem e publicar este local?':'Publicar este local dentro do card selecionado?';
    if(!confirm(msg))return;
@@ -188,7 +242,7 @@
   notice.textContent=action==='rejeitar'?'Rejeitando...':action==='salvar'?'Salvando edição...':'Publicando no site...';
   try{
    const payload={id:x.id,action,approvedName:approved,nameChoice:choice,googleName:gName,googlePlaceId:gId,googleAddress:google?.address||x.googleAddress||'',mapCoordinates:google?.mapCoordinates||x.mapCoordinates||'',mapsUrl:x.mapsUrl,
-    chosenDestinationMode:chosen==='__novo'?'novo':'existente',chosenDestinationId:chosen==='__novo'?'':chosen,chosenDestinationName:chosen==='__novo'?root.querySelector('#abNewCardName').value.trim():''};
+    chosenDestinationMode:chosen==='__novo'?'novo':'existente',chosenDestinationId:chosen==='__novo'?'':chosen,chosenDestinationName:chosen==='__novo'?root.querySelector('#abNewCardName').value.trim():'',selectedPhoto,selectedCategories};
    const r=await fetch('/api/visitor-suggestions',{method:'PATCH',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
    const data=await r.json();if(!r.ok)throw Error(data.error||'Não foi possível salvar.');
    note(action==='publicar'?(data.createdDestination?'✓ Card novo e local publicados.':'✓ Local publicado no card escolhido.'):'✓ Sugestão atualizada.');
