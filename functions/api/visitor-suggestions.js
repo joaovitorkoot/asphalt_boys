@@ -4,6 +4,7 @@ import {notifySuggestionReceived} from './suggestion-notifications.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const str=(v,max=120)=>String(v??'').trim().slice(0,max);
 const idOK=v=>/^[a-zA-Z0-9_-]{3,120}$/.test(String(v||''));
+const allowedStopCategories=['cafe','almoco','cafe_tarde','jantar','turismo','descanso'];
 function officialMaps(raw){
  try{
   const u=new URL(str(raw,1600)),host=u.hostname.toLowerCase();
@@ -125,7 +126,17 @@ export async function onRequestPatch({request,env}){
   if(destMode==='novo'&&newName.length<3)return json({error:'Informe o nome do novo card.'},422);
   if(destMode==='existente'&&!await isPublishedDestination(env.DB,chosenDest))return json({error:'Selecione um card existente.'},422);
   if(mapCoordinates&&!/^-?\d{1,2}(?:\.\d{1,9})?,-?\d{1,3}(?:\.\d{1,9})?$/.test(mapCoordinates))return json({error:'GPS inválido.'},422);
-  const edited={...original,approvedName:picked,mapsUrl:map,nameChoice,chosenDestinationMode:destMode,chosenDestinationId:destMode==='existente'?chosenDest:'',chosenDestinationName:destMode==='novo'?newName:'',googleName,googlePlaceId:googlePlaceId&&/^[a-zA-Z0-9_-]{5,250}$/.test(googlePlaceId)?googlePlaceId:'',googleAddress,mapCoordinates};
+  // As fotos e categorias escolhidas só podem vir do próprio registro pendente.
+  const originalPhotos=Array.isArray(original.photos)?original.photos:[];
+  const selectedPhoto=str(body.selectedPhoto??original.selectedPhoto??'',300);
+  if(selectedPhoto&&!originalPhotos.includes(selectedPhoto))return json({error:'Selecione uma das fotos recebidas.'},422);
+  const rawCategories=body.selectedCategories??original.selectedCategories??[];
+  if(!Array.isArray(rawCategories)||rawCategories.length>6||rawCategories.some(cat=>!allowedStopCategories.includes(cat)))
+   return json({error:'Selecione categorias válidas.'},422);
+  const selectedCategories=[...new Set(rawCategories)];
+  if(action==='publicar'&&!selectedCategories.length)return json({error:'Selecione pelo menos uma categoria antes de publicar.'},422);
+  if(action==='publicar'&&originalPhotos.length&&!selectedPhoto)return json({error:'Escolha a foto principal antes de publicar.'},422);
+  const edited={...original,approvedName:picked,mapsUrl:map,nameChoice,chosenDestinationMode:destMode,chosenDestinationId:destMode==='existente'?chosenDest:'',chosenDestinationName:destMode==='novo'?newName:'',googleName,googlePlaceId:googlePlaceId&&/^[a-zA-Z0-9_-]{5,250}$/.test(googlePlaceId)?googlePlaceId:'',googleAddress,mapCoordinates,selectedPhoto,selectedCategories};
   if(action==='salvar'){
    await env.DB.prepare("UPDATE ab_visitor_suggestions SET payload=?,status='rascunho',updated_at=datetime('now') WHERE id=? AND status IN ('pendente','rascunho')").bind(JSON.stringify(edited),id).run();
    return json({ok:true,status:'rascunho'});
@@ -137,10 +148,10 @@ export async function onRequestPatch({request,env}){
    const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
    if(all.some(row=>{try{return norm(JSON.parse(row.payload).nome)===norm(newName)}catch{return false}}))return json({error:'Já existe um card com esse nome. Selecione o card existente para evitar duplicação.'},409);
    finalDest='destino-'+crypto.randomUUID().slice(0,12);
-   destinationRecord={id:finalDest,nome:newName,descricao:'Descubra os pontos desta viagem.',mapa:newName+', Ceará, Brasil',foto:original.photos[0]||'',status:'publicado'};
+   destinationRecord={id:finalDest,nome:newName,descricao:'Descubra os pontos desta viagem.',mapa:newName+', Ceará, Brasil',foto:selectedPhoto||'',status:'publicado'};
   }
   const stopId='parada-'+crypto.randomUUID().slice(0,12);
-  const stop={id:stopId,nome:picked,descricao:'Local sugerido por um visitante e aprovado pela administração.',destinoId:finalDest,maps:map,endereco:googleAddress,googlePlaceId:edited.googlePlaceId,mapCoordinates:mapCoordinates,categoria:'turismo',categorias:['turismo'],foto:original.photos[0]||'',status:'publicado'};
+  const stop={id:stopId,nome:picked,descricao:'Local sugerido por um visitante e aprovado pela administração.',destinoId:finalDest,maps:map,endereco:googleAddress,googlePlaceId:edited.googlePlaceId,mapCoordinates:mapCoordinates,categoria:selectedCategories[0],categorias:selectedCategories,foto:selectedPhoto||'',status:'publicado'};
   const jobs=[];
   if(destinationRecord)jobs.push(env.DB.prepare("INSERT INTO site_content(id,kind,destino_id,status,payload,updated_at) VALUES(?,'destinos','','publicado',?,datetime('now'))").bind(finalDest,JSON.stringify(destinationRecord)));
   jobs.push(env.DB.prepare("INSERT INTO site_content(id,kind,destino_id,status,payload,updated_at) VALUES(?,'paradas',?,'publicado',?,datetime('now'))").bind(stopId,finalDest,JSON.stringify(stop)));
