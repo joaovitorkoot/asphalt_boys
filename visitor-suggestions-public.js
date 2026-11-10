@@ -15,11 +15,16 @@
  #abSuggest .mapcheck{display:inline-block;border:1px solid #6b7280;padding:10px 13px;border-radius:10px;color:#ffba8a;text-decoration:none;font-size:13px;font-weight:750}
  #abSuggest .mapcheck[aria-disabled=true]{pointer-events:none;opacity:.45}
  #abSuggest .boxform{border-top:1px solid #40464f;padding-top:8px;margin-top:18px}
- #abSuggest .photos{border:1px dashed #666f7b;background:#252a32;padding:12px;border-radius:10px}
+ #abSuggest .photos{border:1px dashed #666f7b;background:#252a32;padding:12px;border-radius:10px;min-width:0;overflow-wrap:anywhere}
+ #abSuggest .photoTitle{display:block;font-size:13px;font-weight:800;margin:16px 0 6px}
+ #abSuggest .photoPicker{display:inline-flex;align-items:center;justify-content:center;max-width:100%;min-height:44px;margin:0;padding:10px 16px;border:1px solid #fb923c;border-radius:10px;color:#ffba8a;font-size:14px;font-weight:800;cursor:pointer;white-space:nowrap}
+ #abSuggest .photoPicker:focus-within{outline:2px solid #fb923c;outline-offset:2px}
+ #abSuggest .photoPicker input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
  #abSuggest .thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
  #abSuggest .thumbs img{height:90px;width:100%;object-fit:cover;border-radius:9px}
  #abSuggest [hidden]{display:none!important}
  #abSuggest .note{font-size:12px;color:#cbd5e1;line-height:1.55}
+ #abSuggest #abSuggestMsg:empty{display:none}
  @media(max-width:500px){#abSuggest{padding:16px}#abSuggest .primary{width:100%}}
  `;
  document.head.append(css);
@@ -47,13 +52,11 @@
     <div id="abSuggestNewArea" hidden><label for="abSuggestNew">Nome do novo destino *</label>
      <input id="abSuggestNew" maxlength="120" placeholder="Ex.: Morro Branco">
      <p class="note">Esse nome será exibido ao administrador.</p></div>
-    <label for="abSuggestPhotos">4. Fotos do local (opcional)</label>
-    <div class="photos"><input id="abSuggestPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
-     <p class="note">Até 3 fotos.</p>
+    <span class="photoTitle">4. Fotos (até 3)</span>
+    <div class="photos"><label class="photoPicker"><input id="abSuggestPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>Escolher arquivos</label>
      <div id="abSuggestThumbs" class="thumbs" aria-live="polite"></div></div>
     <p id="abSuggestMsg" role="status" aria-live="polite" class="note"></p>
     <button type="submit" id="abSuggestSend" class="primary">Enviar sugestão</button>
-    <p class="note">Nada é publicado sem aprovação. Envie apenas fotos suas ou com permissão para divulgação.</p>
    </form>
   </div>`;
  const cards=document.getElementById('cards');if(cards?.parentElement===section)cards.insertAdjacentElement('afterend',wrap);else section.append(wrap);
@@ -76,7 +79,7 @@
   for(const d of data.destinos||[]){if(!d?.id||!d.nome||known.has(d.id))continue;known.add(d.id);const o=document.createElement('option');o.value=d.id;o.textContent=d.nome;dest.insertBefore(o,dest.lastElementChild)}
  }catch{}})();
  function clearPreviews(){previewURLs.forEach(x=>URL.revokeObjectURL(x));previewURLs=[];thumbs.replaceChildren()}
- photos.onchange=()=>{clearPreviews();const files=Array.from(photos.files||[]);if(files.length>3){msg.textContent='Selecione no máximo três fotos.';return}
+ photos.onchange=()=>{clearPreviews();const files=Array.from(photos.files||[]);if(files.length>3){photos.value='';msg.textContent='Selecione no máximo três fotos.';return}
   if(files.some(f=>f.size>10*1024*1024||!['image/jpeg','image/png','image/webp'].includes(f.type))){msg.textContent='Use fotos JPEG, PNG ou WebP com até 10 MB.';return}
   msg.textContent='';files.forEach(f=>{const url=URL.createObjectURL(f),img=document.createElement('img');previewURLs.push(url);img.src=url;img.alt='Prévia de '+f.name;thumbs.append(img)})};
  async function compress(file){
