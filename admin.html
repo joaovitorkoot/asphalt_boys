@@ -21,22 +21,42 @@ body{background:#0b0d10;color:#f5f5f4;font:15px/1.5 system-ui,-apple-system,Sego
 .pick{display:flex;gap:9px;align-items:center;padding:10px;border:1px solid #454b56;border-radius:9px}
 .pick input{width:18px;height:18px;accent-color:#fb923c}.tiny{font-size:12px;color:#aaafb9}
 button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
-.photoFrameChoice{display:flex;gap:9px;align-items:center;border:1px solid #505660;border-radius:11px;padding:12px;cursor:pointer;background:#222730;min-height:56px}
-.photoFrameChoice:has(input:checked){border-color:#fb923c;background:#fb923c1a}
+.photoFrameChoice{display:flex;gap:9px;align-items:center;border:1px solid #505660;border-radius:11px;padding:12px;cursor:pointer;background:#222730;min-height:56px;transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.photoFrameChoice:has(input:checked){border-color:#fb923c;background:#fb923c1a;box-shadow:0 0 0 1px #fb923c25;transform:translateY(-1px)}
 .photoFrameChoice input{accent-color:#fb923c;width:18px;height:18px;flex-shrink:0}
 .photoFrameChoice:focus-within{outline:2px solid #fb923c;outline-offset:2px}
 .photoFrameChoice strong{font-size:13px;line-height:1.45}
 .photoFrameChoice small{font-size:12px;line-height:1.45}
 #photoModeHint:empty,#openPhotosStatus:empty,#photoUploadStatus:empty{display:none}
+#sectionHelp{display:none}
+.adminNav .tab{display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;gap:2px;min-height:65px;padding:8px 3px;font-size:12px;font-weight:700}
+.adminNav .navIcon{font-size:18px;line-height:1.5}
+.adminNav .tab[aria-selected=true]{box-shadow:inset 0 -2px #fb923c}
+.adminNav details{min-width:0;position:relative}
+.adminNav summary{list-style:none;cursor:pointer}
+.adminNav summary::-webkit-details-marker{display:none}
+.adminNav .moreLinks{position:absolute;top:calc(100% + 6px);right:0;min-width:200px;z-index:30;border:1px solid #454b56;border-radius:12px;padding:8px;background:#1b2027;box-shadow:0 15px 34px #0009}
+.adminNav .moreLinks .tab,.adminNav .moreLinks a{display:flex;min-height:44px;width:100%;padding:10px 12px;justify-content:flex-start;flex-direction:row;text-align:left;font-size:14px}
+.ab-photo-choice{position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;border:2px solid #505660;background:#262c35;border-radius:12px;transition:border-color .18s,box-shadow .18s,transform .18s;cursor:pointer}
+.ab-photo-choice img{width:100%;height:100%;object-fit:cover}
+.ab-photo-choice[aria-pressed=true]{border-color:#fb923c;box-shadow:0 0 0 2px #fb923c40;transform:translateY(-1px)}
+.ab-photo-check{position:absolute;right:5px;top:5px;background:#fb923c;color:#19120d;border-radius:50%;width:27px;height:27px;display:none;align-items:center;justify-content:center;font-weight:900;font-size:16px}
+.ab-photo-choice[aria-pressed=true] .ab-photo-check{display:flex}
+.ab-category-choice{position:relative;padding-right:37px;font-weight:700;font-size:13px}
+.ab-category-check{position:absolute;right:10px;top:50%;transform:translateY(-50%) scale(.75);color:#fb923c;font-size:19px;opacity:0;transition:opacity .18s,transform .18s}
+.ab-category-choice:has(input:checked) .ab-category-check{opacity:1;transform:translateY(-50%) scale(1)}
+body.admin-suggestion-view #editor,body.admin-suggestion-view #listing,body.admin-suggestion-view #locationAudit,body.admin-suggestion-view #publicationQueue,body.admin-suggestion-view #sectionTitle,body.admin-suggestion-view #sectionHelp{display:none!important}
+@media(min-width:1024px){.adminNav .tab{flex-direction:row;justify-content:flex-start;text-align:left;gap:8px;padding:12px;font-size:15px;min-height:49px}.adminNav .moreLinks{right:auto;left:0}.adminNav .moreLinks .tab{font-size:14px}}
+@media(prefers-reduced-motion:reduce){.photoFrameChoice,.ab-category-check,.ab-photo-choice{transition:none!important;transform:none!important}}
 [hidden]{display:none!important}
 </style>
 </head><body>
 <header class="border-b border-zinc-800"><div class="max-w-6xl mx-auto px-5 py-5 flex flex-wrap items-center justify-between gap-4"><a href="./" class="text-xl font-black italic">ASPHALT <span class="text-orange-400">BOYS</span></a><a href="./" class="text-sm text-zinc-300 underline">← Voltar ao site</a></div></header>
 <main class="max-w-6xl mx-auto px-5 py-8">
-<div class="mb-6"><p class="text-xs font-black tracking-widest text-orange-400">PAINEL DE ADMINISTRAÇÃO</p><h1 class="text-3xl font-black mt-1">Conteúdo das viagens</h1><p class="muted text-sm mt-2">Cadastre os locais uma vez, combine suas paradas e prepare rotas compartilháveis. A publicação para todos só funciona depois de ativar o banco Cloudflare D1.</p></div>
+<div class="mb-5"><p class="text-xs font-black tracking-widest text-orange-400">ASPHALT BOYS</p><h1 class="text-3xl font-black mt-1">Administração</h1></div>
 <section id="adminAuthGate" class="box p-5 sm:p-8 max-w-xl mx-auto" aria-label="Login do painel">
  <h2 class="text-2xl font-black text-center">🏍️ Entrar no Asphalt Boys</h2>
- <p class="muted text-sm text-center mt-2 mb-4">Entre com e-mail e senha. Sua sessão pode durar até 30 dias neste dispositivo.</p>
+ 
  <p id="adminAuthMessage" role="status" class="text-sm text-orange-300 text-center mb-3">Verificando acesso...</p>
  <form id="adminLoginForm" hidden>
   <label class="lbl" for="loginEmail">E-mail</label><input class="field" id="loginEmail" type="email" autocomplete="username" required maxlength="254">
@@ -54,9 +74,9 @@ button:focus-visible,a:focus-visible{outline:2px solid #fb923c;outline-offset:2p
  </form>
 </section>
 <div id="adminWorkspace" hidden>
-<div id="adminSessionHeader" class="box p-4 mb-4 flex flex-wrap items-center justify-between gap-3" hidden><p class="text-sm">✅ Conectado como <strong id="adminSessionEmail"></strong></p><button type="button" id="adminLogout" class="subbtn">Sair</button></div>
+<div id="adminSessionHeader" class="flex items-center justify-between mb-3 gap-2" hidden><p class="text-sm text-zinc-400">Conectado: <strong id="adminSessionEmail" class="text-zinc-200"></strong></p><button type="button" id="adminLogout" class="subbtn text-sm">Sair</button></div>
 <section class="box p-4 sm:p-5 mb-6" aria-label="Conexão administrativa">
-<div class="flex flex-wrap items-center justify-between gap-3"><div><strong class="text-base">Status da publicação</strong><p id="connection" class="tiny mt-1" role="status">Verificando conexão com o servidor...</p></div><span id="mode" class="pill">Rascunhos locais</span></div>
+<div class="flex flex-wrap items-center justify-between gap-3"><strong class="text-base">Publicação</strong><span id="mode" class="pill">Rascunhos locais</span></div><p id="connection" class="tiny mt-2" role="status">Verificando conexão com o servidor...</p>
 <div id="legacyTokenArea" hidden class="grid sm:grid-cols-[1fr_auto] gap-3 items-end mt-3"><div><label class="lbl" for="secret">Token de administrador (somente após configurar na Cloudflare)</label><input class="field" id="secret" type="password" autocomplete="off" placeholder="Digite o valor do ADMIN_TOKEN (não o nome da variável)"><div class="flex items-center justify-between gap-2 mt-2"><span class="tiny">Use a senha configurada na produção da Cloudflare (mínimo 20 caracteres).</span><button id="showAdminPassword" type="button" class="text-orange-300 text-xs font-bold underline whitespace-nowrap">Mostrar senha</button></div></div><button id="connect" type="button" class="subbtn">Conectar ao banco</button></div>
 <div class="mt-3"><a class="subbtn inline-flex items-center gap-2 text-sm" href="#publicationQueue" id="pendingPublicationShortcut">📋 Ver pendências para publicar <strong id="pendingTopCount" class="pill">0</strong></a> <a id="locationAuditShortcut" href="#locationAudit" class="subbtn inline-flex items-center gap-2 text-sm mt-2 sm:mt-0">🧭 Auditar pontos do Maps</a></div>
 <div id="syncArea" class="mt-3" hidden><div class="flex flex-wrap gap-2"><button type="button" id="sync" class="subbtn">Enviar meus rascunhos locais para o banco</button><button type="button" id="checkPublicSync" class="subbtn">🔎 Verificar site público</button></div><p class="tiny mt-1">Enviar não publica automaticamente: cadastros continuam com o status definido em cada formulário.</p><p id="publicSyncStatus" role="status" class="tiny mt-2"></p></div>
