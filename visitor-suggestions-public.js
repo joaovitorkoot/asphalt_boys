@@ -49,7 +49,7 @@
      <p class="note">Esse nome será exibido ao administrador.</p></div>
     <label for="abSuggestPhotos">4. Fotos do local (opcional)</label>
     <div class="photos"><input id="abSuggestPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
-     <p class="note">Até 3 fotos de até 10 MB cada. As imagens serão otimizadas automaticamente.</p>
+     <p class="note">Até 3 fotos.</p>
      <div id="abSuggestThumbs" class="thumbs" aria-live="polite"></div></div>
     <p id="abSuggestMsg" role="status" aria-live="polite" class="note"></p>
     <button type="submit" id="abSuggestSend" class="primary">Enviar sugestão</button>
