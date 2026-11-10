@@ -47,7 +47,7 @@
     <select id="abSuggestDestination" required>
      <option value="guaramiranga">Guaramiranga</option>
      <option value="canoa-quebrada">Canoa Quebrada</option>
-     <option value="__novo">Outro destino — sugerir novo card</option>
+     <option value="__novo">Outro destino</option>
     </select>
     <div id="abSuggestNewArea" hidden><label for="abSuggestNew">Nome do novo destino *</label>
      <input id="abSuggestNew" maxlength="120" placeholder="Ex.: Morro Branco">
