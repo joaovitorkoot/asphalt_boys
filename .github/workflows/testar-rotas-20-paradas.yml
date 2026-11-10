@@ -6,6 +6,12 @@ on:
       - 'planejador.js'
       - 'index.html'
       - '.github/workflows/testar-rotas-20-paradas.yml'
+  pull_request:
+    paths:
+      - 'admin.html'
+      - 'index.html'
+      - 'planejador.js'
+      - '.github/workflows/testar-rotas-20-paradas.yml'
   workflow_dispatch:
 jobs:
   check:
@@ -24,7 +30,7 @@ jobs:
           const html=fs.readFileSync('index.html','utf8');
           new vm.Script(js);
           assert(html.includes('id="tripRouteSegments"'),'Missing route-leg links container');
-          assert(html.includes('Escolha até 20 paradas'),'Long route help missing');
+          assert(html.includes('Até 20 paradas'),'Long route help missing');
           assert(!js.includes('selected.length>=3'),'Unexpected old three-stop cap');
           assert(!js.includes('selected.length>3||'),'Unexpected old three-stop navigation lock');
           assert(js.includes('slice(0,MAX_ROUTE_STOPS);presetId=r.id'), 'Ready routes should retain up to 20 stops');
