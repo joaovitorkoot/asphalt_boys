@@ -1,0 +1,36 @@
+name: Testes do painel de administração e sugestões
+on:
+  pull_request:
+    paths:
+      - 'admin.html'
+      - 'visitor-suggestions-admin.js'
+      - 'functions/api/visitor-suggestions.js'
+      - 'functions/api/category-suggest.js'
+      - 'tests/admin-review.test.mjs'
+      - '.github/workflows/testar-revisao-sugestoes-admin.yml'
+  push:
+    branches: [feature/admin-redesign-visitor-review-20261110, main]
+    paths:
+      - 'admin.html'
+      - 'visitor-suggestions-admin.js'
+      - 'functions/api/visitor-suggestions.js'
+      - 'functions/api/category-suggest.js'
+      - 'tests/admin-review.test.mjs'
+      - '.github/workflows/testar-revisao-sugestoes-admin.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxe dos scripts
+        run: |
+          node --check visitor-suggestions-admin.js
+          node --check functions/api/visitor-suggestions.js
+          node --check functions/api/category-suggest.js
+      - name: Testar regressão, publicação, fotos, categorias, autenticação e horários
+        run: node --test tests/admin-review.test.mjs
