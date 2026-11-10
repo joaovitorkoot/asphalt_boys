@@ -183,7 +183,7 @@ export async function onRequestDelete({request,env}){
   if(!/^[0-9a-f-]{36}$/.test(id))return json({error:'Identificador inválido.'},422);
   const row=await env.DB.prepare('SELECT status FROM ab_visitor_suggestions WHERE id=?').bind(id).first();
   if(!row)return json({error:'Sugestão não encontrada.'},404);
-  if(row.status==='publicado'&&body.deleteOnlyHistory!==true)
+  if(row.status==='publicado'&&body?.deleteOnlyHistory!==true)
    return json({error:'Esta sugestão foi publicada. Confirme a exclusão somente do histórico.'},422);
   const removed=await env.DB.prepare('DELETE FROM ab_visitor_suggestions WHERE id=?').bind(id).run();
   return Number(removed.meta?.changes)?
