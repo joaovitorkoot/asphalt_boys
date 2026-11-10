@@ -52,7 +52,7 @@
     <div id="abSuggestNewArea" hidden><label for="abSuggestNew">Nome do novo destino *</label>
      <input id="abSuggestNew" maxlength="120" placeholder="Ex.: Morro Branco">
      <p class="note">Esse nome será exibido ao administrador.</p></div>
-    <span class="photoTitle">4. Fotos (até 3)</span>
+    <span class="photoTitle">4. Até 3 fotos</span>
     <div class="photos"><label class="photoPicker"><input id="abSuggestPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>Escolher arquivos</label>
      <div id="abSuggestThumbs" class="thumbs" aria-live="polite"></div></div>
     <p id="abSuggestMsg" role="status" aria-live="polite" class="note"></p>
