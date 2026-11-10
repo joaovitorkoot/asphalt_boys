@@ -268,6 +268,82 @@
   if(destination)q('tripRouteSummary').textContent=routeSummaryText();
  }
  function mergeData(a){if(!a||!['destinos','paradas','rotas'].every(k=>Array.isArray(a[k])))return false;data=a;return true}
+
+ function normalizeCustomStops(items){
+  if(!Array.isArray(items))return [];
+  return items.slice(0,MAX_ROUTE_STOPS).map(raw=>{
+   if(!raw||typeof raw!=='object')return null;
+   const id=String(raw.id||''),name=String(raw.nome||'').trim().slice(0,100);
+   const gps=validCoords(raw.mapCoordinates);
+   if(!/^pessoal-[a-zA-Z0-9_-]{8,80}$/.test(id)||!gps||name.length<2)return null;
+   const link=originMapURL(raw.maps)||'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(gps);
+   return {id,nome:name,endereco:String(raw.endereco||gps).trim().slice(0,300),
+    maps:link,mapCoordinates:gps,mapCoordinatesSource:'google-places',
+    googlePlaceId:validPlaceId(raw.googlePlaceId)||'',categoria:'turismo',custom:true,
+    destinoId:mapping(destination?.id||'')};
+  }).filter(Boolean).filter((p,i,arr)=>arr.findIndex(q=>q.id===p.id)===i);
+ }
+ function receiveSharedCustom(raw){
+  if(!raw||raw.length>6000)return [];
+  try{
+   const items=JSON.parse(raw);
+   if(!Array.isArray(items))return [];
+   return normalizeCustomStops(items.map(x=>Array.isArray(x)&&x.length===4?{
+    id:x[0],nome:x[1],mapCoordinates:x[2],googlePlaceId:x[3]
+   }:null));
+  }catch{return []}
+ }
+ function addPersonalPoint(candidate,link){
+  if(selected.length>=MAX_ROUTE_STOPS){q('tripCustomStatus').textContent='Máximo de 20 paradas por roteiro.';return}
+  const coordinate=validCoords(candidate.coordinate);
+  if(!coordinate){q('tripCustomStatus').textContent='Este local não possui GPS confirmado. Confira outro link.';return}
+  if(customStops.some(p=>p.mapCoordinates===coordinate)){
+   q('tripCustomStatus').textContent='Este ponto já foi adicionado ao seu roteiro.';return;
+  }
+  const name=String(candidate.name||'Parada personalizada').slice(0,100).trim();
+  const id='pessoal-'+crypto.randomUUID();
+  const point=normalizeCustomStops([{id,nome:name,endereco:candidate.address||coordinate,
+   maps:link,mapCoordinates:coordinate,googlePlaceId:candidate.placeId||''}])[0];
+  if(!point){q('tripCustomStatus').textContent='Não foi possível validar este ponto.';return}
+  customStops.push(point);selected.push(id);presetId='';activeLegIndex=0;tab='mine';
+  q('tripCustomLink').value='';q('tripCustomCandidates').replaceChildren();
+  q('tripCustomStatus').textContent='';q('tripCustomAddPanel').hidden=true;
+  q('tripAddCustomStop').setAttribute('aria-expanded','false');
+  q('tripDayMessage').textContent='✓ '+point.nome+' adicionada ao final do roteiro.';
+  render();q('tripChosen').scrollIntoView({behavior:'smooth',block:'nearest'});
+ }
+ async function checkPersonalLink(){
+  const link=q('tripCustomLink').value.trim();
+  const official=originMapURL(link);
+  const status=q('tripCustomStatus'),results=q('tripCustomCandidates');
+  results.replaceChildren();
+  if(!official||link.length>1800){status.textContent='Use um link HTTPS oficial do Google Maps.';return}
+  const button=q('tripCustomCheck');button.disabled=true;status.textContent='Conferindo ponto no Google Maps...';
+  try{
+   const res=await fetch('./api/origin-point',{method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({input:official})});
+   const data=await res.json();
+   if(q('tripCustomLink').value.trim()!==link)return;
+   if(!res.ok)throw Error(data.error||'Não foi possível identificar o local.');
+   const candidates=Array.isArray(data.results)?data.results.filter(p=>validCoords(p.coordinate)).slice(0,5):[];
+   if(!candidates.length)throw Error('Não encontrei um ponto exato. Confira o link.');
+   status.textContent='Confira o local antes de adicioná-lo ao roteiro.';
+   for(const point of candidates){
+    const row=document.createElement('div');row.className='abCustomCandidate';
+    const info=document.createElement('div');info.className='min-w-0 flex-1';
+    const name=document.createElement('strong');name.textContent=String(point.name||'Ponto personalizado');
+    const address=document.createElement('small');address.textContent=String(point.address||point.coordinate);
+    const map=document.createElement('a');map.className='tripStopCheck text-xs';
+    map.href=originMapURL(point.maps)||'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(point.coordinate);
+    map.target='_blank';map.rel='noopener noreferrer';map.textContent='Ver no Maps ↗';
+    info.append(name,address,map);
+    const add=document.createElement('button');add.type='button';add.textContent='+ Adicionar';
+    add.onclick=()=>addPersonalPoint(point,official);
+    row.append(info,add);results.append(row);
+   }
+  }catch(error){status.textContent='⚠️ '+String(error.message||error).slice(0,200)}
+  finally{button.disabled=false}
+ }
  function currentStops(){
    if(!destination)return[];
    const destId=mapping(destination.id);
