@@ -1,4 +1,4 @@
-import {sessionFor} from './auth.js';
+import {sessionFor,sameOrigin} from './auth.js';
 // Sugestões assistidas para classificar uma parada já identificada por Place ID.
 // Consulta ao Google Places apenas depois da escolha do local no painel.
 // Horário de abertura NÃO confirma que uma refeição é servida.
@@ -6,7 +6,7 @@ const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:
  "Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","X-Content-Type-Options":"nosniff"
 }});
 async function authorized(request,env){
- if(await sessionFor(request,env))return true;
+ if(sameOrigin(request)&&await sessionFor(request,env))return true;
  const secret=typeof env.ADMIN_TOKEN==="string"?env.ADMIN_TOKEN.trim():"";
  const bearer=request.headers.get("Authorization")||"";
  if(secret.length<20||!bearer.startsWith("Bearer "))return false;
