@@ -7,6 +7,12 @@ on:
       - planejador.js
       - functions/api/content.js
       - '.github/workflows/testar-multiplas-categorias.yml'
+  pull_request:
+    paths:
+      - 'admin.html'
+      - 'index.html'
+      - 'planejador.js'
+      - '.github/workflows/testar-multiplas-categorias.yml'
   workflow_dispatch:
 jobs:
   verify:
@@ -24,7 +30,7 @@ jobs:
           const admin=fs.readFileSync('admin.html','utf8');
           const planner=fs.readFileSync('planejador.js','utf8');
           const api=fs.readFileSync('functions/api/content.js','utf8');
-          new vm.Script(admin.slice(admin.lastIndexOf('<script>')+8,admin.lastIndexOf('</script>')));
+          new vm.Script((admin.match(/<script>([\s\S]*?)<\/script>/)?.[1] || (()=>{throw Error('Inline JavaScript not found')})()));
           new vm.Script(planner);
           assert(admin.includes('name="categorias" value="') || admin.includes('name="categorias" value="'+ "'+id+'" ));
           assert(admin.includes("formData.getAll('categorias')"),'All selected checkboxes must reach server');

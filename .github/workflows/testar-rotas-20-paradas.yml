@@ -6,6 +6,12 @@ on:
       - 'planejador.js'
       - 'index.html'
       - '.github/workflows/testar-rotas-20-paradas.yml'
+  pull_request:
+    paths:
+      - 'admin.html'
+      - 'index.html'
+      - 'planejador.js'
+      - '.github/workflows/testar-rotas-20-paradas.yml'
   workflow_dispatch:
 jobs:
   check:
@@ -24,11 +30,11 @@ jobs:
           const html=fs.readFileSync('index.html','utf8');
           new vm.Script(js);
           assert(html.includes('id="tripRouteSegments"'),'Missing route-leg links container');
-          assert(html.includes('Escolha até 20 paradas'),'Long route help missing');
+          assert(html.includes('Até 20 paradas'),'Long route help missing');
           assert(!js.includes('selected.length>=3'),'Unexpected old three-stop cap');
           assert(!js.includes('selected.length>3||'),'Unexpected old three-stop navigation lock');
           assert(js.includes('slice(0,MAX_ROUTE_STOPS);presetId=r.id'), 'Ready routes should retain up to 20 stops');
-          assert(js.includes('slice(0,MAX_ROUTE_STOPS);if(selected.length)'), 'Shared custom routes should retain up to 20 stops');
+          assert(js.includes('validDayStops=items')&&js.includes('slice(0,MAX_ROUTE_STOPS)'), 'Day routes should retain up to 20 stops');
           const start=js.indexOf(' function routePoint(stop){'),end=js.indexOf(' function share(){',start);
           assert(start>0&&end>start);
           const pieces=js.slice(start,end);
@@ -46,7 +52,7 @@ jobs:
             'const validCoords='+validCoords.toString()+';\n'+
             'const validPlaceId='+validPlaceId.toString()+';\n'+
             'const destination={dest:"Guaramiranga, CE",nome:"Guaramiranga"};\n'+
-            pieces+'\n({routePoint,oneGoogleSegment,routeSegmentsFor})',{URL,destinationUrl:()=>city});
+            pieces+'\n({routePoint,oneGoogleSegment,routeSegmentsFor})',{URL,destinationUrl:()=>city,mapping:()=> 'guaramiranga',APP_MAX_STOPS:9});
           const gps=i=>({id:'g'+i,nome:'Parada '+i,endereco:'Parada em Guaramiranga',
             mapCoordinates:(-4.1-i/1000)+','+(-38.9-i/1000),maps:'https://maps.app.goo.gl/original'+i});
           const place=i=>({id:'p'+i,nome:'Restaurante '+i,endereco:'Rua principal '+i+', Guaramiranga',
@@ -71,18 +77,18 @@ jobs:
               assert(segment.url.length<2048);
               last=url.searchParams.get('destination');
             }
-            assert.equal(last,city,'All routes should finish in Guaramiranga');
+            assert.equal(last,funcs.routePoint(stops[stops.length-1]).value,'Route must end at the last selected stop');
             return result;
           }
           const three=plan([gps(1),gps(2),gps(3)]);
           assert.equal(three.segments.length,1);
-          assert.equal(new URL(three.segments[0].url).searchParams.get('waypoints').split('|').length,3);
+          assert.equal(new URL(three.segments[0].url).searchParams.get('waypoints').split('|').length,2,'Third selected stop is the leg destination');
           const four=plan([gps(1),gps(2),gps(3),gps(4)]);
-          assert.equal(four.segments.length,2);
+          assert.equal(four.segments.length,1,'Four locations fit into one Google Maps mobile link');
           const eight=plan(Array.from({length:8},(_,i)=>gps(i+1)));
-          assert.equal(eight.segments.length,3);
+          assert.equal(eight.segments.length,2);
           const twenty=plan(Array.from({length:20},(_,i)=>gps(i+1)));
-          assert.equal(twenty.segments.length,6,'20 stops plus destination should form 6 legs');
+          assert.equal(twenty.segments.length,5,'20 selected stops should form 5 legs');
           const allIds=plan([place(1),place(2),place(3)]);
           assert(new URL(allIds.segments[0].url).searchParams.get('waypoint_place_ids').includes('ChIJvalidPlaceId1'));
           const mixed=plan([gps(1),place(2),gps(3),place(4),gps(5),place(6)]);

@@ -2,6 +2,12 @@ name: Testar categorias e edicao admin
 on:
   push:
     branches: [feature/admin-categorias-editar-paradas]
+  pull_request:
+    paths:
+      - 'admin.html'
+      - 'index.html'
+      - 'planejador.js'
+      - '.github/workflows/testar-categorias-admin.yml'
   workflow_dispatch:
 jobs:
   verify:
@@ -19,7 +25,7 @@ jobs:
           import vm from 'node:vm';
           const html=fs.readFileSync('admin.html','utf8');
           const publicJs=fs.readFileSync('planejador.js','utf8');
-          const admin=html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>'));
+          const admin=(html.match(/<script>([\s\S]*?)<\/script>/)?.[1] || (()=>{throw Error('Inline JavaScript not found')})());
           new vm.Script(admin);new vm.Script(publicJs);
           const helper=admin.slice(admin.indexOf('const KEY='),admin.indexOf('function normalizedPlaceName'));
           const run=(code)=>vm.runInNewContext(helper+'\n'+code,{localStorage:{getItem(){return null},setItem(){}}});
@@ -34,28 +40,33 @@ jobs:
           assert(html.includes("v.destinoId=selectedDestId"));
           assert(html.includes('function editableRoutes('));
           assert(html.includes('function editableStops('));
-          assert(publicJs.includes('foto:p.foto||found.foto'));
-          let result=run("JSON.stringify({guara:editableStops('guaramiranga').map(x=>x.id),canoa:editableStops('canoa-quebrada').map(x=>x.id)})");
-          let obj=JSON.parse(result);
-          assert(obj.guara.includes('pico-alto-parada'));
-          assert.equal(obj.canoa.length,0);
-          result=run("remote=true;data={destinos:[],paradas:[],rotas:[]};selectedDestId='guaramiranga';tab='paradas';selectedStopCategory='turismo';form()");
-          assert(result.includes('data-edit="pico-alto-parada"'));
-          assert(result.includes('Café da manhã'));
-          assert(result.includes('Pontos turísticos'));
-          result=run("remote=true;data={destinos:[],paradas:[],rotas:[]};selectedDestId='guaramiranga';tab='paradas';selectedStopCategory='turismo';editing='pico-alto-parada';form()");
-          assert(result.includes('value="Pico Alto"'));
-          result=run("remote=true;data={destinos:[],paradas:[],rotas:[]};selectedDestId='guaramiranga';tab='paradas';selectedStopCategory='almoco';form()");
-          assert(!result.includes('data-edit="pico-alto-parada"'));
-          assert(result.includes('value="almoco" selected'));
-          result=run("remote=true;data={destinos:[],paradas:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto modificado',categoria:'cafe',status:'publicado',foto:'https://example.org/new.jpg'}],rotas:[]};JSON.stringify(editableStops('guaramiranga'))");
+          assert(publicJs.includes('stopCategories('),'Public planner category handling missing');
+          // No default stops are seeded: D1 is the source of truth.
+          let obj=JSON.parse(run("JSON.stringify({guara:editableStops('guaramiranga'),canoa:editableStops('canoa-quebrada')})"));
+          assert.equal(obj.guara.length,0,'Deleted/default stops must not reappear');
+          assert.equal(obj.canoa.length,0,'Destinations must not share stops');
+          // Database record overrides a matching local draft while preserving category and image.
+          let result=run("remote=true;draft.paradas=[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Rascunho',categoria:'turismo'}];data={destinos:[],paradas:[{id:'pico-alto-parada',destinoId:'guaramiranga',nome:'Pico Alto modificado',categoria:'cafe',categorias:['cafe','almoco'],status:'publicado',foto:'https://example.org/new.jpg'}],rotas:[]};JSON.stringify({stops:editableStops('guaramiranga'),other:editableStops('canoa-quebrada'),routes:editableRoutes('guaramiranga')})");
           obj=JSON.parse(result);
-          assert.equal(obj.length,1);
-          assert.equal(obj[0].foto,'https://example.org/new.jpg');
-          assert.equal(obj[0].categoria,'cafe');
-          result=run("remote=true;data={destinos:[],paradas:[],rotas:[]};draft.rotas=[{id:'rota-antiga',destinoId:'guaramiranga',nome:'Rota antiga',paradas:['pico-alto-parada']}];JSON.stringify(editableRoutes('guaramiranga'))");
+          assert.equal(obj.stops.length,1,'Database and drafts cannot duplicate a stop');
+          assert.equal(obj.stops[0].nome,'Pico Alto modificado');
+          assert.equal(obj.stops[0].foto,'https://example.org/new.jpg');
+          assert.deepEqual(obj.stops[0].categorias,['cafe','almoco']);
+          assert.equal(obj.stops[0]._origin,'database');
+          assert.equal(obj.other.length,0);
+          // Offline draft remains available, without publishing it or inventing default stops.
+          result=run("remote=true;draft.paradas=[{id:'rascunho',destinoId:'guaramiranga',nome:'Parada local',categoria:'turismo',status:'rascunho'}];draft.rotas=[{id:'rota-antiga',destinoId:'guaramiranga',nome:'Rota antiga',paradas:['rascunho']}];data={destinos:[],paradas:[],rotas:[]};JSON.stringify({stops:editableStops('guaramiranga'),routes:editableRoutes('guaramiranga')})");
           obj=JSON.parse(result);
-          assert.equal(obj[0].id,'rota-antiga');
-          assert.deepEqual(Array.from(obj[0].paradas),['pico-alto-parada']);
-          console.log('PASS: categories match, existing Pico Alto editable, local drafts, card isolation, photo edits');
+          assert.equal(obj.stops.length,1);
+          assert.equal(obj.stops[0]._origin,'local');
+          assert.equal(obj.routes.length,1);
+          assert.deepEqual(obj.routes[0].paradas,['rascunho']);
+          assert.equal(obj.routes[0]._origin,'local');
+          // The category selector must allow one record in several categories.
+          result=run("JSON.stringify({markup:stopCategoriesMarkup({categoria:'cafe',categorias:['cafe','almoco']}),labels:categoryLabelsForStop({categoria:'cafe',categorias:['cafe','almoco']})})");
+          obj=JSON.parse(result);
+          assert(obj.markup.includes('name="categorias" value="cafe" checked'));
+          assert(obj.markup.includes('name="categorias" value="almoco" checked'));
+          assert(obj.labels.includes('Almoço'));
+          console.log('PASS: no ghost stops, D1 precedence, local drafts, categories, image preservation');
           NODE
