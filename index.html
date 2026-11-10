@@ -291,6 +291,16 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
 .abHoursRow.closed .abHoursBadge{background:#512226;color:#ffb4b4}
 .abHoursManual{font-size:13px;white-space:pre-line;line-height:1.5;color:#d0d7e2;background:#252a32;border:1px solid #454b56;border-radius:10px;padding:12px}
 @media(max-width:420px){.abHoursDay{font-size:12px}.abHoursBadge{font-size:11px;padding:6px 7px}.abHoursRow{gap:7px;padding:8px}}
+
+.abCustomAddBtn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:1px solid #fb923c;border-radius:12px;background:#33271f;color:#ffb784;font-size:14px;font-weight:800;margin:12px 0;transition:background .2s}
+.abCustomAddBtn:hover,.abCustomAddBtn[aria-expanded=true]{background:#493126}
+.abCustomAddPanel{border:1px solid #4b545f;background:#242a32;border-radius:13px;padding:15px;margin:10px 0 16px}
+.abCustomConfirmBtn{background:linear-gradient(105deg,#ffb25e,#f97316);border:0;color:#171717;font-weight:850;border-radius:11px;padding:12px;width:100%;min-height:45px}
+.abCustomConfirmBtn:disabled{opacity:.55}
+.abCustomCandidate{display:flex;align-items:center;gap:8px;justify-content:space-between;border:1px solid #515d6a;background:#1c232b;border-radius:11px;padding:11px}
+.abCustomCandidate strong{display:block;font-size:13px;color:#f1f5f9}
+.abCustomCandidate small{display:block;color:#b9c4d1;font-size:11px;line-height:1.4;margin-top:4px}
+.abCustomCandidate button{background:#fb923c;border-radius:9px;color:#171717;font-weight:850;font-size:12px;min-height:41px;padding:9px;flex:none}
 </style>
 <div id="tripModal" hidden role="dialog" aria-modal="true" aria-labelledby="tripTitle">
 <div id="tripPanel" tabindex="-1">
@@ -351,6 +361,15 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
   <span id="tripCount" class="tripTiny">0 paradas</span>
   <button id="tripCreateDay" type="button" class="tripDayAdd" title="Montar e salvar um dia de viagem" aria-label="Criar novo dia">＋ Novo dia</button>
  </div>
+</div>
+<button type="button" id="tripAddCustomStop" class="abCustomAddBtn" aria-expanded="false">✚ Adicionar parada personalizada</button>
+<div id="tripCustomAddPanel" class="abCustomAddPanel" hidden>
+ <div class="flex items-center justify-between gap-2 mb-3"><strong>📍 Nova parada pelo Google Maps</strong><button id="tripCustomClose" type="button" class="tripNavBtn" aria-label="Fechar">×</button></div>
+ <label for="tripCustomLink" class="block text-sm font-semibold mb-2">Link do Google Maps</label>
+ <input id="tripCustomLink" class="tripField" type="url" autocomplete="off" maxlength="1800" inputmode="url" placeholder="https://maps.app.goo.gl/...">
+ <button id="tripCustomCheck" type="button" class="abCustomConfirmBtn mt-3">📍 Conferir ponto no Maps</button>
+ <p id="tripCustomStatus" class="tripTiny mt-2" role="status" aria-live="polite"></p>
+ <div id="tripCustomCandidates" class="space-y-2 mt-3"></div>
 </div>
 <p class="tripTiny mt-1 mb-3">Monte sua rota normalmente. Use Novo dia apenas quando quiser guardar um dia da viagem.</p>
 <div id="tripDayGroups" class="space-y-2 mb-3" hidden aria-label="Dias salvos da viagem"></div>
