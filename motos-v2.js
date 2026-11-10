@@ -75,7 +75,42 @@ function photo(){
  const src=url(b.foto)||url(bikesDefault.find(x=>x.id===b.id)?.foto);if(src)img.src=src;else img.onerror();img.alt=b.nome;
 }
 function bikeChange(n){if(bikes.length<2)return;sharedModel='';$('productShareHint').hidden=true;vibe();index=(index+n+bikes.length)%bikes.length;category='todos';active='';shops='';tab='catalogo';read();photo();$('motoFiltros').style.setProperty('--idx','0');$('motoFiltros').querySelectorAll('[data-cat]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.cat==='todos')));$('motoTabs').style.setProperty('--idx','0');$('tabAcessorios').setAttribute('aria-selected','true');$('tabMinha').setAttribute('aria-selected','false');$('painelAcessorios').hidden=false;$('painelMinha').hidden=true;render()}
-async function load(){try{const res=await fetch('./api/motos',{cache:'no-store'});if(!res.ok)return;const json=await res.json();if(!json.motos?.length||!json.grupos)return;const old=bike().id;data=json;bikes=json.motos;index=Math.max(0,bikes.findIndex(x=>x.id===old));read();photo();render()}catch{}}
+
+function productUrl(groupId,modelId){
+ const u=new URL('motos.html',location.href);
+ u.search='';u.hash='';
+ u.searchParams.set('moto',bike().id);u.searchParams.set('grupo',groupId);u.searchParams.set('produto',modelId);
+ return u.href;
+}
+function openShare(modelId){
+ const model=options(active).find(m=>m.id===modelId);if(!model)return;
+ const dialog=$('productShareDialog');
+ sharedLink=productUrl(active,model.id);
+ $('productShareName').textContent=model.name+' · '+bike().nome;
+ $('productShareLink').value=sharedLink;
+ $('productShareWhats').href='https://api.whatsapp.com/send?text='+encodeURIComponent('🏍️ Veja este acessório no Asphalt Boys: '+sharedLink);
+ $('productShareStatus').textContent='';
+ if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
+}
+function closeShare(){const d=$('productShareDialog');if(d.open&&typeof d.close==='function')d.close();else d.removeAttribute('open')}
+function applySharedProduct(){
+ const query=new URLSearchParams(location.search);
+ const bikeId=query.get('moto'),groupId=query.get('grupo'),modelId=query.get('produto');
+ if(!bikeId||!groupId||!modelId)return;
+ if([bikeId,groupId,modelId].some(s=>!/^[A-Za-z0-9_-]{1,120}$/.test(s)))return;
+ const nextIndex=bikes.findIndex(b=>b.id===bikeId);
+ if(nextIndex<0)return;
+ index=nextIndex;active=groupId;
+ if(!options(groupId).some(x=>x.id===modelId)){active='';return}
+ sharedModel=modelId;category='todos';shops='';
+ read();photo();switchTab('catalogo');
+ $('productShareHint').hidden=false;
+ requestAnimationFrame(()=>{
+  const card=[...$('motoModelos').querySelectorAll('[data-model-card]')].find(el=>el.dataset.modelCard===modelId);
+  if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+ });
+}
+async function load(){try{const res=await fetch('./api/motos',{cache:'no-store'});if(!res.ok)return;const json=await res.json();if(!json.motos?.length||!json.grupos)return;const old=bike().id;data=json;bikes=json.motos;index=Math.max(0,bikes.findIndex(x=>x.id===old));read();photo();render();applySharedProduct()}catch{}}
 $('bikePrev').onclick=()=>bikeChange(-1);$('bikeNext').onclick=()=>bikeChange(1);
 $('motoTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)switchTab(b.dataset.tab)});
 $('motoFiltros').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b)switchCategory(b.dataset.cat)});
@@ -115,5 +150,16 @@ $('motoModelos').addEventListener('click',e=>{const share=e.target.closest('[dat
 $('motoMontagem').addEventListener('click',e=>{const b=e.target.closest('[data-remove],[data-change],[data-shops]');if(!b)return;vibe();if(b.dataset.remove){delete chosen[b.dataset.remove];save();render()}else if(b.dataset.change){active=b.dataset.change;switchTab('catalogo');detailRender()}else if(b.dataset.shops){shops=shops===b.dataset.shops?'':b.dataset.shops;buildRender()}});
 $('btnVoltarCategorias').onclick=()=>{sharedModel='';$('productShareHint').hidden=true;active='';detailRender()};
 $('btnVerMontagem').onclick=()=>switchTab('minha');$('btnMontagemDetalhe').onclick=()=>switchTab('minha');$('btnMais').onclick=()=>{active='';switchTab('catalogo')};
+$('productShareClose').onclick=closeShare;
+$('productShareDialog').addEventListener('click',e=>{if(e.target===$('productShareDialog'))closeShare()});
+$('productShareCopy').onclick=async()=>{
+ const field=$('productShareLink');
+ try{await navigator.clipboard.writeText(field.value);$('productShareStatus').textContent='✓ Link copiado com sucesso!'}
+ catch{field.focus();field.select();$('productShareStatus').textContent='Selecione o link e copie.'}
+};
+$('productShareNative').onclick=async()=>{
+ if(navigator.share){try{await navigator.share({title:'Acessório Asphalt Boys',url:sharedLink})}catch{}}
+ else{const field=$('productShareLink');field.focus();field.select();$('productShareStatus').textContent='Copie o link e compartilhe no aplicativo desejado.'}
+};
 read();photo();render();load();
 })();
