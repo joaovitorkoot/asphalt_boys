@@ -35,7 +35,7 @@
  // Aviso de possíveis erros de geolocalização nos destinos da serra.
  // Nunca trocar automaticamente um local por outro de nome parecido.
  function suspectStop(p){
-  if(!p)return '';
+  if(!p||p.custom)return '';
   const address=String(p.endereco||'').trim();
   if(/^(?:CE|BR)[-\s]?\d{2,3}(?:\s*,\s*\d+)?$/i.test(address))
    return 'Endereço contém somente o nome de uma rodovia.';
