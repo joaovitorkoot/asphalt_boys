@@ -573,7 +573,8 @@
   }
   renderOriginPoint();
   setOriginMode(share&&share.origin?'manual':'gps');
-   if(!(share&&(share.route||share.stops||share.origin||share.days)))restoreRoute();
+   if(share?.custom)customStops=receiveSharedCustom(share.custom);
+   if(!(share&&(share.route||share.stops||share.origin||share.days||share.custom)))restoreRoute();
    if(share&&share.route){const r=currentRoutes().find(x=>x.id===share.route);if(r){selected=(r.paradas||[]).filter(id=>stopById(id)).slice(0,MAX_ROUTE_STOPS);presetId=r.id;tab='mine'}}
    else if(share&&share.days){
      if(initializeSharedDays(share.days))tab='mine';
@@ -970,6 +971,9 @@
    u.searchParams.set('dias',JSON.stringify(serialized));
   }else if(presetId)u.searchParams.set('rota',presetId);
   else if(selected.length)u.searchParams.set('stops',selected.join(','));
+  const used=new Set([...selected,...tripDays.flatMap(d=>d.stops)]);
+  const personal=customStops.filter(p=>used.has(p.id)).map(p=>[p.id,p.nome,p.mapCoordinates,p.googlePlaceId||'']);
+  if(personal.length)u.searchParams.set('pontos',JSON.stringify(personal));
   const origin=originValue();
   if(origin){
    u.searchParams.set('origem',origin.slice(0,150));
@@ -1165,6 +1169,20 @@
   q('tripOrigin').addEventListener('keydown',e=>{
    if(e.key==='Enter'){e.preventDefault();checkOriginPoint()}
   });
+
+ q('tripAddCustomStop').onclick=()=>{
+  const box=q('tripCustomAddPanel'),next=box.hidden;box.hidden=!next;
+  q('tripAddCustomStop').setAttribute('aria-expanded',String(next));
+  if(next)q('tripCustomLink').focus();
+ };
+ q('tripCustomClose').onclick=()=>{
+  q('tripCustomAddPanel').hidden=true;
+  q('tripAddCustomStop').setAttribute('aria-expanded','false');
+  q('tripCustomStatus').textContent='';q('tripCustomCandidates').replaceChildren();
+ };
+ q('tripCustomLink').oninput=()=>{q('tripCustomCandidates').replaceChildren();q('tripCustomStatus').textContent=''};
+ q('tripCustomLink').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();checkPersonalLink()}};
+ q('tripCustomCheck').onclick=checkPersonalLink;
  q('tripCreateDay').onclick=makeNextDay;
  q('tripSaveDay').onclick=saveCurrentDay;
  q('tripCancelDay').onclick=cancelCurrentDay;
@@ -1222,7 +1240,10 @@
  q('tripChosen').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let i;
   if(b.dataset.up!==undefined){i=+b.dataset.up;if(i>0)[selected[i-1],selected[i]]=[selected[i],selected[i-1]]}
   else if(b.dataset.down!==undefined){i=+b.dataset.down;if(i<selected.length-1)[selected[i],selected[i+1]]=[selected[i+1],selected[i]]}
-  else if(b.dataset.remove!==undefined)selected.splice(+b.dataset.remove,1);
+  else if(b.dataset.remove!==undefined){
+   const removed=selected.splice(+b.dataset.remove,1)[0];
+   if(removed?.startsWith('pessoal-')&&!tripDays.some(day=>day.stops.includes(removed)))customStops=customStops.filter(p=>p.id!==removed);
+  }
   presetId='';activeLegIndex=0;render();showTab('mine');
  });
  q('tripOpenMaps').onclick=()=>{prepareGoogleRoute().catch(()=>{q('tripNote').textContent='Erro ao preparar a rota. Confira sua conexão e tente novamente.';q('tripOpenMaps').disabled=false})};
@@ -1233,7 +1254,7 @@
  (async()=>{
   await fetchPublic();
   const id=urlParams.get('dest');
-  if(id){open(id,{origin:urlParams.get('origem')||'',originName:urlParams.get('origem_nome')||'',route:urlParams.get('rota'),stops:urlParams.get('stops'),days:urlParams.get('dias')})}
+  if(id){open(id,{origin:urlParams.get('origem')||'',originName:urlParams.get('origem_nome')||'',route:urlParams.get('rota'),stops:urlParams.get('stops'),days:urlParams.get('dias'),custom:urlParams.get('pontos')})}
   else {const wasOpen=readOpen();if(wasOpen)open(wasOpen)}
  })();
 })();
