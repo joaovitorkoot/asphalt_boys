@@ -1,0 +1,60 @@
+name: Testar cards de viagem clicaveis
+on:
+  push:
+    paths:
+      - 'index.html'
+      - 'planejador.js'
+      - '.github/workflows/testar-card-clicavel.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'planejador.js'
+      - '.github/workflows/testar-card-clicavel.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar abertura do planejador nos cards
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const html=fs.readFileSync('index.html','utf8');
+          const planner=fs.readFileSync('planejador.js','utf8');
+          for(const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){
+            if(match[1].trim())new vm.Script(match[1]);
+          }
+          new vm.Script(planner);
+          assert(html.includes('data-destination-card='),'Destination card must be clickable');
+          assert(html.includes('class="cardPhotoOpen" data-pick='),'Photo must open trip planner, not photo zoom');
+          assert(planner.includes("e.target.closest('[data-pick]')"),'Planner must handle pick events');
+          const start=html.indexOf('// Toda a área do card abre o mesmo planejador');
+          const end=html.indexOf("document.getElementById('cards').addEventListener('click',e=>{\n const btn=e.target.closest('[data-photo-open]');",start);
+          assert(start!==-1&&end>start,'Delegated card handler is missing');
+          let handler=null;
+          vm.runInNewContext(html.slice(start,end),{
+            document:{getElementById(id){assert.equal(id,'cards');return {addEventListener(type,fn){
+              assert.equal(type,'click');handler=fn;
+            }}}}
+          });
+          assert(handler,'Missing click handler');
+          let opened=0;
+          const card={querySelector(sel){assert.equal(sel,'button[data-pick]');return {click(){opened++}}}};
+          const event=(interactive)=>({
+            target:{
+              closest(selector){
+                if(selector==='[data-destination-card]')return card;
+                if(selector==='button,a,summary,details')return interactive?{}:null;
+                throw Error('Unexpected selector: '+selector);
+              }
+            }
+          });
+          handler(event(false));
+          assert.equal(opened,1,'Card body must open planner');
+          handler(event(true));
+          assert.equal(opened,1,'Credits/interactive controls must remain independent');
+          assert(/data-pick=['"]/.test(html),'Existing action button must continue working');
+          console.log('PASS: syntax, body click, image click markup, nested links, planner route');
+          NODE
