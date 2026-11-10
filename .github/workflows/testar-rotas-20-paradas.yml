@@ -52,7 +52,7 @@ jobs:
             'const validCoords='+validCoords.toString()+';\n'+
             'const validPlaceId='+validPlaceId.toString()+';\n'+
             'const destination={dest:"Guaramiranga, CE",nome:"Guaramiranga"};\n'+
-            pieces+'\n({routePoint,oneGoogleSegment,routeSegmentsFor})',{URL,destinationUrl:()=>city});
+            pieces+'\n({routePoint,oneGoogleSegment,routeSegmentsFor})',{URL,destinationUrl:()=>city,mapping:()=> 'guaramiranga',APP_MAX_STOPS:9});
           const gps=i=>({id:'g'+i,nome:'Parada '+i,endereco:'Parada em Guaramiranga',
             mapCoordinates:(-4.1-i/1000)+','+(-38.9-i/1000),maps:'https://maps.app.goo.gl/original'+i});
           const place=i=>({id:'p'+i,nome:'Restaurante '+i,endereco:'Rua principal '+i+', Guaramiranga',
