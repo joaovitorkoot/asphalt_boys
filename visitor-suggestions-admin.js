@@ -26,7 +26,7 @@
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const safePhoto=s=>/^\/api\/image\?id=[0-9a-f-]{36}$/.test(String(s||''))?s:'';
  const stopCategories=[['cafe','☕ Café da manhã'],['almoco','🍽️ Almoço'],['cafe_tarde','🥐 Café da tarde'],['jantar','🌙 Jantar'],['turismo','📸 Pontos turísticos'],['descanso','🏍️ Descanso']];
- let suggestions=[],selectedId='',destinations=[],google=null,categorySuggestions=[];
+ let suggestions=[],selectedId='',destinations=[],publishedStops=[],google=null,categorySuggestions=[];
  const destinationName=(record)=>record.destinationMode==='novo'?record.destinationName:
   destinations.find(d=>d.id===record.destinationId)?.nome||record.destinationId||'Destino não informado';
  function note(s){$('abVisitorAdminStatus').textContent=s}
@@ -37,7 +37,7 @@
                                    fetch('/api/content?admin=1',{credentials:'same-origin',cache:'no-store'})]);
    const json=await r.json();if(!r.ok)throw Error(json.error||'Falha ao buscar sugestões.');
    suggestions=Array.isArray(json.suggestions)?json.suggestions:[];
-   if(d.ok){const content=await d.json();destinations=(content.destinos||[]).filter(x=>x.id&&x.nome)}
+   if(d.ok){const content=await d.json();destinations=(content.destinos||[]).filter(x=>x.id&&x.nome);publishedStops=(content.paradas||[]).filter(x=>x.id&&x.destinoId)}
    const byId=new Map([['guaramiranga',{id:'guaramiranga',nome:'Guaramiranga'}],['canoa-quebrada',{id:'canoa-quebrada',nome:'Canoa Quebrada'}]]);
    for(const x of destinations)byId.set(x.id,x);
    destinations=[...byId.values()];
@@ -54,7 +54,7 @@
     <div class="flex items-start justify-between gap-2"><strong class="break-words">${esc(x.visitorName||'Local sem nome')}</strong>
     <span class="pill">${esc(x.status||'pendente')}</span></div>
     <p class="text-sm text-zinc-300 mt-2">📍 ${esc(destinationName(x))}</p>
-    <p class="text-xs text-zinc-400 mt-1">📷 ${esc((x.photos||[]).length)} foto(s)</p>
+    <p class="text-xs text-zinc-400 mt-1">📷 ${esc((x.photos||[]).length)} foto(s)${x.status==='publicado'?' · Cadastro publicado':x.status==='rejeitada'?' · Pode reabrir':''}</p>
     <button class="subbtn text-sm mt-3" type="button" data-abvisitor="${esc(x.id)}">Abrir sugestão</button>
    </article>`).join(''):'<p class="text-sm text-zinc-300">Nenhuma sugestão recebida.</p>';
   host.querySelectorAll('[data-abvisitor]').forEach(b=>b.onclick=()=>openSuggestion(b.dataset.abvisitor,true));
@@ -139,11 +139,18 @@
      <select class="field" id="abChosenDest" ${active?'':'disabled'}>${currentDestOptions(target)}</select>
      <div id="abNewNameGroup" ${target==='__novo'?'':'hidden'}>
       <label class="lbl" for="abNewCardName">Nome do novo card</label>
-      <input class="field" id="abNewCardName" maxlength="120" value="${esc(wantedNew)}" ${active?'':'disabled'} placeholder="Ex.: Morro Branco">
+      <input class="field" id="abNewCardName" maxlength="120" value="${esc(wantedNew)}" ${active?'':'disabled'} placeholder="Nome do destino">
      </div>
     </div>
     <p id="abDetailNotice" class="text-orange-300 text-sm mt-3" role="status"></p>
-    ${active?'<div class="flex flex-wrap gap-2 mt-4"><button class="subbtn" id="abSaveSuggestion" type="button">✏️ Salvar edição</button><button class="btn" id="abPublishSuggestion" type="button">🚀 Publicar</button><button class="subbtn !text-red-300" id="abRejectSuggestion" type="button">Rejeitar</button></div>':''}
+    ${x.status==='publicado'?'<p class="text-sm text-zinc-300 mt-4">Esta sugestão já foi publicada. Para editar ou excluir o local do site, abra o cadastro publicado em Destinos ou Paradas.</p>':''}
+    <div class="flex flex-wrap gap-2 mt-4">
+     ${active?'<button class="subbtn" id="abSaveSuggestion" type="button">✏️ Salvar edição</button><button class="btn" id="abPublishSuggestion" type="button">🚀 Publicar</button><button class="subbtn !text-red-300" id="abRejectSuggestion" type="button">Rejeitar</button>':''}
+     ${x.status==='rejeitada'?'<button class="subbtn" id="abReopenSuggestion" type="button">↩ Reabrir para editar</button>':''}
+     ${x.status==='publicado'?'<button class="subbtn" id="abOpenPublishedStop" type="button">📍 Editar parada publicada</button>':''}
+     ${x.status==='publicado'&&x.publishedDestinationId?'<button class="subbtn" id="abOpenPublishedDest" type="button">🌄 Editar destino publicado</button>':''}
+     <button class="subbtn !text-red-300" id="abDeleteSuggestion" type="button">${x.status==='publicado'?'Excluir do histórico':'Excluir sugestão'}</button>
+    </div>
    </article>`;
   const el=id=>$('abVisitorDetail').querySelector('#'+id);
   el('abChosenDest').onchange=e=>{el('abNewNameGroup').hidden=e.target.value!=='__novo'};
@@ -156,8 +163,70 @@
    el('abPublishSuggestion').onclick=()=>moderate(x,'publicar');
    el('abRejectSuggestion').onclick=()=>moderate(x,'rejeitar');
   }
+  if(x.status==='rejeitada')el('abReopenSuggestion').onclick=()=>reopenSuggestion(x);
+  if(x.status==='publicado'){
+   el('abOpenPublishedStop').onclick=()=>openPublishedRecord(x,'paradas');
+   if(x.publishedDestinationId)el('abOpenPublishedDest').onclick=()=>openPublishedRecord(x,'destinos');
+  }
+  el('abDeleteSuggestion').onclick=()=>deleteSuggestion(x);
  }
 
+
+ async function reopenSuggestion(x){
+  if(!confirm('Reabrir esta sugestão rejeitada para editar e analisar novamente?'))return;
+  const notice=$('abVisitorDetail').querySelector('#abDetailNotice');
+  notice.textContent='Reabrindo...';
+  try{
+   const response=await fetch('/api/visitor-suggestions',{
+    method:'PATCH',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:x.id,action:'reabrir'})
+   });
+   const result=await response.json();
+   if(!response.ok)throw Error(result.error||'Não foi possível reabrir.');
+   await refresh();
+   note('✓ Sugestão reaberta. Agora pode editar ou rejeitar novamente.');
+  }catch(error){notice.textContent='⚠️ '+String(error.message||error)}
+ }
+ async function deleteSuggestion(x){
+  const published=x.status==='publicado';
+  const question=published?
+   'Excluir apenas esta sugestão do histórico? O destino e a parada publicados continuarão no site. Para removê-los, use as abas Destinos e Paradas.':
+   'Excluir esta sugestão definitivamente? Ela desaparecerá da lista de visitantes, sem alterar outros cadastros.';
+  if(!confirm(question))return;
+  const notice=$('abVisitorDetail').querySelector('#abDetailNotice');
+  notice.textContent='Excluindo sugestão...';
+  try{
+   const response=await fetch('/api/visitor-suggestions',{
+    method:'DELETE',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:x.id,deleteOnlyHistory:published})
+   });
+   const result=await response.json();
+   if(!response.ok)throw Error(result.error||'Não foi possível excluir.');
+   selectedId='';google=null;
+   await refresh();
+   note(published?'✓ Sugestão excluída do histórico. Cadastros publicados mantidos.':'✓ Sugestão excluída.');
+  }catch(error){notice.textContent='⚠️ '+String(error.message||error)}
+ }
+ function openPublishedRecord(x,kind){
+  const destinationId=x.publishedDestinationId||x.chosenDestinationId||x.destinationId;
+  const recordId=kind==='paradas'?x.publishedStopId:destinationId;
+  if(!recordId){
+   note('Este registro antigo não informa o ID publicado. Abra a aba '+(kind==='paradas'?'Paradas':'Destinos')+' e procure pelo nome.');
+  }
+  const nav=document.querySelector('[data-tab="'+kind+'"]');
+  if(!nav)return;
+  nav.click();
+  const picker=[...document.querySelectorAll('[data-select-dest]')].find(el=>el.dataset.selectDest===destinationId);
+  if(picker)picker.click();
+  if(kind==='paradas'){
+   const stop=publishedStops.find(item=>item.id===recordId);
+   const cat=(Array.isArray(stop?.categorias)&&stop.categorias[0])||stop?.categoria;
+   if(cat)document.querySelector('[data-stop-category="'+cat+'"]')?.click();
+  }
+  const edit=[...document.querySelectorAll('[data-edit]')].find(el=>el.dataset.edit===recordId);
+  if(edit)edit.click();
+  document.querySelector('#adminTravelWorkspace')?.scrollIntoView({behavior:'smooth',block:'start'});
+ }
  async function loadCategorySuggestions(x,placeId){
   const root=$('abVisitorDetail'),box=root.querySelector('#abCategorySuggestBox');
   if(!box||selectedId!==x.id)return;
