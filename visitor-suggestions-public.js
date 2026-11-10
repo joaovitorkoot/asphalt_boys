@@ -105,23 +105,44 @@
   selectedPhotos.push(...incoming);msg.textContent='';renderPreviews();
  };
  async function compress(file){
+  // iOS Safari can decode WebP but not encode it with canvas.toBlob.
+  // Keep a JPEG fallback, and reduce dimensions further when necessary.
+  if(file.size>=100&&file.size<=180000&&['image/jpeg','image/png','image/webp'].includes(file.type))return file;
   let bitmap=null,source=null;
   try{
-   if(window.createImageBitmap){bitmap=await createImageBitmap(file);source=bitmap}
-   else{const url=URL.createObjectURL(file);try{source=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=url})}finally{URL.revokeObjectURL(url)}}
+   if(window.createImageBitmap){
+    try{bitmap=await createImageBitmap(file);source=bitmap}catch{bitmap=null}
+   }
+   if(!source){
+    const url=URL.createObjectURL(file);
+    try{source=await new Promise((resolve,reject)=>{
+     const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error('Não foi possível abrir a foto.'));img.src=url;
+    })}finally{URL.revokeObjectURL(url)}
+   }
    const w=source.width||source.naturalWidth,h=source.height||source.naturalHeight;
    if(!w||!h)throw Error('Foto inválida.');
    const c=document.createElement('canvas');
-   for(const max of [1600,1200,960,780,620,480]){
-    const ratio=Math.min(1,max/Math.max(w,h));c.width=Math.max(1,Math.round(w*ratio));c.height=Math.max(1,Math.round(h*ratio));
-    const x=c.getContext('2d');if(!x)throw Error('Não foi possível otimizar a foto.');
+   let canWebp=true;
+   const encode=(type,quality)=>new Promise(resolve=>{
+    try{c.toBlob(resolve,type,quality)}catch{resolve(null)}
+   });
+   for(const max of [1400,1200,1000,850,720,600,500,420,340,260]){
+    const ratio=Math.min(1,max/Math.max(w,h));
+    c.width=Math.max(1,Math.round(w*ratio));c.height=Math.max(1,Math.round(h*ratio));
+    const x=c.getContext('2d');if(!x)throw Error('Não foi possível preparar a foto.');
     x.fillStyle='#ffffff';x.fillRect(0,0,c.width,c.height);x.drawImage(source,0,0,c.width,c.height);
-    for(const quality of [.82,.72,.62,.5,.38]){
-     const blob=await new Promise(resolve=>c.toBlob(resolve,'image/webp',quality));
-     if(blob?.type==='image/webp'&&blob.size>=100&&blob.size<=180000)return new File([blob],file.name.replace(/\.[^.]+$/,'')+'.webp',{type:'image/webp'});
+    for(const quality of [.8,.65,.5,.35,.25]){
+     for(const type of (canWebp?['image/webp','image/jpeg']:['image/jpeg'])){
+      const blob=await encode(type,quality);
+      if(type==='image/webp'&&blob?.type!=='image/webp'){canWebp=false;continue}
+      if(blob&&blob.type===type&&blob.size>=100&&blob.size<=180000){
+       const ext=type==='image/webp'?'webp':'jpg';
+       return new File([blob],file.name.replace(/\.[^.]+$/,'')+'.'+ext,{type});
+      }
+     }
     }
    }
-   throw Error('Não foi possível reduzir uma das fotos. Escolha outra imagem.');
+   throw Error('Não foi possível preparar esta foto. Tente outra imagem.');
   }finally{bitmap?.close?.()}
  }
  $('abSuggestForm').onsubmit=async e=>{
