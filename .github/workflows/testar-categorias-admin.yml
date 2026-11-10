@@ -2,6 +2,12 @@ name: Testar categorias e edicao admin
 on:
   push:
     branches: [feature/admin-categorias-editar-paradas]
+  pull_request:
+    paths:
+      - 'admin.html'
+      - 'index.html'
+      - 'planejador.js'
+      - '.github/workflows/testar-categorias-admin.yml'
   workflow_dispatch:
 jobs:
   verify:
@@ -19,7 +25,7 @@ jobs:
           import vm from 'node:vm';
           const html=fs.readFileSync('admin.html','utf8');
           const publicJs=fs.readFileSync('planejador.js','utf8');
-          const admin=html.slice(html.lastIndexOf('<script>')+8,html.lastIndexOf('</script>'));
+          const admin=(html.match(/<script>([\s\S]*?)<\/script>/)?.[1] || (()=>{throw Error('Inline JavaScript not found')})());
           new vm.Script(admin);new vm.Script(publicJs);
           const helper=admin.slice(admin.indexOf('const KEY='),admin.indexOf('function normalizedPlaceName'));
           const run=(code)=>vm.runInNewContext(helper+'\n'+code,{localStorage:{getItem(){return null},setItem(){}}});
