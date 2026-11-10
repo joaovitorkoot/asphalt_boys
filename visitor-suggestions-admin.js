@@ -249,11 +249,25 @@
    await refresh();
   }catch(error){notice.textContent='⚠️ '+String(error.message||error);root.querySelectorAll('button').forEach(b=>b.disabled=false)}
  }
- button.onclick=async()=>{
-  document.querySelector('[data-tab="destinos"]')?.click();
-  panel.hidden=false;panel.scrollIntoView({behavior:'smooth',block:'start'});
+ const closeReview=()=>{
+  document.body.classList.remove('admin-suggestion-view');
+  panel.hidden=true;selectedId='';
+  button.setAttribute('aria-selected','false');
+ };
+ document.querySelectorAll('[data-tab]').forEach(tab=>tab.addEventListener('click',closeReview));
+ const openReview=async()=>{
+  document.body.classList.remove('admin-show-audit','admin-show-queue');
+  document.body.classList.add('admin-suggestion-view');
+  document.querySelectorAll('[data-tab]').forEach(tab=>tab.setAttribute('aria-selected','false'));
+  document.querySelector('#adminTravelWorkspace').hidden=false;
+  document.querySelector('#adminMotoWorkspace').hidden=true;
+  document.querySelector('#adminMoreMenu').open=false;
+  button.setAttribute('aria-selected','true');
+  panel.hidden=false;
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
   await refresh();
  };
- $('abVisitorClose').onclick=()=>{panel.hidden=true;selectedId=''};
+ button.onclick=openReview;
+ $('abVisitorClose').onclick=()=>{closeReview();document.querySelector('[data-tab="destinos"]')?.click()};
  $('abVisitorRefresh').onclick=refresh;
 })();
