@@ -40,7 +40,7 @@ jobs:
           assert(html.includes("v.destinoId=selectedDestId"));
           assert(html.includes('function editableRoutes('));
           assert(html.includes('function editableStops('));
-          assert(publicJs.includes('foto:p.foto||found.foto'));
+          assert(publicJs.includes('stopCategories('),'Public planner category handling missing');
           let result=run("JSON.stringify({guara:editableStops('guaramiranga').map(x=>x.id),canoa:editableStops('canoa-quebrada').map(x=>x.id)})");
           let obj=JSON.parse(result);
           assert(obj.guara.includes('pico-alto-parada'));
