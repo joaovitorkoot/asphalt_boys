@@ -278,6 +278,19 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
 @media(prefers-reduced-motion:reduce){.tripTabEnter{animation:none!important}}
 #tripPanel::-webkit-scrollbar{width:5px}#tripPanel::-webkit-scrollbar-thumb{background:#4e5661;border-radius:9px}
 @media(max-width:580px){#tripCategories{grid-template-columns:repeat(2,minmax(0,1fr))}.tripTab{font-size:11px;padding:8px 3px}.tripStop{grid-template-columns:62px minmax(0,1fr)}.tripStop img,.tripFallback{width:62px;height:76px}#tripPanel{border-radius:14px}}
+
+/* Calendário semanal de funcionamento — preto, laranja, verde/fechado vermelho */
+.abHoursWeek{display:grid;gap:7px;margin:12px 0 4px}
+.abHoursRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;background:#252a32;border:1px solid #454b56;border-radius:10px;color:#e8ebef}
+.abHoursRow:before{content:'';width:4px;height:28px;border-radius:5px;background:#6b7280;flex:none}
+.abHoursRow.open:before{background:#22c55e}
+.abHoursRow.closed:before{background:#ef4444}
+.abHoursDay{flex:1;font-size:13px;font-weight:750}
+.abHoursBadge{font-size:12px;font-weight:750;padding:6px 9px;border-radius:9px;background:#313844;color:#d1d5db;text-align:right;white-space:nowrap}
+.abHoursRow.open .abHoursBadge{background:#16452d;color:#a7f3c0}
+.abHoursRow.closed .abHoursBadge{background:#512226;color:#ffb4b4}
+.abHoursManual{font-size:13px;white-space:pre-line;line-height:1.5;color:#d0d7e2;background:#252a32;border:1px solid #454b56;border-radius:10px;padding:12px}
+@media(max-width:420px){.abHoursDay{font-size:12px}.abHoursBadge{font-size:11px;padding:6px 7px}.abHoursRow{gap:7px;padding:8px}}
 </style>
 <div id="tripModal" hidden role="dialog" aria-modal="true" aria-labelledby="tripTitle">
 <div id="tripPanel" tabindex="-1">
@@ -412,8 +425,8 @@ abZoom.addEventListener('click',e=>{if(e.target===abZoom)abZoom.close()});
       </div>
       <p id="tripPreviewDesc" class="tripPlaceDescription"></p>
       <details id="tripHoursDetails" class="tripPlaceHours" hidden>
-        <summary>Ver horários de funcionamento</summary>
-        <p id="tripPreviewHours"></p>
+        <summary>📅 Horários de funcionamento</summary>
+        <div id="tripPreviewHours" class="abHoursWeek" aria-label="Horários por dia da semana"></div>
       </details>
       <details id="tripReviewDetails" class="tripPlaceReviews" hidden>
         <summary>✨ O que dizem os visitantes</summary>
