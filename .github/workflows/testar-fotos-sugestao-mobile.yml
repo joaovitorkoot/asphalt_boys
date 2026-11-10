@@ -1,0 +1,44 @@
+name: Testar seletor de fotos de sugestoes no celular
+on:
+  pull_request:
+    paths:
+      - 'visitor-suggestions-public.js'
+      - 'index.html'
+      - '.github/workflows/testar-fotos-sugestao-mobile.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'visitor-suggestions-public.js'
+      - 'index.html'
+      - '.github/workflows/testar-fotos-sugestao-mobile.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar sintaxe, seletor mobile, limite e aviso removido
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import vm from 'node:vm';
+          const js=fs.readFileSync('visitor-suggestions-public.js','utf8');
+          const html=fs.readFileSync('index.html','utf8');
+          new vm.Script(js);
+          const block=js.match(/wrap\.innerHTML=`([\s\S]*?)`;/)?.[1]||'';
+          assert(block.includes('4. Fotos (até 3)'),'Photo step label is missing');
+          assert(block.includes('class="photoPicker"'),'Mobile-friendly file picker label missing');
+          assert(block.includes('id="abSuggestPhotos" type="file"'),'Accessible file input missing');
+          assert(block.includes('>Escolher arquivos</label>'),'Short picker button label missing');
+          assert(block.includes('multiple>'),'Multiple photo uploads must remain available');
+          assert(block.includes('id="abSuggestThumbs"'),'Photo previews must remain');
+          assert(block.includes('Enviar sugestão</button>'),'Submit button must remain');
+          assert(!block.includes('Nada é publicado sem aprovação.'),'Footer note must not appear under send');
+          assert(!block.includes('<p class="note">Até 3 fotos.</p>'),'Extra photo text must not wrap');
+          assert(js.includes("if(files.length>3){photos.value='';"),'Selecting over 3 photos must be rejected and cleared');
+          assert(js.includes('if(files.length>3||files.some('),'Submission must enforce three-photo limit');
+          assert(html.includes('visitor-suggestions-public.js?v=20261109-photo-picker-mobile'),'Cache-busting link missing');
+          console.log('PASS: syntax, compact mobile picker, three-photo limit, previews, footer removed');
+          NODE
