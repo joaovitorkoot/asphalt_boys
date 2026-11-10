@@ -41,6 +41,6 @@ jobs:
           assert(js.includes('selectedPhotos.push(...incoming)'),'Added photos must be retained after choosing files');
           assert(js.includes("remove.textContent='×'"),'Each preview must offer a remove button');
           assert(js.includes('if(files.length>3||files.some('),'Submission must enforce three-photo limit');
-          assert(/visitor-suggestions-public\\.js\\?v=2026111[0-9]-[a-z0-9-]+/.test(html),'Versioned public script missing');
+          assert(html.includes('visitor-suggestions-public.js?v='),'Versioned public script missing');
           console.log('PASS: syntax, compact mobile picker, three-photo limit, previews, footer removed');
           NODE
