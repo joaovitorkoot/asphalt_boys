@@ -82,7 +82,7 @@ jobs:
           }
           const three=plan([gps(1),gps(2),gps(3)]);
           assert.equal(three.segments.length,1);
-          assert.equal(new URL(three.segments[0].url).searchParams.get('waypoints').split('|').length,3);
+          assert.equal(new URL(three.segments[0].url).searchParams.get('waypoints').split('|').length,2,'Third selected stop is the leg destination');
           const four=plan([gps(1),gps(2),gps(3),gps(4)]);
           assert.equal(four.segments.length,1,'Four locations fit into one Google Maps mobile link');
           const eight=plan(Array.from({length:8},(_,i)=>gps(i+1)));
