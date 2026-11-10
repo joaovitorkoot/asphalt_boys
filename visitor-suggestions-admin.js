@@ -80,6 +80,16 @@
   const gId=google?.id||x.googlePlaceId||'';
   const gps=google?.mapCoordinates||x.mapCoordinates||'';
   const photos=Array.isArray(x.photos)?x.photos:[];
+  const selectedPhoto=photos.includes(x.selectedPhoto)?x.selectedPhoto:'';
+  const selectedCategories=Array.isArray(x.selectedCategories)?x.selectedCategories:[];
+  const photoChoices=photos.filter(safePhoto).map((p,i)=>
+   '<button type="button" data-abphoto="'+esc(p)+'" aria-label="Escolher foto '+(i+1)+' como principal" aria-pressed="'+(p===selectedPhoto)+'" '+
+   'class="ab-photo-choice" '+(active?'':'disabled')+'><img loading="lazy" alt="Foto enviada '+(i+1)+'" src="'+esc(p)+'"><span class="ab-photo-check" aria-hidden="true">✓</span></button>'
+  ).join('')||'<p class="text-sm text-zinc-400 col-span-3">Nenhuma foto enviada.</p>';
+  const categoryChoices=stopCategories.map(([id,label])=>
+   '<label class="photoFrameChoice ab-category-choice"><input type="checkbox" name="abCategories" value="'+id+'" '+
+   (selectedCategories.includes(id)?'checked ':'')+(active?'':'disabled ')+'><span>'+esc(label)+'</span><span class="ab-category-check" aria-hidden="true">✓</span></label>'
+  ).join('');
   $('abVisitorDetail').innerHTML=`
    <article class="border border-zinc-600 bg-[#20252d] rounded-xl p-4">
     <div class="flex justify-between items-start flex-wrap gap-2 mb-3"><div>
@@ -87,18 +97,32 @@
      <p class="tiny">Sugestão ${esc(x.status)} · ${esc(x.createdAt||'')}</p></div>
      <span class="pill">${x.destinationMode==='novo'?'Novo destino':'Destino existente'}</span></div>
     <div class="border border-orange-500/30 bg-[#2b2927] rounded-xl p-3 mb-3">
-     <p class="tiny">DESTINO ORIGINAL ESCOLHIDO PELO VISITANTE</p>
+     <p class="text-sm text-zinc-300">Destino sugerido</p>
      <p class="font-black text-lg mt-1">${esc(destinationName(x))}</p>
-     <p class="tiny">${x.destinationMode==='novo'?'O visitante solicitou a criação de um novo card.':'O visitante selecionou um card já existente.'}</p>
     </div>
     <p class="tiny">LINK ORIGINAL DO GOOGLE MAPS</p>
     <p class="text-sm break-all text-zinc-300 mt-1 mb-2">${esc(x.mapsUrl)}</p>
     <a class="subbtn inline-block text-sm" target="_blank" rel="noopener noreferrer" href="${esc(x.mapsUrl)}">↗ Ver no Google Maps</a>
-    <div class="mt-3"><strong class="text-sm">Fotos recebidas</strong>
-    <div class="grid grid-cols-3 gap-2 mt-2">${photos.filter(safePhoto).map(p=>'<img class="w-full h-24 object-cover rounded-lg" loading="lazy" alt="Foto enviada pelo visitante" src="'+esc(p)+'">').join('')||'<p class="tiny col-span-3">Nenhuma foto enviada. Você pode adicionar uma depois pelo cadastro de paradas.</p>'}</div></div>
+    <div class="mt-4">
+     <h4 class="font-black mb-2">Fotos recebidas <span class="font-normal text-zinc-400 text-sm">· Escolha a principal</span></h4>
+     <div class="grid grid-cols-3 gap-2" id="abPhotoOptions">${photoChoices}</div>
+    </div>
+    <div class="border-t border-zinc-600 mt-4 pt-4">
+     <h4 class="font-black mb-2">Categorias do local</h4>
+     <div class="grid sm:grid-cols-2 gap-2" id="abCategoryOptions">${categoryChoices}</div>
+     <div id="abCategorySuggestBox" class="rounded-xl border border-orange-500/30 bg-[#282d35] p-3 mt-3" hidden>
+      <strong class="text-sm text-orange-200">✨ Sugestões do Google Maps</strong>
+      <p class="text-sm text-zinc-300 mt-2" id="abCategorySuggestStatus" role="status"></p>
+      <div id="abCategorySuggestItems" class="space-y-2 mt-2"></div>
+      <button type="button" id="abApplyCategories" class="subbtn text-sm mt-3" hidden>✓ Aplicar categorias sugeridas</button>
+      <details id="abGoogleHours" class="mt-3" hidden>
+       <summary class="text-sm cursor-pointer text-orange-200">Ver horários informados pelo Google</summary>
+       <div id="abGoogleHoursList" class="text-sm text-zinc-300 mt-2 space-y-1"></div>
+      </details>
+     </div>
+    </div>
     <div class="border-t border-zinc-600 mt-4 pt-4">
      <h4 class="font-black">Nome para publicação</h4>
-     <p class="tiny mt-1">Compare o nome do visitante com o identificado no Google Maps.</p>
      <div class="mt-2 bg-[#2a3039] rounded-lg p-3">
       <p class="tiny" id="abGoogleStatus">Nome Google: ${googleName?esc(googleName):'Não consultado ou não identificado'}</p>
       <p class="tiny" id="abGoogleCoord">${gps?'Coordenadas do ponto: '+esc(gps):''}</p>
@@ -109,7 +133,6 @@
      <label class="pick mt-2"><input type="radio" name="abNameSource" value="manual" ${selectedName==='manual'?'checked':''} ${active?'':'disabled'}><span>Digitar outro nome</span></label>
      <label class="lbl" for="abManualName">Nome personalizado (quando necessário)</label>
      <input class="field" id="abManualName" maxlength="120" value="${esc(selectedName==='manual'?nameValue:'')}" ${active?'':'disabled'} placeholder="Digite o nome desejado">
-     <p class="tiny mt-2">O nome enviado pelo visitante permanece no histórico.</p>
     </div>
     <div class="border-t border-zinc-600 mt-4 pt-4">
      <label class="lbl" for="abChosenDest">Card onde será cadastrado</label>
@@ -117,7 +140,7 @@
      <div id="abNewNameGroup" ${target==='__novo'?'':'hidden'}>
       <label class="lbl" for="abNewCardName">Nome do novo card</label>
       <input class="field" id="abNewCardName" maxlength="120" value="${esc(wantedNew)}" ${active?'':'disabled'} placeholder="Ex.: Morro Branco">
-      <p class="tiny">Ao publicar, o novo card e o local sugerido serão criados juntos.</p></div>
+     </div>
     </div>
     <p id="abDetailNotice" class="text-orange-300 text-sm mt-3" role="status"></p>
     ${active?'<div class="flex flex-wrap gap-2 mt-4"><button class="subbtn" id="abSaveSuggestion" type="button">✏️ Salvar edição</button><button class="btn" id="abPublishSuggestion" type="button">🚀 Publicar</button><button class="subbtn !text-red-300" id="abRejectSuggestion" type="button">Rejeitar</button></div>':''}
@@ -125,6 +148,9 @@
   const el=id=>$('abVisitorDetail').querySelector('#'+id);
   el('abChosenDest').onchange=e=>{el('abNewNameGroup').hidden=e.target.value!=='__novo'};
   const retry=el('abGoogleRetry');if(active)retry.onclick=()=>findGoogle(x);
+  el('abPhotoOptions').querySelectorAll('[data-abphoto]').forEach(b=>b.onclick=()=>{
+   el('abPhotoOptions').querySelectorAll('[data-abphoto]').forEach(item=>item.setAttribute('aria-pressed',String(item===b)));
+  });
   if(active){
    el('abSaveSuggestion').onclick=()=>moderate(x,'salvar');
    el('abPublishSuggestion').onclick=()=>moderate(x,'publicar');
