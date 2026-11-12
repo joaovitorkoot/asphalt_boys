@@ -36,6 +36,7 @@ async function fetchRatings(){
 }
 const svg=id=>'<svg viewBox="0 0 24 24" fill="none" stroke="#ffae6c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(outlines[id]||'')+'</svg>';
 const image=(id,m)=>url(m?.foto)?'<img class="group-photo" loading="lazy" src="'+esc(url(m.foto))+'" alt="'+esc(m.name)+'">':svg(id);
+const categoryArt=(id,name)=>'<span class="category-art category-art-'+esc(id)+'" role="img" aria-label="Imagem do acessório: '+esc(name)+'"></span>';
 const key=()=> 'asphalt-boys-'+bike().id+'-montagem-v2';
 const vibe=()=>{try{navigator.vibrate?.(8)}catch{}};
 function read(){chosen={};try{const v=JSON.parse(localStorage.getItem(key())||'{}');if(v&&typeof v==='object'&&!Array.isArray(v))for(const [id,model]of Object.entries(v))if(options(id).some(m=>m.id===model))chosen[id]=model}catch{}}
@@ -44,7 +45,7 @@ function counts(){const n=Object.keys(chosen).length;$('tabMinha').textContent='
 function groupsRender(){
  const arr=groupList().filter(g=>category==='todos'||g.type===category);
  $('catalogCount').textContent=arr.length+' categorias';
- $('motoProdutos').innerHTML=arr.map(g=>'<button type="button" class="group-card" data-group="'+g.id+'" data-chosen="'+!!chosen[g.id]+'"><div class="group-visual">'+image(g.id,{foto:g.foto,name:g.name})+'</div><div><h4>'+esc(g.name)+'</h4><p>'+options(g.id).length+' modelos para escolher</p></div><div class="group-bottom"><span>'+(chosen[g.id]?'✓ Modelo escolhido':'Escolher modelo')+'</span><strong>›</strong></div></button>').join('');
+ $('motoProdutos').innerHTML=arr.map(g=>'<button type="button" class="group-card" data-group="'+g.id+'" data-chosen="'+!!chosen[g.id]+'"><div class="group-visual">'+categoryArt(g.id,g.name)+'</div><div><h4>'+esc(g.name)+'</h4><p>'+options(g.id).length+' modelos para escolher</p></div><div class="group-bottom"><span>'+(chosen[g.id]?'✓ Modelo escolhido':'Escolher modelo')+'</span><strong>›</strong></div></button>').join('');
 }
 function detailRender(){
  const g=groupList().find(g=>g.id===active);$('catalogBrowse').hidden=!!g;$('catalogDetail').hidden=!g;$('motoFiltros').hidden=!!g;$('catalogCount').hidden=!!g;if(!g)return;
