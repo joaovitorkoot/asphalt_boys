@@ -382,7 +382,21 @@
   (httpsUrl(p.fotoFonteUrl)?' · <a href="'+esc(httpsUrl(p.fotoFonteUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Original</a>':'')+
   (httpsUrl(p.fotoLicencaUrl)?' · <a href="'+esc(httpsUrl(p.fotoLicencaUrl))+'" target="_blank" rel="noopener noreferrer" class="underline">Licença</a>':'')+
   '</p></details>':'';
-     return '<article class="tripStop" data-selected="'+dis+'">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':'<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'<div class="min-w-0"><p class="font-semibold text-sm">'+esc(p.nome)+'</p>'+(p.descricao?'<p class="tripTiny tripStopDescription mt-1">'+esc(p.descricao)+'</p>':'')+credits+'<div class="flex flex-wrap gap-2 mt-2"><button type="button" class="tripNavBtn text-xs" data-preview="'+esc(p.id)+'">👁 Prévia</button><button type="button" class="tripNavBtn text-xs text-orange-300" data-add-stop="'+esc(p.id)+'" aria-pressed="'+dis+'" '+(!dis&&(full||!loc)?'disabled':'')+'>'+(dis?'− Remover':!loc?'Sem endereço':full?'Limite de 20 paradas':'+ Adicionar')+'</button></div></div></article>';
+     const activeCategory=(categories.find(([id])=>id===category)||[])[1]||'📍 Parada';
+     return '<article class="tripStop abStopCard" data-selected="'+dis+'">'+
+       '<div class="abStopMedia">'+(pic?'<img loading="lazy" src="'+esc(pic)+'" alt="Imagem de '+esc(p.nome)+'">':
+       '<div class="tripGooglePhotoHolder" data-google-public-stop="'+esc(p.id)+'"><div class="tripFallback">📍</div><span class="tripTiny block mt-1" data-google-public-credit></span></div>')+'</div>'+
+       '<div class="abStopContent">'+
+         '<span class="abStopTag">'+esc(activeCategory)+'</span>'+
+         '<h4 class="abStopName">'+esc(p.nome)+'</h4>'+
+         (p.descricao?'<p class="abStopDescription">'+esc(p.descricao)+'</p>':'')+
+         (loc?'<p class="abStopAddress" title="'+esc(loc)+'"><span aria-hidden="true">⌖</span> '+esc(loc)+'</p>':'')+
+         credits+
+         '<div class="abStopActions">'+
+           '<button type="button" class="tripNavBtn abStopPreview" data-preview="'+esc(p.id)+'" aria-label="Abrir prévia de '+esc(p.nome)+'">👁 Prévia</button>'+
+           '<button type="button" class="tripNavBtn abStopAdd" data-add-stop="'+esc(p.id)+'" aria-pressed="'+dis+'" '+(!dis&&(full||!loc)?'disabled':'')+' aria-label="'+(dis?'Remover da rota: ':'Adicionar à rota: ')+esc(p.nome)+'">'+(dis?'✓ Adicionada':!loc?'Sem endereço':full?'Limite de 20':'+ Adicionar')+'</button>'+
+         '</div>'+
+       '</div></article>';
    }).join(''):'<p class="tripTiny rounded-xl border border-dashed border-zinc-600 p-5">'+(term?'Nenhuma parada encontrada nesta categoria. Tente outra pesquisa.':'Ainda não há paradas publicadas nesta categoria. No painel, escolha a parada e clique em Publicar no site.')+'</p>';
    loadPublicStopPhotos();
  }
