@@ -53,7 +53,7 @@ function parseShared(value,requestUrl){
 }
 async function validDestination(db,id){
  const mapped=id==='canoa'?'canoa-quebrada':id;
- if(mapped==='guaramiranga'||mapped==='canoa-quebrada')return mapped;
+ if(['guaramiranga','canoa-quebrada','pico'].includes(mapped))return mapped;
  const row=await db.prepare("SELECT id FROM site_content WHERE kind='destinos' AND status='publicado' AND id=?").bind(mapped).first();
  return row?.id?mapped:'';
 }
