@@ -131,8 +131,9 @@ export async function onRequestPatch({request,env}){
     if(p.destinoId!==destination)return reply({error:'Uma parada pertence a outro destino. Revise antes de publicar.'},422);
     stops.push(sid);
   }
+  if(shared.url.length>1200)return reply({error:'O link é muito longo para publicar como rota pronta. Revise as paradas e cadastre trechos menores na aba Rotas.'},422);
   const routeId='rota-'+crypto.randomUUID().slice(0,12);
-  const route={id:routeId,nome:name,descricao:text(record.note,700),destinoId:destination,paradas:stops,maps:shared.url.slice(0,1200),status:'publicado'};
+  const route={id:routeId,nome:name,descricao:text(record.note,700),destinoId:destination,paradas:stops,maps:shared.url,status:'publicado'};
   await env.DB.batch([
    env.DB.prepare("INSERT INTO site_content(id,kind,destino_id,status,payload,updated_at) VALUES(?,'rotas',?,'publicado',?,datetime('now'))").bind(routeId,destination,JSON.stringify(route)),
    env.DB.prepare("UPDATE ab_route_suggestions SET status='publicado',payload=?,updated_at=datetime('now') WHERE id=? AND status='pendente'").bind(JSON.stringify({...record,publishedRouteId:routeId}),id)
