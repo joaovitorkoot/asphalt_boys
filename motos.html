@@ -204,6 +204,13 @@ footer a:hover{color:var(--accent)}
 .model-description[open] .when-open{display:inline}
 .model-description[open] .when-closed{display:none}
 .variant-card .model-description p{padding:2px 13px 14px;line-height:1.6;white-space:pre-line}
+
+/* Minha moto: troca de modelo e botões das lojas sempre visíveis. */
+.build-actions{grid-template-columns:1fr}
+.build-actions .btn-outline{min-height:46px}
+.build-item .offer-panel{margin-top:11px}
+.build-item .offer-panel .shop-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+.build-item .offer-panel .shop-options button:disabled{opacity:.62;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -288,7 +295,7 @@ footer a:hover{color:var(--accent)}
  <button type="button" data-light-step="1" aria-label="Próxima foto">›</button>
  <span class="lightbox-counter"></span>
 </div>
-<script src="./motos-v2.js?v=20261112-descricao-fechada"></script>
+<script src="./motos-v2.js?v=20261112-lojas-diretas"></script>
 <script src="./site-feedback-public.js?v=20261110-1"></script>
 </body>
 </html>
