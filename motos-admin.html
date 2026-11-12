@@ -33,6 +33,10 @@ button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity
 .hint{font-size:14px;color:#b3bdc9}.status{font-size:14px;color:#ffbd83;min-height:22px}
 [hidden]{display:none!important}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #fb923c;outline-offset:2px}
 @media(max-width:620px){.grid{grid-template-columns:1fr}.panel{padding:13px}.actions button{flex:1}}
+
+.gallery-upload-status{font-size:13px;line-height:1.5;color:#ffbb88;margin:5px 0;padding:9px 11px;background:#202a34;border:1px solid #46515f;border-radius:9px}
+.gallery-upload-status[data-ok="true"]{color:#b2ebcf;border-color:#407a66}
+.gallery-upload-status[data-error="true"]{color:#ffc3a4;border-color:#ad6849}
 </style></head><body><main>
 <div class="line"><div><h1>🏍️ Motos e afiliados</h1></div><a href="./motos.html" target="_blank" rel="noopener noreferrer" style="color:#ffb377;font-size:13px">Ver site público ↗</a></div>
 <p id="notice" class="status" role="status">Conferindo sessão administrativa...</p>
@@ -82,7 +86,7 @@ button.primary{background:#fb923c;color:#171717;border:0}button:disabled{opacity
     <div class="gallery-controls">
      <div class="field"><label for="galleryUrl">Link da imagem (HTTPS)</label><input id="galleryUrl" placeholder="https://..."></div>
      <button id="galleryAddUrl" type="button">＋ Adicionar foto</button>
-     <div class="field"><label for="galleryFiles">Ou enviar fotos do computador</label><input id="galleryFiles" type="file" accept="image/*" multiple></div>
+     <div class="field"><label for="galleryFiles">📷 Enviar fotos do celular ou computador</label><input id="galleryFiles" type="file" accept="image/*,.heic,.heif" multiple><small>Selecione até 5 fotos da galeria do aparelho. Não precisa de link.</small><p id="galleryUploadStatus" class="gallery-upload-status" role="status" aria-live="polite">Escolha uma foto para começar.</p></div>
     </div>
    </div>
    <div class="field"><label for="productShopee">Link afiliado Shopee</label><input id="productShopee" placeholder="https://shopee.com.br/..."></div>
@@ -117,24 +121,51 @@ function showImagePreview(id){
 }
 for(const id of photoFields){q(id).addEventListener('input',()=>showImagePreview(id));q(id).addEventListener('change',()=>showImagePreview(id))}
 const groups=[['suporte','Suporte para celular','viagem'],['bau','Baú traseiro','viagem'],['bolsa','Bolsa de tanque','viagem'],['protetor','Protetor de motor','protecao'],['manoplas','Manoplas','estilo'],['bolha','Bolha esportiva','estilo']];
-async function uploadPhoto(file,input){
- if(!file||!file.type.startsWith('image/'))throw Error('Escolha uma foto de imagem válida.');
- if(file.size>20*1024*1024)throw Error('Foto grande demais. Use uma imagem de até 20 MB.');
- const bitmap=await createImageBitmap(file);
- const max=900,scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
- const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
- const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(bitmap,0,0,canvas.width,canvas.height);
- bitmap.close?.();
- let blob=null;
- for(const quality of [.82,.69,.55,.42]){
-  blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
-  if(blob&&blob.size<=210000&&blob.size>=100)break;
+async function decodeUploadImage(file){
+ let bitmap=null;
+ if(typeof createImageBitmap==='function'){
+  try{bitmap=await createImageBitmap(file)}catch{}
  }
- if(!blob||blob.size>220000)throw Error('Não consegui otimizar a foto. Tente outra imagem menor.');
+ if(bitmap)return {image:bitmap,width:bitmap.width,height:bitmap.height,close:()=>bitmap.close?.()};
+ // Fallback para formatos que o seletor do iPhone consegue exibir, mas createImageBitmap não consegue decodificar.
+ const objectUrl=URL.createObjectURL(file),img=new Image();
+ try{
+  await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('Não foi possível abrir a foto. Salve-a como JPEG ou PNG e tente novamente.'));img.src=objectUrl});
+  return {image:img,width:img.naturalWidth,height:img.naturalHeight,close:()=>URL.revokeObjectURL(objectUrl)};
+ }catch(error){URL.revokeObjectURL(objectUrl);throw error}
+}
+async function optimizePhoto(file){
+ const decoded=await decodeUploadImage(file);
+ try{
+  if(!decoded.width||!decoded.height)throw Error('Imagem inválida ou vazia.');
+  const canvas=document.createElement('canvas'),context=canvas.getContext('2d',{alpha:false});
+  if(!context)throw Error('Seu navegador não conseguiu preparar a foto. Tente abrir no Safari.');
+  let blob=null;
+  for(const max of [900,760,620,480]){
+   const scale=Math.min(1,max/Math.max(decoded.width,decoded.height));
+   canvas.width=Math.max(1,Math.round(decoded.width*scale));canvas.height=Math.max(1,Math.round(decoded.height*scale));
+   context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);
+   context.drawImage(decoded.image,0,0,canvas.width,canvas.height);
+   for(const type of ['image/webp','image/jpeg']){
+    for(const quality of [.82,.68,.52,.4]){
+     blob=await new Promise(resolve=>canvas.toBlob(resolve,type,quality));
+     if(blob&&blob.type===type&&blob.size>=100&&blob.size<=210000)return blob;
+    }
+   }
+  }
+  throw Error('Não foi possível reduzir a foto. Tente uma imagem JPEG ou PNG menor.');
+ }finally{decoded.close()}
+}
+async function uploadPhoto(file,input){
+ if(!file||(!file.type.startsWith('image/')&&!/\.(jpe?g|png|webp|heic|heif|avif)$/i.test(file.name)))throw Error('Escolha uma foto JPEG, PNG, WebP ou HEIC.');
+ if(file.size>20*1024*1024)throw Error('Foto grande demais. Use uma imagem de até 20 MB.');
+ const blob=await optimizePhoto(file);
  note('Enviando foto para o site...');
- const response=await fetch('./api/image-upload',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':blob.type},body:blob});
- const json=await response.json();
- if(!response.ok||!json.url)throw Error(json.error||'Falha no upload.');
+ let response;
+ try{response=await fetch('./api/image-upload',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':blob.type},body:blob})}
+ catch{throw Error('Sem conexão com o servidor. Confira a internet e tente novamente.')}
+ let json={};try{json=await response.json()}catch{throw Error('Servidor não respondeu corretamente. Atualize o painel e tente novamente.')}
+ if(!response.ok||!json.url)throw Error(json.error||'Falha no envio da imagem. Confira se está conectado ao painel.');
  if(input){input.value=json.url;showImagePreview(input.id);if(input.id==='productImage')syncPrincipalGallery()}
  note('Foto enviada. Salve o cadastro para publicar.');return json.url;
 }
@@ -170,12 +201,21 @@ q('galleryAddUrl').onclick=()=>{
  }catch{note('Informe um link HTTPS válido.')}
 };
 q('galleryFiles').onchange=async e=>{
- const files=[...e.target.files||[]];e.target.disabled=true;
+ const files=[...(e.target.files||[])],status=q('galleryUploadStatus');
+ if(!files.length)return;
+ e.target.disabled=true;status.dataset.error='false';status.dataset.ok='false';
+ let sent=0;
  try{
-  for(const file of files){if(productPhotos.length>=5){note('Limite de cinco fotos.');break}
-   const url=await uploadPhoto(file,null);if(!productPhotos.includes(url))productPhotos.push(url);setPrincipalPhoto()}
- }catch(err){note('⚠️ '+err.message)}
- finally{e.target.disabled=false;e.target.value=''}
+  for(const file of files){
+   if(productPhotos.length>=5){status.textContent='Limite de cinco fotos atingido. Remova uma foto para adicionar outra.';break}
+   status.textContent='Preparando e enviando '+(sent+1)+' de '+files.length+': '+file.name+'...';
+   const url=await uploadPhoto(file,null);
+   if(!productPhotos.includes(url))productPhotos.push(url);
+   sent++;setPrincipalPhoto();
+  }
+  if(sent){status.dataset.ok='true';status.textContent='✓ '+sent+' foto(s) adicionada(s) à galeria. Toque em Salvar acessório para concluir.'}
+ }catch(err){const message=String(err.message||err);status.dataset.error='true';status.textContent='⚠️ '+message+(sent?' ('+sent+' foto(s) já adicionada(s).)':'');note('⚠️ '+message)}
+ finally{e.target.disabled=productPhotos.length>=5;e.target.value=''}
 };
 q('productGallery').onclick=e=>{
  const b=e.target.closest('[data-photo-left],[data-photo-right],[data-photo-remove]');if(!b)return;
