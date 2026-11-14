@@ -194,16 +194,12 @@ footer a:hover{color:var(--accent)}
 .group-visual .category-art-bolha{background-position:100% 100%}
 .group-card .group-visual{background:#15191f}
 
-/* Descrição dos acessórios recolhida por padrão para manter os cards compactos. */
-.model-description{margin:8px 0 0;border:1px solid #47515e;border-radius:10px;background:#242b34;overflow:hidden}
-.model-description summary{display:flex;align-items:center;min-height:42px;padding:9px 13px;color:#ffb477;font-size:13px;font-weight:800;cursor:pointer;list-style:none;user-select:none}
-.model-description summary::-webkit-details-marker{display:none}
-.model-description summary:focus-visible{outline:2px solid #fb923c;outline-offset:-2px}
-.model-description summary:hover{background:#303842}
-.model-description .when-open{display:none}
-.model-description[open] .when-open{display:inline}
-.model-description[open] .when-closed{display:none}
-.variant-card .model-description p{padding:2px 13px 14px;line-height:1.6;white-space:pre-line}
+/* Acesso direto à montagem a partir de cada modelo: substitui o antigo botão de descrição. */
+.model-view-bike{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;margin-top:9px;border:1px solid #fb923c!important;border-radius:11px;background:#342b28!important;color:#ffc08e!important;font-size:13px;font-weight:850;transition:background .18s,border-color .18s}
+.model-view-bike:hover{background:#4c3428!important}
+.model-view-bike:focus-visible{outline:2px solid #ffb477;outline-offset:2px}
+#motoTabs{scroll-margin-top:140px}
+@media(max-width:540px){#motoTabs{scroll-margin-top:154px}}
 
 /* Minha moto: troca de modelo e botões das lojas sempre visíveis. */
 .build-actions{grid-template-columns:1fr}
@@ -295,7 +291,7 @@ footer a:hover{color:var(--accent)}
  <button type="button" data-light-step="1" aria-label="Próxima foto">›</button>
  <span class="lightbox-counter"></span>
 </div>
-<script src="./motos-v2.js?v=20261112-lojas-diretas"></script>
+<script src="./motos-v2.js?v=20261114-atalho-minha-moto"></script>
 <script src="./site-feedback-public.js?v=20261110-1"></script>
 </body>
 </html>
