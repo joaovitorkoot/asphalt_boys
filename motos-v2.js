@@ -58,6 +58,23 @@ function detailRender(){
  }).join('');
  fetchRatings();
 }
+function refreshModelSelections(){
+ const selected=chosen[active],count=Object.keys(chosen).length;
+ $('motoModelos').querySelectorAll('[data-model-card]').forEach(card=>{
+  const chosenHere=card.dataset.modelCard===selected;
+  card.dataset.chosen=String(chosenHere);
+  const choose=card.querySelector('[data-model]');
+  if(choose){
+   choose.className=chosenHere?'btn-outline':'btn-primary';
+   choose.textContent=chosenHere?'✓ Selecionado — retirar':'＋ Escolher este modelo';
+  }
+  const view=card.querySelector('[data-view-bike]');
+  if(view){
+   view.textContent='🏍️ Ver minha moto ('+count+') →';
+   view.setAttribute('aria-label','Ver minha moto com '+count+' acessórios escolhidos');
+  }
+ });
+}
 function buildRender(){
  const arr=groupList().filter(g=>Object.prototype.hasOwnProperty.call(chosen,g.id));
  if(!arr.length){$('motoMontagem').innerHTML='<div class="empty"><strong>Sua montagem está vazia</strong><span>Escolha um modelo para personalizar sua moto.</span></div>';return}
@@ -116,9 +133,58 @@ $('motoTabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]'
 $('motoFiltros').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(b)switchCategory(b.dataset.cat)});
 $('motoProdutos').addEventListener('click',e=>{const b=e.target.closest('[data-group]');if(b){vibe();active=b.dataset.group;detailRender()}});
 function changeGalleryPhoto(id,step,index=null){
- const m=options(active).find(x=>x.id===id);if(!m)return;const photos=galleryPhotos(m);if(!photos.length)return;
- const current=galleryIndexes[id]||0;galleryIndexes[id]=index===null?(current+step+photos.length)%photos.length:Math.max(0,Math.min(index,photos.length-1));
- detailRender();
+ const m=options(active).find(x=>x.id===id);if(!m)return;
+ const photos=galleryPhotos(m);if(photos.length<2)return;
+ const current=galleryIndexes[id]||0;
+ const next=index===null?(current+step+photos.length)%photos.length:Math.max(0,Math.min(index,photos.length-1));
+ if(next===current)return;
+ const gallery=[...$('motoModelos').querySelectorAll('[data-gallery]')].find(el=>el.dataset.gallery===id);
+ if(!gallery)return;
+ galleryIndexes[id]=next;
+ // Não recriar todos os cards: só trocar a imagem deste modelo.
+ const pending=gallery.querySelector('.gallery-swap-image');
+ if(pending){
+  gallery.querySelector('.gallery-main-img:not(.gallery-swap-image)')?.remove();
+  pending.classList.remove('gallery-swap-image','is-visible');
+  pending.tabIndex=0;
+ }
+ const version=String((Number(gallery.dataset.swapVersion)||0)+1);
+ gallery.dataset.swapVersion=version;
+ const nextImage=new Image();
+ nextImage.onload=()=>{
+  const reveal=()=>{
+   if(!gallery.isConnected||gallery.dataset.swapVersion!==version)return;
+   const currentImage=gallery.querySelector('.gallery-main-img');
+   if(!currentImage)return;
+   const incoming=currentImage.cloneNode(false);
+   incoming.src=photos[next];
+   incoming.alt=m.name+' - foto '+(next+1);
+   incoming.classList.add('gallery-swap-image');
+   incoming.tabIndex=-1;
+   currentImage.after(incoming);
+   gallery.querySelectorAll('[data-photo-index]').forEach(dot=>dot.classList.toggle('active',Number(dot.dataset.photoIndex)===next));
+   const finish=()=>{
+    if(!gallery.isConnected||gallery.dataset.swapVersion!==version||!incoming.isConnected)return;
+    currentImage.remove();
+    incoming.classList.remove('gallery-swap-image','is-visible');
+    incoming.tabIndex=0;
+   };
+   if(matchMedia('(prefers-reduced-motion:reduce)').matches){finish();return}
+   requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(gallery.dataset.swapVersion===version)incoming.classList.add('is-visible');
+   }));
+   setTimeout(finish,280);
+  };
+  if(typeof nextImage.decode==='function')nextImage.decode().then(reveal,reveal);
+  else reveal();
+ };
+ nextImage.onerror=()=>{
+  if(gallery.dataset.swapVersion===version){
+   galleryIndexes[id]=current;
+   gallery.querySelectorAll('[data-photo-index]').forEach(dot=>dot.classList.toggle('active',Number(dot.dataset.photoIndex)===current));
+  }
+ };
+ nextImage.src=photos[next];
 }
 function openPhotoZoom(id){
  const m=options(active).find(x=>x.id===id);if(!m)return;const photos=galleryPhotos(m);if(!photos.length)return;
@@ -146,7 +212,7 @@ $('photoLightbox').addEventListener('click',e=>{
  const b=e.target.closest('[data-light-step]');if(b){changeGalleryPhoto(light.dataset.model,Number(b.dataset.lightStep));updateLightbox()}
 });
 document.addEventListener('keydown',e=>{const light=$('photoLightbox');if(light.hidden)return;if(e.key==='Escape'){light.hidden=true}else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){changeGalleryPhoto(light.dataset.model,e.key==='ArrowRight'?1:-1);updateLightbox()}});
-$('motoModelos').addEventListener('click',e=>{const viewBike=e.target.closest('[data-view-bike]');if(viewBike){switchTab('minha');requestAnimationFrame(()=>$('motoTabs').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'}));return}const share=e.target.closest('[data-share-model]');if(share){openShare(share.dataset.shareModel);return}const b=e.target.closest('[data-model]');if(!b)return;const m=options(active).find(x=>x.id===b.dataset.model);if(!m)return;vibe();if(chosen[active]===m.id)delete chosen[active];else chosen[active]=m.id;save();counts();detailRender();buildRender()});
+$('motoModelos').addEventListener('click',e=>{const viewBike=e.target.closest('[data-view-bike]');if(viewBike){switchTab('minha');requestAnimationFrame(()=>$('motoTabs').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'}));return}const share=e.target.closest('[data-share-model]');if(share){openShare(share.dataset.shareModel);return}const b=e.target.closest('[data-model]');if(!b)return;const m=options(active).find(x=>x.id===b.dataset.model);if(!m)return;vibe();if(chosen[active]===m.id)delete chosen[active];else chosen[active]=m.id;save();counts();refreshModelSelections();buildRender()});
 $('motoMontagem').addEventListener('click',e=>{const b=e.target.closest('[data-remove],[data-change]');if(!b)return;vibe();if(b.dataset.remove){delete chosen[b.dataset.remove];save();render()}else if(b.dataset.change){active=b.dataset.change;switchTab('catalogo');detailRender()}});
 $('btnVoltarCategorias').onclick=()=>{sharedModel='';$('productShareHint').hidden=true;active='';detailRender()};
 $('btnVerMontagem').onclick=()=>switchTab('minha');$('btnMontagemDetalhe').onclick=()=>switchTab('minha');$('btnMais').onclick=()=>{active='';switchTab('catalogo')};
