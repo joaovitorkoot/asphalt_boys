@@ -148,6 +148,12 @@ footer a:hover{color:var(--accent)}
 
 .photo-gallery{position:relative;width:100%;height:185px;display:flex;align-items:center;justify-content:center;touch-action:pan-y}
 .gallery-main-img{display:block;width:100%;height:100%;object-fit:contain;cursor:zoom-in}
+.photo-gallery{isolation:isolate;overflow:hidden;background:#252c35}
+.photo-gallery .gallery-swap-image{position:absolute;inset:0;z-index:1;opacity:0;pointer-events:none;transition:opacity .24s ease-in-out}
+.photo-gallery .gallery-swap-image.is-visible{opacity:1}
+.photo-gallery .gallery-dots{z-index:3}
+@media(prefers-reduced-motion:reduce){.photo-gallery .gallery-swap-image{transition:none}}
+
 .gallery-arrow{position:absolute;top:50%;transform:translateY(-50%);width:35px!important;height:35px;border-radius:50%;background:#15191edb!important;color:#fff!important;border:1px solid #fb923c80;font-size:26px;line-height:1;padding:0;z-index:2}
 .gallery-arrow.left{left:5px}.gallery-arrow.right{right:5px}
 .gallery-dots{position:absolute;bottom:4px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:6px}
@@ -291,7 +297,7 @@ footer a:hover{color:var(--accent)}
  <button type="button" data-light-step="1" aria-label="Próxima foto">›</button>
  <span class="lightbox-counter"></span>
 </div>
-<script src="./motos-v2.js?v=20261114-atalho-minha-moto"></script>
+<script src="./motos-v2.js?v=20261114-galeria-sem-piscar"></script>
 <script src="./site-feedback-public.js?v=20261110-1"></script>
 </body>
 </html>
