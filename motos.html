@@ -7,7 +7,6 @@
 <meta name="description" content="Asphalt Boys Motos: conheça a Yamaha Fazer FZ25 e explore acessórios para suas viagens.">
 <title>Motos & Acessórios | Asphalt Boys</title>
 <link rel="stylesheet" href="./site-feedback.css?v=20261110-1">
-<link rel="stylesheet" href="./motos-compras.css?v=20261115-1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -276,8 +275,7 @@ footer a:hover{color:var(--accent)}
   </div>
   <div id="painelMinha" role="tabpanel" aria-labelledby="tabMinha" hidden>
    <div class="section-title"><h3 id="myBikeTitle">Minha FZ25</h3><span id="myCount">0 acessórios escolhidos</span></div>
-   <button type="button" id="btnCompraAgrupada" class="btn-primary shopping-open" disabled aria-haspopup="dialog" aria-controls="buyListDialog"><span class="shopping-open-icon" aria-hidden="true">▤</span><span class="shopping-open-label">Ver lista de compras<small id="shoppingOpenNote">Escolha acessórios para montar a lista</small></span><strong class="shopping-open-number" id="shoppingOpenCount" aria-hidden="true">0</strong></button>
-    <div id="motoMontagem" class="build-list" aria-live="polite"></div>
+   <div id="motoMontagem" class="build-list" aria-live="polite"></div>
    <button type="button" id="btnMais" class="btn-outline catalog-action">＋ Adicionar mais acessórios</button>
   </div>
   
@@ -292,21 +290,6 @@ footer a:hover{color:var(--accent)}
  <div class="share-link"><input id="productShareLink" readonly aria-label="Link do produto"><button type="button" id="productShareCopy" class="btn-outline">Copiar</button></div>
  <div class="share-options"><a id="productShareWhats" href="https://api.whatsapp.com/" class="whatsapp" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a><button type="button" id="productShareNative">Outros apps ↗</button></div><p id="productShareStatus" role="status"></p>
 </dialog>
-
-<dialog id="buyListDialog" class="buy-list-dialog" aria-labelledby="buyListTitle">
- <div class="buy-list-head">
-  <div><span class="buy-list-kicker">ASPHALT BOYS · MINHA MOTO</span><h2 id="buyListTitle">Lista de compras</h2><p id="buyListBike"></p></div>
-  <button type="button" id="buyListClose" class="buy-list-close" aria-label="Fechar lista de compras">×</button>
- </div>
- <p class="buy-list-intro">Seus modelos escolhidos em um só lugar. Selecione a loja para abrir os anúncios.</p>
- <div class="buy-list-tabs" role="tablist" aria-label="Escolher loja">
-  <button type="button" id="buyStoreShopee" data-buy-store="shopee" role="tab" aria-controls="buyListProducts" aria-selected="true">Shopee <span id="buyCountShopee">0</span></button>
-  <button type="button" id="buyStoreMercado" data-buy-store="mercadolivre" role="tab" aria-controls="buyListProducts" aria-selected="false">Mercado Livre <span id="buyCountMercado">0</span></button>
- </div>
- <p id="buyListStoreNote" class="buy-list-store-note" role="status"></p>
- <div id="buyListProducts" class="buy-list-products" role="tabpanel" aria-labelledby="buyStoreShopee"></div>
- <p class="buy-list-note">📱 No celular, abra um produto por vez. A loja pode abrir em outra aba ou aplicativo. Sua montagem continua salva no Asphalt Boys. Os produtos não são adicionados automaticamente ao carrinho das lojas.</p>
-</dialog>
 <div id="photoLightbox" class="photo-lightbox" role="dialog" aria-modal="true" aria-label="Foto ampliada do acessório" hidden>
  <button type="button" data-light-close aria-label="Fechar foto">×</button>
  <button type="button" data-light-step="-1" aria-label="Foto anterior">‹</button>
@@ -314,7 +297,7 @@ footer a:hover{color:var(--accent)}
  <button type="button" data-light-step="1" aria-label="Próxima foto">›</button>
  <span class="lightbox-counter"></span>
 </div>
-<script src="./motos-v2.js?v=20261115-compra-agrupada"></script>
+<script src="./motos-v2.js?v=20261114-galeria-sem-piscar"></script>
 <script src="./site-feedback-public.js?v=20261110-1"></script>
 </body>
 </html>
