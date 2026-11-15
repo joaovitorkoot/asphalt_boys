@@ -8,7 +8,7 @@ const demo={suporte:[['trava','Suporte com trava','Fixação com trava de segura
 const outlines={suporte:'<rect x="8" y="2" width="8" height="16" rx="2"/><path d="M7 8H4v8h3M17 8h3v8h-3"/>',bau:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M3 12h18"/>',bolsa:'<path d="M4 8h16l1 12H3L4 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',protetor:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',manoplas:'<rect x="2" y="8" width="20" height="8" rx="4"/><path d="M6 8v8M9 8v8M12 8v8M15 8v8M18 8v8"/>',bolha:'<path d="M4 17c4-1 6-6 8-13 2 7 4 12 8 13M6 20h12M8 16h8"/>'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const url=s=>{try{const u=new URL(s||'',location.origin);return u.protocol==='https:'&&!u.username&&!u.password?u.href:''}catch{return''}};
-let bikes=[...bikesDefault],data=null,index=0,chosen={},tab='catalogo',category='todos',active='',fade=null,tick=0,sharedModel='',sharedLink='',purchaseStore='shopee';
+let bikes=[...bikesDefault],data=null,index=0,chosen={},tab='catalogo',category='todos',active='',fade=null,tick=0,sharedModel='',sharedLink='';
 const galleryIndexes={},galleryPhotos=m=>[...new Set([...(Array.isArray(m.fotos)?m.fotos:[]),m.foto].filter(x=>url(x)))].slice(0,5);
 const bike=()=>bikes[index];
 const groupList=()=>defs.map(([id,name,type])=>{const saved=data?.grupos?.[bike().id]?.find(g=>g.id===id);return{id,name:saved?.nome||name,type:saved?.categoria||type,foto:saved?.foto||''}});
@@ -41,7 +41,7 @@ const key=()=> 'asphalt-boys-'+bike().id+'-montagem-v2';
 const vibe=()=>{try{navigator.vibrate?.(8)}catch{}};
 function read(){chosen={};try{const v=JSON.parse(localStorage.getItem(key())||'{}');if(v&&typeof v==='object'&&!Array.isArray(v))for(const [id,model]of Object.entries(v))if(options(id).some(m=>m.id===model))chosen[id]=model}catch{}}
 function save(){try{localStorage.setItem(key(),JSON.stringify(chosen))}catch{}}
-function counts(){const n=Object.keys(chosen).length;$('tabMinha').textContent='Minha moto ('+n+')';$('myCount').textContent=n+' acessórios';$('btnVerMontagem').textContent='Ver minha montagem ('+n+') →';$('btnMontagemDetalhe').textContent='Ver minha moto ('+n+') →';$('btnCompraAgrupada').disabled=n===0;$('shoppingOpenCount').textContent=n;$('shoppingOpenNote').textContent=n?'Shopee e Mercado Livre · seus modelos escolhidos':'Escolha acessórios para montar a lista'}
+function counts(){const n=Object.keys(chosen).length;$('tabMinha').textContent='Minha moto ('+n+')';$('myCount').textContent=n+' acessórios';$('btnVerMontagem').textContent='Ver minha montagem ('+n+') →';$('btnMontagemDetalhe').textContent='Ver minha moto ('+n+') →'}
 function groupsRender(){
  const arr=groupList().filter(g=>category==='todos'||g.type===category);
  $('catalogCount').textContent=arr.length+' categorias';
@@ -83,29 +83,7 @@ function buildRender(){
   return '<article class="build-item"><div class="build-header"><div class="build-heading"><div class="group-visual">'+image(g.id,model)+'</div><span><strong>'+esc(model?.name||g.name)+'</strong><small>'+esc(g.name)+'</small></span></div><button type="button" class="remove-btn" data-remove="'+g.id+'" aria-label="Remover">×</button></div><div class="build-actions"><button type="button" class="btn-outline" data-change="'+g.id+'">Trocar modelo</button></div><div class="offer-panel"><div class="shop-options">'+(s?'<a class="shop-link" href="'+esc(s)+'" target="_blank" rel="sponsored noopener noreferrer">Shopee ↗</a>':'<button type="button" disabled>Shopee · em breve</button>')+(ml?'<a class="shop-link" href="'+esc(ml)+'" target="_blank" rel="sponsored noopener noreferrer">Mercado Livre ↗</a>':'<button type="button" disabled>Mercado Livre · em breve</button>')+'</div></div>'+'</article>'
  }).join('');
 }
-
-function shoppingRender(){
- const selected=groupList().filter(g=>Object.prototype.hasOwnProperty.call(chosen,g.id)).map(g=>({group:g,model:options(g.id).find(m=>m.id===chosen[g.id])})).filter(x=>x.model);
- const storeName=purchaseStore==='shopee'?'Shopee':'Mercado Livre';
- const sc=selected.filter(x=>url(x.model.shopee)).length,mc=selected.filter(x=>url(x.model.mercadolivre)).length;
- $('buyListBike').textContent=bike().nome+' · '+selected.length+' acessório'+(selected.length===1?'':'s');
- $('buyCountShopee').textContent=sc;$('buyCountMercado').textContent=mc;
- $('buyStoreShopee').setAttribute('aria-selected',String(purchaseStore==='shopee'));
- $('buyStoreMercado').setAttribute('aria-selected',String(purchaseStore==='mercadolivre'));
- $('buyListProducts').setAttribute('aria-labelledby',purchaseStore==='shopee'?'buyStoreShopee':'buyStoreMercado');
- const available=purchaseStore==='shopee'?sc:mc;
- $('buyListStoreNote').textContent=available+' de '+selected.length+' acessório'+(selected.length===1?'':'s')+' com link no '+storeName;
- $('buyListProducts').innerHTML=selected.length?selected.map(({group,model})=>{
-  const href=url(model[purchaseStore]);
-  return '<article class="buy-row"><div class="buy-row-main"><div class="buy-row-photo">'+image(group.id,model)+'</div><div><strong>'+esc(model.name)+'</strong><small>'+esc(group.name)+'</small></div></div>'+
-  (href?'<a class="buy-row-link" href="'+esc(href)+'" target="_blank" rel="sponsored noopener noreferrer" aria-label="Abrir '+esc(model.name)+' no '+storeName+'">Abrir no '+storeName+' ↗</a>':'<span class="buy-row-disabled">Sem link nesta loja</span>')+'</article>';
- }).join(''):'<div class="empty">Sua lista está vazia. Escolha acessórios para sua moto.</div>';
-}
-function closeShopping(){
- const dialog=$('buyListDialog');
- if(typeof dialog.close==='function'&&dialog.open)dialog.close();else dialog.removeAttribute('open');
-}
-function render(){counts();groupsRender();detailRender();buildRender();shoppingRender()}
+function render(){counts();groupsRender();detailRender();buildRender()}
 function switchTab(next){if(next!=='catalogo'&&next!=='minha')return;vibe();tab=next;const mine=tab==='minha';$('motoTabs').style.setProperty('--idx',mine?'1':'0');$('tabAcessorios').setAttribute('aria-selected',String(!mine));$('tabMinha').setAttribute('aria-selected',String(mine));$('painelAcessorios').hidden=mine;$('painelMinha').hidden=!mine;render()}
 function switchCategory(next){const arr=['todos','viagem','protecao','estilo'];if(!arr.includes(next)||next===category)return;category=next;vibe();const stamp=++tick;$('motoFiltros').style.setProperty('--idx',String(arr.indexOf(next)));$('motoFiltros').querySelectorAll('[data-cat]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.cat===next)));const grid=$('motoProdutos');if(fade)clearTimeout(fade);if(matchMedia('(prefers-reduced-motion:reduce)').matches){grid.classList.remove('is-transitioning');groupsRender();return}grid.classList.add('is-transitioning');fade=setTimeout(()=>{if(stamp!==tick)return;groupsRender();requestAnimationFrame(()=>grid.classList.remove('is-transitioning'))},110)}
 function photo(){
@@ -234,28 +212,10 @@ $('photoLightbox').addEventListener('click',e=>{
  const b=e.target.closest('[data-light-step]');if(b){changeGalleryPhoto(light.dataset.model,Number(b.dataset.lightStep));updateLightbox()}
 });
 document.addEventListener('keydown',e=>{const light=$('photoLightbox');if(light.hidden)return;if(e.key==='Escape'){light.hidden=true}else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){changeGalleryPhoto(light.dataset.model,e.key==='ArrowRight'?1:-1);updateLightbox()}});
-$('motoModelos').addEventListener('click',e=>{const viewBike=e.target.closest('[data-view-bike]');if(viewBike){switchTab('minha');requestAnimationFrame(()=>$('motoTabs').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'}));return}const share=e.target.closest('[data-share-model]');if(share){openShare(share.dataset.shareModel);return}const b=e.target.closest('[data-model]');if(!b)return;const m=options(active).find(x=>x.id===b.dataset.model);if(!m)return;vibe();if(chosen[active]===m.id)delete chosen[active];else chosen[active]=m.id;save();counts();refreshModelSelections();buildRender();shoppingRender()});
+$('motoModelos').addEventListener('click',e=>{const viewBike=e.target.closest('[data-view-bike]');if(viewBike){switchTab('minha');requestAnimationFrame(()=>$('motoTabs').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'}));return}const share=e.target.closest('[data-share-model]');if(share){openShare(share.dataset.shareModel);return}const b=e.target.closest('[data-model]');if(!b)return;const m=options(active).find(x=>x.id===b.dataset.model);if(!m)return;vibe();if(chosen[active]===m.id)delete chosen[active];else chosen[active]=m.id;save();counts();refreshModelSelections();buildRender()});
 $('motoMontagem').addEventListener('click',e=>{const b=e.target.closest('[data-remove],[data-change]');if(!b)return;vibe();if(b.dataset.remove){delete chosen[b.dataset.remove];save();render()}else if(b.dataset.change){active=b.dataset.change;switchTab('catalogo');detailRender()}});
 $('btnVoltarCategorias').onclick=()=>{sharedModel='';$('productShareHint').hidden=true;active='';detailRender()};
 $('btnVerMontagem').onclick=()=>switchTab('minha');$('btnMontagemDetalhe').onclick=()=>switchTab('minha');$('btnMais').onclick=()=>{active='';switchTab('catalogo')};
-
-$('btnCompraAgrupada').onclick=()=>{
- if(!Object.keys(chosen).length)return;
- purchaseStore='shopee';shoppingRender();
- const dialog=$('buyListDialog');
- if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
-};
-$('buyListClose').onclick=closeShopping;
-$('buyListDialog').addEventListener('click',e=>{
- if(e.target===$('buyListDialog')){closeShopping();return}
- const control=e.target.closest('[data-buy-store]');
- if(control){purchaseStore=control.dataset.buyStore;shoppingRender()}
-});
-$('buyListDialog').addEventListener('keydown',e=>{
- if(!['ArrowLeft','ArrowRight'].includes(e.key)||!e.target.matches('[data-buy-store]'))return;
- e.preventDefault();purchaseStore=purchaseStore==='shopee'?'mercadolivre':'shopee';shoppingRender();
- $(purchaseStore==='shopee'?'buyStoreShopee':'buyStoreMercado').focus();
-});
 $('productShareClose').onclick=closeShare;
 $('productShareDialog').addEventListener('click',e=>{if(e.target===$('productShareDialog'))closeShare()});
 $('productShareCopy').onclick=async()=>{
